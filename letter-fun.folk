@@ -1,0 +1,94 @@
+#######
+# Full version
+#######
+When $this has region /r/ & /node/ has step count /count/ {
+  lassign [lindex $r 0 0] x y
+  set word hello
+  set i 0
+  foreach letter [split hello ""] {
+    Display::text [expr {$x + $i}] [expr {$y + sin($count * 0.001 * $i) * $i}] 1 $letter [expr {$y + sin($count * 0.00001 * $i) * $i}]
+    set i [expr {$i + 40}]
+  }
+}
+
+#######
+# Basic draw word character-by character
+#######
+When $this has region /r/ {
+  lassign [region bottom $r] x y
+  set word hello
+  set i 0
+  foreach letter [split hello ""] {
+    Display::text [expr {$x + $i}] $y 5 $letter 0
+    set i [expr {$i + 40}]
+  }
+}
+
+#######
+# Animate its y-position
+#######
+When $this has region /r/ & /node/ has step count /count/ {
+  lassign [region bottom $r] x y
+  set word hello
+  set i 0
+  foreach letter [split hello ""] {
+    Display::text [expr {$x + $i}] [expr {$y + sin($count * 0.5) * 10}] 5 $letter [region angle $r]
+    set i [expr {$i + 40}]
+  }
+}
+
+#######
+# Let's make it a wave!
+#######
+When $this has region /r/ & /node/ has step count /count/ {
+  lassign [region bottom $r] x y
+  set word hello
+  set i 0
+  foreach letter [split hello ""] {
+    Display::text [expr {$x + $i}] [expr {$y + sin($count * 0.05) * $i}] 5 $letter 0
+    set i [expr {$i + 40}]
+  }
+}
+
+#######
+# Now let's make them rotate
+#######
+When $this has region /r/ & /node/ has step count /count/ {
+  lassign [region bottom $r] x y
+  set word hello
+  set i 0
+  foreach letter [split hello ""] {
+    set yPosition [expr {$y + sin($count * 0.05) * $i}]
+    Display::text [expr {$x + $i}] $yPosition 5 $letter [expr {$yPosition * 0.1}]
+    set i [expr {$i + 40}]
+  }
+}
+
+#######
+# Lastly, let's modify the x position to make the letters animate along both axes
+#######
+When $this has region /r/ & /node/ has step count /count/ {
+  lassign [region bottom $r] x y
+  set word hello
+  set i 0
+  foreach letter [split hello ""] {
+    set yPosition [expr {$y + sin($count * 0.05) * $i}]
+    Display::text [expr {$x + $i * sin($count * 0.001)}] $yPosition 5 $letter [expr {$yPosition * 0.1}]
+    set i [expr {$i + 40}]
+  }
+}
+
+
+#######
+# Actual sin wave:
+######
+When $this has region /r/ & /node/ has step count /count/ {
+  lassign [region bottom $r] x y
+  set word hello
+  set i 0
+  foreach letter [split hello ""] {
+    set yPosition [expr {$y + (50 * sin($i + ($count * 0.1)))}]
+    Display::text [expr {$x + $i}] $yPosition 10 $letter 0
+    set i [expr {$i + 100}]
+  }
+}

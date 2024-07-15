@@ -1,0 +1,63 @@
+Wish $this is outlined thick green
+
+set ::customBallOffset [list 0 0]
+set ::xDirection 1
+set ::yDirection 1
+set ::regionWidth 0  ;# Adjust as needed
+set ::regionHeight 0 ;# Adjust as needed
+
+proc bounceBall {r} {
+    global xDirection yDirection customBallOffset regionWidth regionHeight
+    # puts "$::xDirection $::yDirection $::customBallOffset $::regionWidth $::regionHeight"
+
+    set tl [region topleft $r]
+    set br [region bottomright $r]
+    lassign $tl TLx TLy
+    lassign $br BRx BRy
+    Wish to draw a circle with center $tl radius 20 thickness 1 filled true color blue
+    Wish to draw a circle with center $br radius 20 thickness 1 filled true color red
+
+    # Calculate the new position
+    set newX [expr {[lindex $::customBallOffset 0] + $xDirection * 4}]
+    set newY [expr {[lindex $::customBallOffset 1] + $yDirection * 4}]
+
+    lassign [region centroid $r] cX cY
+    set totalX [+ $newX $cX]
+    set totalY [+ $newY $cY]
+    # puts "totals: $totalX | $totalY"
+
+    # puts "totalX: $totalX | BRx: $BRx | TLx: $TLx"
+    # puts "conditions: [expr {$totalX <= $BRx}] \n [expr {$totalX >= $TLx}] \n [expr {$totalY <= $BRy}] \n [expr {$totalY >= $TLy}]"
+    
+    # Reverse direction if ball hits boundaries
+    if {$totalX >= $BRx || $totalX <= $TLx} {
+        set xDirection [expr {$xDirection * -1}]
+    }
+    if {$totalY >= $BRy || $totalY <= $TLy} {
+        set yDirection [expr {$yDirection * -1}]
+    }
+    
+    # Update the custom ball offset
+    set ::customBallOffset [list $newX $newY]
+}
+
+When $this has region /r/ & the clock time is /t/ {
+  if {$::regionWidth == 0} {
+    set ::regionWidth [region width $r]
+  }
+  if {$::regionHeight == 0} {
+    set ::regionHeight [region height $r]
+  }
+
+  Wish $this draws a circle with color orangered filled true radius 10 offset $::customBallOffset
+  # set ::customBallOffset [list 0 [expr {sin($t) * 100}]]
+  bounceBall $r
+}
+
+On unmatch {
+    unset ::customBallOffset [list 0 0]
+    unset ::xDirection 1
+    unset ::yDirection 1
+    unset ::regionWidth
+    unset ::regionHeight
+}

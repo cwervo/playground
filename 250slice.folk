@@ -1,0 +1,18 @@
+Wish $this is titled "Take first 250px"
+
+When $this has camera slice /s/ & $this has region /r/ {
+  set height [region height $r]
+  set sliceSize [expr {int($height * 0.5)}]
+  lassign [projectorToCamera [region topleft $r]] x y
+#   set coords [projectorToCamera [list 250 250]]
+  set coords [projectorToCamera [list $x $y]]
+  puts "$coords"
+  Claim $this' has region [region move $r down "${height}px"]
+
+  # Hmmmm, there's a bug or something I don't understand where if you change the x here it responds correctly
+  # but changing the y seems to move it in large coordinates across image space.
+  Wish $this' displays camera slice [image subimage $s {*}$coords 200 200]
+  #Wish $this' displays camera slice $thisimage
+}
+
+Wish $this is outlined white

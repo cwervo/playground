@@ -1,0 +1,56 @@
+set cc [c create]
+$cc cflags -L[lindex [exec /usr/sbin/ldconfig -p | grep libjpeg] end]
+defineImageType $cc
+
+$cc include <stdlib.h>
+$cc include <string.h>
+$cc include <jpeglib.h>
+
+$cc proc loadJpeg {char* filename} image_t {
+  FILE* file = fopen(filename, "rb");
+  if (!file) {
+    fprintf(stderr, "Error opening file: %s\n", filename);
+    exit(1);
+  }
+  
+  struct jpeg_decompress_struct cinfo;
+  struct jpeg_error_mgr jerr;
+  
+  cinfo.err = jpeg_std_error(&jerr);
+  jpeg_create_decompress(&cinfo);
+  jpeg_stdio_src(&cinfo, file);
+  jpeg_read_header(&cinfo, TRUE);
+  jpeg_start_decompress(&cinfo);
+  
+  image_t ret;
+  ret.width = cinfo.output_width;
+  ret.height = cinfo.output_height;
+  ret.components = cinfo.output_components;
+  ret.bytesPerRow = ret.width * ret.components;
+  ret.data = calloc(ret.bytesPerRow, ret.height);
+  
+  JSAMPROW row_pointer[1];
+  while (cinfo.output_scanline < cinfo.output_height) {
+    row_pointer[0] = (JSAMPLE*)ret.data + cinfo.output_scanline * ret.bytesPerRow;
+    jpeg_read_scanlines(&cinfo, row_pointer, 1);
+  }
+  
+  jpeg_finish_decompress(&cinfo);
+  jpeg_destroy_decompress(&cinfo);
+  fclose(file);
+  
+  return ret;
+}
+
+$cc compile
+
+set dim 350
+proc x {vec} {lindex $vec 0}
+proc y {vec} {lindex $vec 1}
+When $this has region /r/ {
+    set width [expr {[lindex $r 0 1 0] - [lindex $r 0 0 0]}]
+    set height [expr {[lindex $r 0 2 1] - [lindex $r 0 0 1]}]
+    Wish display runs [list Display::image {*}[lindex $r 0 0] [loadJpeg "/home/folk/images/test.jpg"]]
+    # Wish display runs [list Display::image {*}[lindex $r 0 0] [loadJpeg "/tmp/web-image.jpg"]]
+}
+Wish $this is outlined white

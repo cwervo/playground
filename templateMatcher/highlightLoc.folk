@@ -1,0 +1,10 @@
+When /someone/ claims /p/ has match at /loc/ {
+  set l [projectorToCamera $loc]
+  set l [list \
+    [expr {[lindex $l 0] + 325}] \
+    [expr {[lindex $l 1] + 325}] \
+  ]
+  Wish $this is labelled "loc: $l"
+  Wish to draw a circle with center $l radius 50 color white thickness 1 filled true
+  Wish to draw a circle with center $loc radius 50 color red thickness 1 filled true
+}

@@ -1,0 +1,105 @@
+Start process {
+    source "pi/cUtils.tcl"
+
+    set cc [c create]
+    defineImageType $cc
+    $cc cflags -I$::env(HOME)/ocv-folk
+    $cc include <stdio.h>
+    if {[namespace exists ::Heap]} {
+        $cc import ::Heap::cc folkHeapAlloc as folkHeapAlloc
+        $cc import ::Heap::cc folkHeapFree as folkHeapFree
+    } else {
+        $cc code { #define folkHeapAlloc malloc }
+        $cc code { #define folkHeapFree free }
+    }
+    $cc include "templateMatcherWrapper.h"
+    
+    Wish $::thisProcess shares statements like \
+        [list /someone/ wishes /page/ is outlined /color/]
+    Wish $::thisProcess shares statements like \
+        [list /someone/ wishes /page/ is labelled /text/]
+
+    Wish $::thisProcess receives statements like \
+        [list /someone/ claims /something/ has camera slice /slice/]
+    Wish $::thisProcess shares statements like \
+        [list /someone/ wishes /something/ has camera slice]
+
+    Wish $::thisProcess shares statements like \
+        [list /someone/ wishes /something/ displays image /slice/]
+
+    Wish $::thisProcess receives statements like \
+        [list /someone/ claims the camera frame is /f/]
+    Wish $::thisProcess receives statements like \
+        [list /someone/ claims /p/ has region /r/]
+    Wish $::thisProcess receives statements like \
+        [list /someone/ claims /p/ has board image /f/]
+
+    Wish $::thisProcess shares statements like \
+        [list /someone/ claims /p/ has match at /loc/]
+    Wish $::thisProcess receives statements like \
+        [list /someone/ claims /p/ has match tableshot /slicePath/]
+
+    $cc proc matcher {char* imgPath image_t img} void {
+      cv_image_t im2 = (cv_image_t) { .width = img.width, .height = img.height, .components = img.components, .bytesPerRow = img.bytesPerRow, .data = img.data };
+      runMatcher(imgPath, im2);
+    }
+
+    $cc proc getX {} double {
+      return getMatchLocX();
+    }
+
+    $cc proc getY {} double {
+      return getMatchLocY();
+    }
+
+    $cc proc copyFrame {image_t img} image_t {
+        image_t ret = (image_t) { .width = img.width, .height = img.height, .components = img.components, .bytesPerRow = img.bytesPerRow, .data = folkHeapAlloc(img.bytesPerRow * img.height) };
+        memcpy(ret.data, img.data, img.bytesPerRow * img.height);
+        return ret;
+    }
+
+    $cc proc freeImage {image_t im} void {
+        folkHeapFree(im.data);
+    }
+    
+    c loadlib $::env(HOME)/ocv-folk/libopencvwrapper.so
+    $cc compile
+    
+    When $this has region /r/ {
+        Claim $this' has region [region move $r down 110%]
+    }
+    
+    set ::opencvOldFrames [list]
+    Wish $this has camera slice
+    When $this has camera slice /slice/ & $this has region /r/ & /p/ has match tableshot /slicePath/ & /p2/ has board image /frame/ {
+        # set grayImg [copyFrame $frame]
+        set grayImg $frame
+        # lappend ::opencvOldFrames $grayImg
+
+        # puts "running ..."
+        matcher $slicePath $grayImg
+        set loc [list [getX] [getY]]
+        # set loc [cameraToProjector $loc]
+        # puts "match at: ($loc)"
+        Claim $this has match at $loc
+
+        # lappend ::opencvOldFrames $grayImg
+        # if {[llength $::opencvOldFrames] >= 10} {
+        #     set ::opencvOldFrames [lassign $::opencvOldFrames oldestFrame]
+        #     freeImage $oldestFrame
+        # }
+    }
+    Wish $this is outlined gold
+}
+
+When /someone/ claims /p/ has match at /loc/ & /p2/ has board image /frame/ & /p2/ has region /r/ {
+  set l [projectorToCamera $loc]
+  set l [list \
+    [expr {[lindex $l 0] + 325}] \
+    [expr {[lindex $l 1] + 325}] \
+  ]
+  set l [vec2 sub [region centroid $r] $loc]
+  set l [vec2 add $l [list 100 325]]
+  Wish $this is labelled "loc: $l"
+  Wish to draw a circle with center $l radius 80 color white thickness 5 filled false
+}

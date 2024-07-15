@@ -1,0 +1,22 @@
+############################
+# Blue container
+############################
+
+
+Wish $this is titled "Blue container"
+Wish $this is outlined teal
+
+
+When $this has neighbor /n/ & /n/ is containable & /n/ has region /r/ {
+  Wish $this is labelled "n: $n"
+  Wish $n is outlined thick teal
+}
+
+######
+# Usage
+######
+# Wish $this is labelled "put me in a blue container"
+# Claim $this is containable
+#####
+# This program, when placed near or within the program above will get outlined blue :)
+######

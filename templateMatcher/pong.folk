@@ -1,0 +1,75 @@
+Wish $this is outlined thick red
+Wish $this is titled "pong"
+
+set ::pongBallOffset [list 0 0]
+set ::pongColorIndex 0
+set ::pongBallColors [list magenta red orange yellow green blue violet]
+set ::pongXdirection -1
+set ::pongYDirection -1
+set ::pongRegionWidth 0  ;# Adjust as needed
+set ::pongRegionHeight 0 ;# Adjust as needed
+
+proc bouncePongBall {r location} {
+        global pongXdirection pongYDirection pongBallOffset pongRegionWidth pongRegionHeight pongColorIndex pongBallColors
+        lassign $location paddleX paddleY
+
+        set tl [region topleft $r]
+        set br [region bottomright $r]
+        lassign $tl TLx TLy
+        lassign $br BRx BRy
+
+        # Calculate the new position
+        set newX [expr {[lindex $::pongBallOffset 0] + $pongXdirection * 4}]
+        set newY [expr {[lindex $::pongBallOffset 1] + $pongYDirection * 4}]
+
+        lassign [region centroid $r] cX cY
+        set totalX [+ $newX $cX]
+        set totalY [+ $newY $cY]
+
+        # Reverse direction if ball hits boundaries
+        if {$totalX >= $BRx || $totalX <= $TLx} {
+            set pongXdirection [expr {$pongXdirection * -1}]
+        }
+        if {$totalY >= $BRy || $totalY <= $TLy} {
+            set pongYDirection [expr {$pongYDirection * -1}]
+        }
+
+        if {$totalY > $paddleY} {
+            # ball is below paddle position
+            if {abs($paddleX - $totalX) < 100} {
+                puts "bouncing ..."
+                set pongYDirection [expr {$pongYDirection * -1}]
+            } else {
+                # reset to top of field
+                set pongXdirection 1
+                set pongYDirection -1
+                set pongBallOffset [list -50 -300]
+                set pongColorIndex [% [+ $pongColorIndex 1] [llength $pongBallColors]]
+                return
+            }
+        }
+        # Update the custom ball offset
+        set pongBallOffset [list $newX $newY]
+    }
+
+When /p/ has image match location /location/ & /board/ has board image /im/ {
+    When $board has region /r/ & the clock time is /t/ {
+        if {$::pongRegionWidth == 0} {
+            set ::pongRegionWidth [region width $r]
+        }
+        if {$::pongRegionHeight == 0} {
+            set ::pongRegionHeight [region height $r]
+        }
+
+        bouncePongBall $r $location
+        # set ::pongBallOffset [bouncePongBall $r]
+        Wish $board draws a circle with color [lindex $::pongBallColors $::pongColorIndex] filled true radius 10 offset $::pongBallOffset
+        
+        set tl [region topleft $r]
+        set br [region bottomright $r]
+        Wish to draw a circle with center $tl radius 20 thickness 1 filled true color blue
+        Wish to draw a circle with center $br radius 20 thickness 1 filled true color red
+
+        Wish $this is labelled "pongBallOffset: \n\n\n$::pongBallOffset"
+    }
+}

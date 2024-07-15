@@ -1,0 +1,22 @@
+# initial claim
+Commit ballState {
+  Claim $this has a ball position [list [expr {500 + rand() * 100}] [expr {500 + rand() * 100}]] and a ball velocity [list 0 0.1]
+}
+
+When $this has a ball position /bp/ and a ball velocity /bv/ {
+  Display::circle {*}$bp 50 10 white
+  Wish $this is labelled $bp
+  puts $bp
+  set ::_bp $bp
+}
+
+When the clock time is /t/ {
+  puts "$t: $::_bp"
+  set ::_bp [list [expr {[lindex $::_bp 0] + 0}] [expr {[lindex $::_bp 1] - 1.2}]]
+  # need to flip the sign if it hits a wall or paddle, but good start with globals?
+  Commit ballState {
+    Claim $this has a ball position $::_bp and a ball velocity [list 0 0.1]
+  }
+}
+
+Wish $this is outlined gray

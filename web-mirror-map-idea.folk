@@ -1,0 +1,6 @@
+#### Hmmm, emit this statement to a web statement or whatever & sync that to the web & then can display the tags 
+
+When tag /tag/ is a tag & /tag/ has region /region/ & $this has region /r/ {
+  # Wish $this is labelled "$tag has a region centered at [region centroid $r] with dimensions ([region width $r] x [region height $r])"
+  Wish $this is labelled "$tag has a region [region angle $r]"
+}

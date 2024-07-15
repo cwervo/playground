@@ -1,0 +1,14 @@
+Wish $this draws a red circle
+
+When $this has region /r/ {
+  lassign [region top $r] x y
+  foreach match [Statements::findMatches [list /someone/ wishes /t/ is outlined /color/]] {
+    Wish $this is labelled $match
+    Display::text $x $y 3 $match 0
+  }
+}
+
+# Go to http://folk-cwervo.local/omar
+Wish the web server handles route "/omar" with handler {
+  html "<strong>Hello from Omar</strong>"
+}

@@ -1,0 +1,87 @@
+set ::letterOffset 60
+set ::anchor [list 0 0]
+
+set ::wordsearch_original [list [list O M I C L I V E]  [list C O M P U T E R]  [list S U M U T O V S]  [list L S O L U G R T]  [list V E R S I O N O]]
+set ::wordsearch $::wordsearch_original
+set ::potentialMatches [list]
+set ::answersFound [list]
+
+set ::targetWords [list COMPUTER VERSION MOUSE CPU]
+set ::answers [list \
+  [list [list 2 0] [list 2 1] [list 2 2] [list 2 3] [list 2 4] [list 2 5] [list 2 6] [list 2 7]] \
+  [list [list 3 5] [list 3 6] [list 3 7]] \
+  [list [list 0 4] [list 1 4] [list 2 4]] \
+  [list [list 0 7] [list 1 7]] \
+  [list [list 1 7] [list 1 6]] \
+]
+
+proc highlightWord {startX startY endX endY {color gold} {width 20}} {
+  # need to offset by the amount needed to center on characters ...
+  set pts [list [vec2 add $::anchor [list [* $::letterOffset $startX] [* $::letterOffset $startY]]]  [vec2 add $::anchor [list [* $::letterOffset $endX] [* $::letterOffset $endY]]]]
+  set localOffset [* 1 $::letterOffset]
+  set pts [lmap pt $pts {vec2 sub $pt [list $localOffset $localOffset]}]
+  Wish to draw a stroke with points $pts width $width color $color
+}
+
+proc searchLetterPos {position} {
+    # construct a dictionary 
+    for {set i 0} {$i < [llength $::wordsearch]} {incr i} {
+        set row [lindex $::wordsearch $i]
+        for {set column 0} {$column < [llength $row]} {incr column} {
+            set letterPos [vec2 add $::anchor [list [* $::letterOffset $i] [* $column $::letterOffset]]]
+            if {[vec2 distance $position $letterPos] < 25} {
+                # mark the letter as a potential match
+                set position [list $i $column]
+                if {[lsearch $::potentialMatches $position] == -1 && [lsearch $::answersFound $position] == -1} {
+                  # puts "appending $position"
+                  lappend ::potentialMatches $position
+                }
+            }
+        }
+    }
+}
+
+When $this has region /r/ & /p/ has image match location /location/ & /board/ has board image /im/ & /board/ has region /boardRegion/ {
+  for {set i 0} {$i < [llength $::wordsearch]} {incr i} {
+    set row [lindex $::wordsearch $i]
+    for {set column 0} {$column < [llength $row]} {incr column} {
+      set letter [lindex $row $column]
+      set ::anchor [vec2 add [list 150 200] [region topleft $boardRegion]]
+      Wish to draw text with center [vec2 add $::anchor [list [* $::letterOffset $i] [* $column $::letterOffset]]] text $letter radians 0 scale [* $::letterOffset 0.05]
+    }
+  }
+
+  searchLetterPos $location
+  # puts "potentialMatches: $::potentialMatches"
+  foreach potentialSpot $::potentialMatches {
+    highlightWord {*}[vec2 sub $potentialSpot [list 1 0]] {*}$potentialSpot
+  }
+
+  foreach answer $::answersFound {
+    highlightWord {*}[vec2 sub [lindex $answer 0] [list 0 0]] {*}[lindex $answer end] green 30
+  }
+
+  foreach answer $::answers {
+    set answerFound false
+    foreach spot $answer {
+      # spot not in potential matches
+      if {[lsearch $::potentialMatches $spot] == -1} {
+        return
+      } else {
+        set answerFound true
+      }
+    }
+    if {$answerFound && [lsearch $::answersFound $answer] == -1} {
+        puts "------ found answer $::potentialMatches | [llength $::potentialMatches]"
+        lappend ::answersFound $answer
+        foreach spot $answer {
+          set spotIndex [lsearch $::potentialMatches $spot]
+          puts "spot index: $spotIndex"
+          set ::potentialMatches [lreplace $::potentialMatches $spotIndex $spotIndex]
+        }
+        puts "new answers: $::potentialMatches | [llength $::potentialMatches]"
+    }
+  }
+}
+
+Wish $this is outlined white

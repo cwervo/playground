@@ -1,0 +1,72 @@
+Claim thing1 is a post-it
+Claim thing2 is a post-it
+
+Claim thing1 has programming with weight 1
+Claim thing2 has writing with weight 0.9
+
+# TODO Wednesday, July 2024
+# -------------------------
+# Get this running on Folk0, figure out the test case :)
+puts "................................................."
+
+When /note/ is a post-it {
+  puts "------ manually nesting Whens ---------"
+  When the collected matches for [list /note/ has /topic/ with weight /weight/] are /matches/ {
+    set matchesDict [dict create {*}$matches]
+    puts "MANUAL matchesDict: $matchesDict"
+
+    foreach match $matches {
+      Wish $this is labelled "[dict get $match note] / $note"
+      set matchNote [dict get $match note]
+      puts "--- begin MANUAL $matchNote ----"
+      puts "MANUAL matches debug block: \n\n\n\
+        MANUAL note variable: $note\n\
+        MANUAL match note   : [dict get $match note]\
+      \n-----------end MANUAL [dict get $match note]--------"  
+    }
+  }
+}
+
+When /note/ is a post-it &\
+     the collected matches for [list /note/ has /topic/ with weight /weight/] are /matches/ {
+  puts "------ now again, but with &: ---------"
+  set matchesDict [dict create {*}$matches]
+
+  puts "& matchesDict: $matchesDict"
+
+  foreach match $matches {
+    set matchNote [dict get $match note]
+    puts "--- begin & $matchNote ----"
+    puts "& matches debug block: \n\n\n\
+      & note variable: $note\n\
+      & match note   : [dict get $match note]\
+    \n-----------end $matchNote--------"  
+  }
+}
+
+
+When /note/ is a post-it &\
+     the collected matches for [list /note/ has /topic/ with weight /weight/] are /matches/ {
+
+  # Wish $this is labelled "matches: \n\n\nmatches:$matches\n\n---note---\n\n$note\n-----------end--------"
+  set matchesDict [dict create {*}$matches]
+
+  puts "matchesDict: $matchesDict"
+
+  foreach match $matches {
+    puts "matches debug block: \n\n\n\
+      note variable: $note\n\
+      match note   : [dict get $match note]\
+    \n-----------end [dict get $match note]--------"  
+  }
+}
+#### Results in:
+# Jul 09 16:12:00 folk0 make[77916]: matchesDict: {note thing2 topic writing weight 0.9} {note thing1 topic programming weight 1}
+# Jul 09 16:12:00 folk0 make[77916]: matches debug block:
+# Jul 09 16:12:00 folk0 make[77916]:  note variable: thing1
+# Jul 09 16:12:00 folk0 make[77916]:  match note   : thing2
+# Jul 09 16:12:00 folk0 make[77916]: -----------end thing2--------
+# Jul 09 16:12:00 folk0 make[77916]: matches debug block:
+# Jul 09 16:12:00 folk0 make[77916]:  note variable: thing1
+# Jul 09 16:12:00 folk0 make[77916]:  match note   : thing1
+# Jul 09 16:12:00 folk0 make[77916]: -----------end thing1--------

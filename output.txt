@@ -1,0 +1,26 @@
+===== Setting a Bash Variable =====
+
+You can set a Bash variable called ''%%FOLK_SHARE_NODE%%'' to the string ''%%folk-convivial%%'' in several ways:
+
+==== Temporary (Within Current Session) ====
+
+  * Open your terminal.
+  * Type the following command: ''%%bash     export FOLK_SHARE_NODE="folk-convivial"%%''
+  * This will set the variable only for the current session.
+
+==== Permanently (Across Sessions) ====
+
+=== Using .bashrc or .bash_profile ===
+
+  * Open your ''%%.bashrc%%'' (Linux) or ''%%.bash_profile%%'' (macOS) file in a text editor. You can use ''%%nano%%'' or ''%%vim%%'' for this. ''%%bash     nano ~/.bashrc  # for Linux     nano ~/.bash_profile  # for macOS%%''
+  * Add the following line at the end of the file: ''%%bash     export FOLK_SHARE_NODE="folk-convivial"%%''
+  * Save and exit the editor.
+  * Run the following command to make the change effective: ''%%bash     source ~/.bashrc  # for Linux     source ~/.bash_profile  # for macOS%%''
+
+=== Using ~/.profile (For System-wide Usage) ===
+
+  * Open the ''%%~/.profile%%'' file. ''%%bash     nano ~/.profile%%''
+  * Add the export line as above: ''%%bash     export FOLK_SHARE_NODE="folk-convivial"%%''
+  * Save and exit, then run ''%%source ~/.profile%%''.
+
+By following these steps, you’ll be able to set the ''%%FOLK_SHARE_NODE%%'' Bash variable to the desired value either temporarily or permanently.

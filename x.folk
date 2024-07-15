@@ -1,0 +1,25 @@
+Commit {
+  Claim key log is [list {letter a pos {x 500 y 500} {xSpeed 0 ySpeed -1 } lifetime 10000}]
+}
+
+When key log is /k/ & /node/ has step count /c/ {
+  set newLog [list]
+  foreach key $k {
+    set letter [dict get $key letter]
+    lassign [dict get $key pos] x y
+    set velocity [dict get $key velocity]
+    set lifetime [dict get $key lifetime]
+
+    Wish $this is labelled [dict get $key letter]
+    set p [dict get $key pos]
+    Display::text [dict get $p x] [dict get $p y] 10 [dict get $key letter] 0
+    # TODO: mutate x & y for the new frame & decrement lifetime
+    set lifetime [expr {$lifetime - 1}]
+    if {$lifetime > 0} {
+      lappend newLog [list {letter $letter pos {x $x y $y} velocity $velocity lifetime $lifetime}]
+    }
+  }
+  Commit { Claim key log is $newLog }
+}
+
+Wish $this is outlined white

@@ -1,0 +1,5 @@
+When $this has region /r/ {
+  set angle [region angle $r]
+  Claim $this' has region [region move [region rotate $r [* -1 [region angle $r]]] right 60%]
+  Wish $this' is labelled [expr {round(10 * $angle)}]
+}

@@ -1,0 +1,14 @@
+When the camera frame is /f/ & $this has region /r/ {
+  set TL [region topleft $r]
+
+  Claim $this' has region [region move $r down 110%]
+  set slice [image subimage $f {*}[projectorToCamera $TL] 300 300]
+  Wish $this' displays camera slice $slice
+  Claim $this' has template $slice
+  Wish $this is outlined white
+}
+
+When $this' displays camera slice /s/ {
+  Wish $this' is labelled "slice saved"
+  image saveAsJpeg $slice "/home/folk/folk-images/slice.jpg" 
+}

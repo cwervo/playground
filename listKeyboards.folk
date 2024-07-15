@@ -1,0 +1,30 @@
+proc udevadmProperties {device} {
+    return [exec udevadm info --query=property --name=$device]
+}
+
+proc isKeyboard {device} {
+    set properties [udevadmProperties $device]
+    if {$properties eq ""} {
+    return false
+    }
+    # Check if device is a keyboard and not a mouse
+    set isKeyboard [string match *ID_INPUT_KEYBOARD=1* $properties]
+    set isMouse [string match *ID_INPUT_MOUSE=1* $properties]
+    return [expr {$isKeyboard && !$isMouse}]
+}
+
+set allDevices [glob -nocomplain /dev/input/by-path/*]
+set keyboards [list]
+
+foreach device $allDevices {
+    set keyboardCheck [isKeyboard $device]
+    if {$keyboardCheck} {
+        lappend keyboards $device
+    }
+}
+
+Wish $this is outlined white
+foreach kb $keyboards {
+    Wish $this is labelled "$kb"
+    puts "---\nKeyboard claim: Claim \$this is a keyboard with path $kb\n---\n"
+}

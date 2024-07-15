@@ -1,0 +1,337 @@
+Claim $this is an editor
+
+When /page/ is an editor {
+  # Not editing
+  When $page has state /nothing/ {
+    Commit $page-state {
+      set state [dict create \
+        cursor [dict create val [list 0 0] ] \
+        topleft [dict create val [list 0 0] ] \
+        scale [dict create val 0.60 range [list 0.5 2.0]] \
+      ]
+      Claim $page has state $state
+    }
+  }
+  When $page points up with length 150px at /nothing/ {
+    Wish $page is outlined blue
+    Wish $page is titled "$page. Editor"
+  
+    Commit $page-code {
+      Claim $page is editing code ""
+    }
+  }
+
+  # Editing
+  When $page points up with length 150px at /target/ & \
+    /target/ has program code /code/ {
+    Wish $page is outlined white
+    Wish $page is titled "$page. Editing $target"
+    Commit $page-code {
+      Claim $page is editing program $target
+      Claim $page is editing code $code
+    }
+  }
+}
+
+# NOTE: Should this go into a common-functions file?
+proc x {vector} { lindex $vector 0 }
+proc y {vector} { lindex $vector 1 }
+
+proc cursorToIndex {text cursor} {
+  set idx 0
+  lassign $cursor x y
+  while {$y > 0} {
+    set idx [expr {[string first "\n" $text $idx] + 1}]
+    set y [expr {$y - 1}]
+  }
+  set i [string first "\n" $text $idx]
+  # if the x value is greater than the current character position on this line
+  # set the x to the min
+  if { $i == -1} { set x 0
+  } else { set x [expr {min($x, $i-$idx)}] }
+  return [expr {$idx + $x}]
+}
+
+proc insertCharacter {code newChar cursor} {
+  set idx [cursorToIndex $code $cursor]
+  # Add the character at position idx with the new character
+  if {[string length $code] == 0} {
+    set code "$newChar"
+  } else {
+    set chars [string cat $newChar [string index $code $idx]]
+    set code [string replace $code $idx $idx $chars]
+  }
+  return $code
+}
+
+proc deleteCharacter {code cursor} {
+  set idx [cursorToIndex $code $cursor] 
+  # This shouldn't be necessary when the cursor has proper bound handling
+  set idx [expr {max($idx-1, 0)}]
+  return [string replace $code $idx $idx]
+}
+
+proc textView {text topleft em advance width height} {
+  lassign $topleft xstart ystart
+  set xend [expr {$xstart + int(floor($width / $advance)-1)}]
+  set lines [lmap s [split $text "\n"] { 
+      string range $s $xstart $xend
+  }]
+  set yend [expr {$ystart + int(floor($height / $em)-1)}]
+  set text [join [lrange $lines $ystart $yend] "\n"]
+  set text
+}
+
+proc textView {text topleft em advance width height} {
+  lassign $topleft xstart ystart
+  set xend [expr {$xstart + int(floor($width / $advance)-1)}]
+  set yend [expr {$ystart + int(floor($height / $em)-1)}]
+  
+  set lines [split $text "\n"]
+  set lines [lmap s [lrange $lines $ystart $yend] {
+      string range $s $xstart $xend
+    }]
+  join $lines "\n"
+}
+
+proc lineNumberView {ystart linecount} {
+  set yend [expr {$ystart + $linecount}]
+  set numbers [list]
+  for {set i [expr {$ystart + 1}]} {$i <= $yend} {incr i} {
+    lappend numbers $i
+  }
+  join $numbers "\n"
+}
+
+# Editor rendering
+When /page/ has state /state/ & \
+  /page/ is editing program /id/ & \
+  /page/ is editing code /code/ & \
+  /page/ has region /region/ {
+  
+  # Draw the code
+  lassign [dict get [dict get $state topleft] val] xstart ystart
+  set scale [dict get [dict get $state scale] val]
+  set cursor [dict get [dict get $state cursor] val]
+  
+  # This is currently hardcoded for VictorMonoRegular
+  set em [expr {$scale * 25}]
+  set advance [expr {0.54545454545454541 * $em}]
+  
+  set margin [expr {$advance * 3 + 10}]
+
+  set p [region topleft [region move $region right ${margin}px down 10px]]
+  set lp [region topleft [region move $region right 5px down 10px]]
+  set height [expr {[region height $region] - 25}]
+  set width [expr {[region width $region] - ($margin + 20)}]
+  set radians [region angle $region]
+  
+  # Check if the cursor is out of bounds
+  set cursor [vec2 sub $cursor [list $xstart $ystart]]
+  set linecount [expr {int(floor($height / $em))}]
+  set charcount [expr {int(floor($width / $advance))}]
+
+  set update false
+  if {[x $cursor] >= $charcount} {
+    set xstart [expr {$xstart + 1}]
+    set update true
+  } elseif {[x $cursor] < 0} {
+    set xstart [expr {$xstart - 1}]
+    set update true
+  }
+
+  if {[y $cursor] >= $linecount} {
+    set ystart [expr {$ystart + 1}]
+    set update true
+  } elseif {[y $cursor] < 0} {
+    set ystart [expr {$ystart - 1}]
+    set update true
+  }
+  if { $update } {
+    set s [dict get $state topleft]
+    dict set s val [list $xstart $ystart]
+    dict set state topleft $s
+    Commit $page-state {
+      Claim $page has state $state
+    }
+  }
+
+  set text [textView $code [list $xstart $ystart] $em $advance $width $height]]
+  Wish to draw text with position $p text $text scale $scale anchor topleft radians $radians font VictorMonoRegular
+  
+  # Line numbers
+  set linenumbers [lineNumberView $ystart $linecount]
+  Wish to draw text with position $lp text $linenumbers scale $scale anchor topleft radians $radians font VictorMonoRegular
+
+  # Draw the cursor
+  set curs [vec2 scale $cursor $advance $em]
+
+  set x1 [vec2 sub $p $curs]
+  set x2 [vec2 sub $x1 [list 0 [expr {$em + 4}]]]
+
+  set theta [expr {$radians + 3.14159}]
+  set x1 [vec2 add [vec2 rotate [vec2 sub $x1 $p] $theta] $p]
+  set x2 [vec2 add [vec2 rotate [vec2 sub $x2 $p] $theta] $p]
+  set s [expr {$scale * 4}]
+  Wish to draw a circle with center $x1 radius $s thickness 0 color green filled true
+  Wish to draw a stroke with points [list $x1 $x2] width $s color green
+}
+
+# Keyboard handling
+Every time /anyone/ claims key /key/ is down with modifiers /modifiers/ & \
+  /page/ has state /state/ & \
+  /page/ is editing program /id/ & \
+  /page/ is editing code /code/ {
+
+    set c [dict get [dict get $state cursor] val]
+
+    set count [expr {[llength [split $code "\n"]] - 1}]
+
+    switch -glob $key {
+      UP { 
+        if {[lindex $c 1] > 0} {
+           set c1 [list 0 [expr {[y $c] - 1}]]
+           set idx1 [cursorToIndex $code $c1]
+           set c2 [list [x $c] [expr {[y $c] - 1}]]
+           set idx2 [cursorToIndex $code $c2]
+           if {$idx1 == $idx2} {
+             set c $c1
+           } else {
+             set c [list [expr {$idx2 - $idx1}] [y $c2]]
+           }
+        }
+      }
+      DOWN { 
+        if {[lindex $c 1] < [expr {$count-1}]} {
+           set c1 [list 0 [expr {[y $c] + 1}]]
+           set idx1 [cursorToIndex $code $c1]
+           set c2 [list [x $c] [expr {[y $c] + 1}]]
+           set idx2 [cursorToIndex $code $c2]
+           if {$idx1 == $idx2} {
+             set c $c1
+           } else {
+             set c [list [expr {$idx2 - $idx1}] [y $c2]]
+           }
+        }
+      }
+      RIGHT { 
+        set idx [cursorToIndex $code $c]
+        if {$idx < [string length $code]} {
+          if {[string index $code $idx] == "\n"} {
+            set c [list 0 [expr {[y $c] + 1}]]
+          } else { 
+            set c [list [expr {[x $c] + 1}] [y $c]]
+          }
+        }
+      }
+      LEFT { 
+        set idx [cursorToIndex $code $c]
+        if {$idx < [string length $code]} {
+          if {[lindex $c 0] > 0} {
+           set c [list [expr {[x $c] - 1}] [y $c]]
+          } elseif {[lindex $c 1] > 0} {
+           set c [list 0 [expr {[y $c] - 1}]]
+           set idx [cursorToIndex $code $c]
+           set pos [string first "\n" $code $idx]
+           set c [list [expr {$pos - $idx}] [y $c]]
+          }
+        }
+      }
+      BACKSPACE {
+        if {[lindex $c 0] > 0} {
+           set code [deleteCharacter $code $c]
+           set c [list [expr {[x $c] - 1}] [y $c]]
+        } elseif {[lindex $c 1] > 0} {
+           set y [expr {[y $c] - 1}]
+           set c1 [list 0 $y]
+           set idx [cursorToIndex $code $c1]
+           set pos [string first "\n" $code $idx]
+           set code [deleteCharacter $code $c]
+           set c [list [expr {$pos - $idx}] $y]
+        }
+      }
+      ENTER {
+        set code [insertCharacter $code "\n" $c]
+        set c [list 0 [expr {[y $c] + 1}]]
+      }
+      *SHIFT {}
+      *CTRL {}
+      *LOCK {}
+      TAB {}
+      ESC {}
+
+      default {
+        if {$modifiers == "ctrl" & $key == "r"} {
+          #Commit $page-code { Claim $id has program code $baseCode }
+          #Claim the cursor is [list 0 0]
+          return
+        }
+        if {$modifiers == "ctrl" & $key == "s"} {
+          Commit $id edited {
+             Claim $id has program code $code
+          }
+          #lassign $cursor x y
+          #Claim the cursor is [list 0 $y]
+          return
+        }
+
+        set code [insertCharacter $code $key $c]
+        set c [list [expr {[x $c] + 1}] [y $c]]
+      }
+    }
+
+    Commit $page-state {
+      set s [dict get $state cursor]
+      dict set s val $c
+      dict set state cursor $s
+      #dict set state cursor $c
+      Claim $page has state $state
+    }
+    Commit $page-code {
+      Claim $page is editing program $id
+      Claim $page is editing code $code
+    }
+}
+
+return
+
+# Legacy
+proc checkFileExists {obj} {
+    # build the path
+    set path "~/folk-printed-programs/${obj}.folk.temp"
+
+    # Expand user directory (~)
+    set fullPath [file normalize $path]
+
+    return [file exists $fullPath]
+}
+
+proc createTempFile {number} {
+  set sourcePath "~/folk-printed-programs/${number}.folk"
+  set destPath "~/folk-printed-programs/${number}.folk.temp"
+
+  set fullSourcePath [file normalize $sourcePath]
+  set fullDestPath [file normalize $destPath]
+
+  if {[file exists $fullSourcePath]} {
+      if {[catch {file copy -- $fullSourcePath $fullDestPath} errMsg]} {
+          return "Failed to create file: $errMsg"
+      }
+  } else {
+      return "Source file does not exist"
+  }
+}
+
+proc deleteFile {number} {
+    set path "~/folk-printed-programs/${number}.folk.temp"
+    set fullPath [file normalize $path]
+    if {[file exists $fullPath]} {
+        if {[catch {file delete -- $fullPath} errMsg]} {
+            # return "Failed to delete file: $errMsg"
+        } else {
+            # return "File deleted successfully | [file exists $fullPath]"
+        }
+    } else {
+        # return "File does not exist"
+    }
+}

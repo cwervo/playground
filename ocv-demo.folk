@@ -1,0 +1,38 @@
+set cc [c create]
+defineImageType $cc
+$cc cflags -I$::env(HOME)/ocv-folk
+ 
+$cc include <stdio.h>
+$cc include "OpenCVWrapper.h"
+ 
+if {[namespace exists ::Heap]} {
+    $cc import ::Heap::cc folkHeapAlloc as folkHeapAlloc
+    $cc import ::Heap::cc folkHeapFree as folkHeapFree
+} else {
+    $cc code { #define folkHeapAlloc malloc }
+    $cc code { #define folkHeapFree free }
+}
+ 
+$cc proc opencvAdaptiveThreshold {image_t img} image_t {
+    cv_image_t im2 = (cv_image_t) { .width = img.width, .height = img.height, .components = img.components, .bytesPerRow = img.bytesPerRow, .data = img.data };
+    cv_image_t r = myAdaptiveThreshold(im2);
+    image_t ret = (image_t) { .width = r.width, .height = r.height, .components = r.components, .bytesPerRow = r.bytesPerRow, .data = folkHeapAlloc(r.bytesPerRow * r.height) };
+    memcpy(ret.data, r.data, r.bytesPerRow * r.height);
+    return ret;
+}
+ 
+c loadlib $::env(HOME)/ocv-folk/libopencvwrapper.so
+$cc compile
+ 
+When $this has region /r/ {
+    Claim $this' has region [region move $r down 110%]
+}
+When $this' has camera slice /slice/ & $this has region /r/ {
+    set grayImg [opencvAdaptiveThreshold $slice]
+    set center [region centroid $r]
+    Wish to draw an image with center $center image $grayImg radians 0 scale 2
+ 
+    After 100 milliseconds {
+        image freeImage $grayImg
+    }
+}

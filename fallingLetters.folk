@@ -1,0 +1,25 @@
+Commit {
+  Claim $this has letters [list [dict create letter a size 5 pos [list 200 200]] [newLetter b] [newLetter zzz] [newLetter hi] [newLetter :O] [newLetter Andres] [newLetter Omar] [newLetter v] [newLetter d] [newLetter c] [newLetter u] [newLetter I]]
+}
+
+proc newLetter { letter } {
+  return [dict create letter $letter size [expr {3 + rand() * 10}] pos [list [expr {rand() * rand() * $Display::WIDTH}] 400]]
+}
+
+proc drawLetter {letterDict stepCount} {
+  set l [dict get $letterDict letter]
+  set size [dict get $letterDict size]
+  puts $size
+  lassign [dict get $letterDict pos] x y
+  set y [expr {int($y * ($stepCount * 0.05)) % $Display::HEIGHT}]
+  Display::text $x $y $size $l [expr {sin($stepCount * 0.25)}]
+}
+
+When $this has letters /letters/ & /node/ has step count /c/ {
+  set updatedLetters [list]
+  foreach letter $letters {
+    drawLetter $letter $c
+  }
+}
+
+# Commit { Claim $this has letters [list]}

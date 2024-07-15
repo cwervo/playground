@@ -1,0 +1,18 @@
+# TODO Print this out :) Make a clean up game & a maze/draw path experience!
+Wish $this is outlined gold
+
+# track last 50 location of an image match :)
+
+set ::imageMatcherList [list]
+
+When /p/ has image match location /location/ {
+  Wish $this is labelled $location
+  lappend ::imageMatcherList $location
+  if {[llength $::imageMatcherList] > 30} {
+    set ::imageMatcherList [lreplace $::imageMatcherList 0 0]
+  }
+  foreach loc $::imageMatcherList {
+      Wish to draw a circle with center $loc radius 20 color gold thickness 1 filled true
+
+  }
+}

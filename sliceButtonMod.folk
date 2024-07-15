@@ -1,0 +1,19 @@
+# runs out of allocation slots
+When /prime/ has template /slice/ & the clock time is /t/ {
+  set t [int $t]
+  set fp "/home/folk/folk-images/slice-${t}.jpg"
+  set fp "slice.jpg"
+  puts "----- fp: $fp"
+  When /nobody/ claims $this has template slice $fp  {
+    puts "saving $slice as $fp"
+    image saveAsJpeg $slice $fp
+    Commit { Claim $this has template slice $fp }
+  }
+ 
+  When $this has template slice /ts/ {
+    puts "made it to display"
+    Wish $this displays image $ts
+  }
+}
+
+Wish $this is outlined white

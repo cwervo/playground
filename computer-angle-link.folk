@@ -1,0 +1,34 @@
+proc verticesFromCenter {center width height} {
+    lassign $center x y
+    set halfWidth [/ $width  2]
+    set halfHeight [/ $height  2]
+    puts "x: $x y: $y halfWidth: $halfWidth halfHeight: $halfHeight"
+    return [list
+        [list [+ $x $halfWidth] [+ $y $halfHeight]]
+        [list [+ $x $halfWidth] [- $y $halfHeight]]
+        [list [- $x $halfWidth] [- $y $halfHeight]]
+        [list [- $x $halfWidth] [+ $y $halfHeight]]]
+}
+
+When /someone/ wishes /page/ is labelled computer {
+  Wish $page is outlined white
+  When $page has region /r/ {
+    set angle [region angle $r]
+    set center [region centroid $r]
+    # make a region above that doesn't inherit angle
+    # Claim $this' has region [region move $r up 300px]
+    #Claim $this' has region [region create [region vertices $r] [region edges $r] 0]
+    set vees [region vertices $r]
+    #set vees [verticesFromCenter $center 100 100]
+    puts $vees
+    Claim $this' has region [region create $vees [region edges $r] 0]
+
+    Wish $this' is outlined green
+
+    Wish $this is dynamically connected to $this'
+    
+    Wish $this is labelled [floor [* $angle  10]]
+  }
+}
+
+Wish $this is outlined white

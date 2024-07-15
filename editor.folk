@@ -1,0 +1,453 @@
+Wish $this has top dock
+
+proc x {v} { lindex $v 0 }
+proc y {v} { lindex $v 1 }
+proc subtractBy50 {coords} {
+  list [lindex $coords 0] [expr {[lindex $coords 1] - 50}]
+}
+
+proc checkFileExists {number} {
+    # build the path
+    set path "~/folk-printed-programs/${number}.folk.temp"
+
+    # Expand user directory (~)
+    set fullPath [file normalize $path]
+
+    return [file exists $fullPath]
+}
+
+proc createTempFile {number} {
+  set sourcePath "~/folk-printed-programs/${number}.folk"
+  set destPath "~/folk-printed-programs/${number}.folk.temp"
+
+  set fullSourcePath [file normalize $sourcePath]
+  set fullDestPath [file normalize $destPath]
+
+  if {[file exists $fullSourcePath]} {
+      if {[catch {file copy -- $fullSourcePath $fullDestPath} errMsg]} {
+          return "Failed to create file: $errMsg"
+      }
+  } else {
+      return "Source file does not exist"
+  }
+}
+
+proc writeCharAtPosition {char cursor number} {
+    # Open the file for read and write
+    set fileId "/home/folk/folk-printed-programs/${number}.folk.temp"
+    set wc [exec wc -l $fileId]
+    set fullDestPath [file normalize $fileId]
+    lassign $cursor x y
+    puts "wc: $wc"
+    set position [expr {$y * $wc + $x}]
+    puts "fileId: $fileId"
+    set fileId [open $fullDestPath r+]
+    seek $fileId $position start
+    puts -nonewline $fileId $char
+    close $fileId
+}
+
+proc deleteFile {number} {
+    set path "~/folk-printed-programs/${number}.folk.temp"
+    set fullPath [file normalize $path]
+    if {[file exists $fullPath]} {
+        if {[catch {file delete -- $fullPath} errMsg]} {
+            # return "Failed to delete file: $errMsg"
+        } else {
+            # return "File deleted successfully | [file exists $fullPath]"
+        }
+    } else {
+        # return "File does not exist"
+    }
+}
+
+When /thing/ wishes /page/ has /position/ dock & /page/ has region /r/ & /p2/ has region /r2/ {
+     if {$page eq $p2} { return }
+     lassign [lindex $r 0] a b c d
+     lassign $a x y
+     Display::stroke [list $a $b [subtractBy50 $b] [subtractBy50 $a] $a] 8 green
+     set bMinX [expr {$x}]
+     set bMinY [expr {$y - 50}]
+     set bMaxX [lindex $b 0]
+     set bMaxY [lindex $b 1]
+     lassign [regionToBbox $r2] b2MinX b2MinY b2MaxX b2MaxY
+     
+     set hasIntersections [rectanglesOverlap [list $bMinX $bMinY] \
+                 [list $bMaxX $bMaxY]\
+                 [list $b2MinX $b2MinY]\
+                 [list $b2MaxX $b2MaxY]\
+     false ]
+     set notVirtual [expr {![string match "virtual-programs*" $p2] & ![string match "web-program*" $p2]}]
+     if {$hasIntersections & $notVirtual} {
+       Claim $p2 has docked program $p2
+     }
+}
+
+proc blinkingCursor {count} {
+  expr {$count % 16 == 0 ? "_" : " "}
+}
+
+Wish $this is outlined red
+
+
+proc insertCharacter {code newCharacter cursor} {
+  set lines [split $code "\n"]
+  lassign $cursor x y
+  # Get the current line
+  set line [lindex $lines $y]
+  # Replace the character at position x with the new character
+  set character [string cat [string index $line $x] $newCharacter]
+  set line [string replace $line $x $x $character]
+  # Put the modified line back in the array
+  lset lines $y $line
+
+  # Return the modified lines
+  return [join $lines "\n"]
+}
+
+proc insertCursor {code cursor count} {
+  return [insertCharacter $code [blinkingCursor $count] $cursor]
+}
+
+When /page/ has docked program /d/ & /d/ has program code /code/ {
+  Wish $this is outlined blue
+}
+
+When /page/ has docked program /d/ & /d/ has program code /code/ & /node/ has step count /count/ & $this has a cursor /cursor/ {
+  Wish $page is outlined white
+  Wish $this is labelled [insertCursor $code $cursor $count]
+  Wish $this has halo message $d
+  if {![checkFileExists $d]} {
+    createTempFile $d
+  }
+}
+
+Commit cursor { Claim $this has a cursor [list 0 0]}
+Commit file { Claim $this has file "" }
+
+proc isCommandWithChar { currentKey lastKey matchChar } {
+  set isS [expr {$currentKey == $matchChar}]
+  set isMeta [string match "Meta*" $lastKey]
+  expr {$isS && $isMeta}
+}
+
+proc isControlWithChar {currentKey lastKey matchChar} {
+  set isS [expr {$currentKey == $matchChar}]
+  set isMeta [string match "leftctrl" $lastKey]
+  expr {$isS && $isMeta}
+}
+
+When $this has a cursor /c/ {
+  Wish $this is labelled "cursor: ---- $c"
+}
+
+When $this has file /f/ {
+  When /page/ has docked program /d/ {
+    if {[string length $f] == 0} {
+      Commit file { Claim $this has file $d }
+    }
+  }
+  When /nobody/ has docked program /d/ {
+      if {[string length $f] > 0} {
+        deleteFile $f
+        Commit file { Claim $this has file ""}
+      }
+  }
+}
+Wish $this has top dock
+
+proc x {v} { lindex $v 0 }
+proc y {v} { lindex $v 1 }
+proc subtractBy50 {coords} {
+  list [lindex $coords 0] [expr {[lindex $coords 1] - 50}]
+}
+
+proc checkFileExists {number} {
+    # build the path
+    set path "~/folk-printed-programs/${number}.folk.temp"
+
+    # Expand user directory (~)
+    set fullPath [file normalize $path]
+
+    return [file exists $fullPath]
+}
+
+proc createTempFile {number} {
+  set sourcePath "~/folk-printed-programs/${number}.folk"
+  set destPath "~/folk-printed-programs/${number}.folk.temp"
+
+  set fullSourcePath [file normalize $sourcePath]
+  set fullDestPath [file normalize $destPath]
+
+  if {[file exists $fullSourcePath]} {
+      if {[catch {file copy -- $fullSourcePath $fullDestPath} errMsg]} {
+          return "Failed to create file: $errMsg"
+      }
+  } else {
+      return "Source file does not exist"
+  }
+}
+
+proc deleteFile {number} {
+    set path "~/folk-printed-programs/${number}.folk.temp"
+    set fullPath [file normalize $path]
+    if {[file exists $fullPath]} {
+        if {[catch {file delete -- $fullPath} errMsg]} {
+            # return "Failed to delete file: $errMsg"
+        } else {
+            # return "File deleted successfully | [file exists $fullPath]"
+        }
+    } else {
+        # return "File does not exist"
+    }
+}
+
+When /thing/ wishes /page/ has /position/ dock & /page/ has region /r/ & /p2/ has region /r2/ {
+     if {$page eq $p2} { return }
+     lassign [lindex $r 0] a b c d
+     lassign $a x y
+     Display::stroke [list $a $b [subtractBy50 $b] [subtractBy50 $a] $a] 8 green
+     set bMinX [expr {$x}]
+     set bMinY [expr {$y - 50}]
+     set bMaxX [lindex $b 0]
+     set bMaxY [lindex $b 1]
+     lassign [regionToBbox $r2] b2MinX b2MinY b2MaxX b2MaxY
+     
+     set hasIntersections [rectanglesOverlap [list $bMinX $bMinY] \
+                 [list $bMaxX $bMaxY]\
+                 [list $b2MinX $b2MinY]\
+                 [list $b2MaxX $b2MaxY]\
+     false ]
+     set notVirtual [expr {![string match "virtual-programs*" $p2] & ![string match "web-program*" $p2]}]
+     if {$hasIntersections & $notVirtual} {
+       Claim $p2 has docked program $p2
+     }
+}
+
+proc blinkingCursor {count} {
+  expr {$count % 16 == 0 ? "_" : " "}
+}
+
+Wish $this is outlined red
+
+proc insertCharacter {code newCharacter cursor} {
+  set lines [split $code "\n"]
+  lassign $cursor x y
+  # Get the current line
+  set line [lindex $lines $y]
+  # Replace the character at position x with the new character
+  set character [string cat [string index $line $x] $newCharacter]
+  set line [string replace $line $x $x $character]
+  # Put the modified line back in the array
+  lset lines $y $line
+
+  # Return the modified lines
+  return [join $lines "\n"]
+}
+
+proc insertCursor {code cursor count} {
+  return [insertCharacter $code [blinkingCursor $count] $cursor]
+}
+
+When /page/ has docked program /d/ & /d/ has program code /code/ {
+  Wish $this is outlined blue
+}
+
+When /page/ has docked program /d/ & /d/ has program code /code/ & /node/ has step count /count/ & $this has a cursor /cursor/ {
+  Wish $page is outlined white
+  Wish $this is labelled [insertCursor $code $cursor $count]
+  Wish $this has halo message $d
+  if {![checkFileExists $d]} {
+    createTempFile $d
+  }
+}
+
+Commit cursor { Claim $this has a cursor [list 0 0]}
+Commit file { Claim $this has file "" }
+
+proc isCommandWithChar { currentKey lastKey matchChar } {
+  set isS [expr {$currentKey == $matchChar}]
+  set isMeta [string match "Meta*" $lastKey]
+  expr {$isS && $isMeta}
+}
+
+proc isControlWithChar {currentKey lastKey matchChar} {
+  set isS [expr {$currentKey == $matchChar}]
+  set isMeta [string match "leftctrl" $lastKey]
+  expr {$isS && $isMeta}
+}
+
+When $this has a cursor /c/ {
+  Wish $this is labelled "cursor: ---- $c"
+}
+
+When $this has file /f/ {
+  When /page/ has docked program /d/ {
+    if {[string length $f] == 0} {
+      Commit file { Claim $this has file $d }
+    }
+  }
+  When /nobody/ has docked program /d/ {
+      if {[string length $f] > 0} {
+        deleteFile $f
+        Commit file { Claim $this has file ""}
+      }
+  }
+}
+Wish $this has top dock
+
+proc x {v} { lindex $v 0 }
+proc y {v} { lindex $v 1 }
+proc subtractBy50 {coords} {
+  list [lindex $coords 0] [expr {[lindex $coords 1] - 50}]
+}
+
+proc checkFileExists {number} {
+    set path "~/folk-printed-programs/${number}.folk.temp"
+    set fullPath [file normalize $path]
+    return [file exists $fullPath]
+}
+
+proc createTempFile {number} {
+  set sourcePath "~/folk-printed-programs/${number}.folk"
+  set destPath "~/folk-printed-programs/${number}.folk.temp"
+
+  set fullSourcePath [file normalize $sourcePath]
+  set fullDestPath [file normalize $destPath]
+
+  if {[file exists $fullSourcePath]} {
+      if {[catch {file copy -- $fullSourcePath $fullDestPath} errMsg]} {
+          return "Failed to create file: $errMsg"
+      }
+  } else {
+      return "Source file does not exist"
+  }
+}
+
+proc deleteFile {number} {
+    set path "~/folk-printed-programs/${number}.folk.temp"
+    set fullPath [file normalize $path]
+    if {[file exists $fullPath]} {
+        if {[catch {file delete -- $fullPath} errMsg]} {
+            # return "Failed to delete file: $errMsg"
+        } else {
+            # return "File deleted successfully | [file exists $fullPath]"
+        }
+    } else {
+        # return "File does not exist"
+    }
+}
+
+
+When /thing/ wishes /page/ has /position/ dock & /page/ has region /r/ & /p2/ has region /r2/ {
+     if {$page eq $p2} { return }
+     lassign [lindex $r 0] a b c d
+     lassign $a x y
+     Display::stroke [list $a $b [subtractBy50 $b] [subtractBy50 $a] $a] 8 green
+     set bMinX [expr {$x}]
+     set bMinY [expr {$y - 50}]
+     set bMaxX [lindex $b 0]
+     set bMaxY [lindex $b 1]
+     lassign [regionToBbox $r2] b2MinX b2MinY b2MaxX b2MaxY
+     
+     set hasIntersections [rectanglesOverlap [list $bMinX $bMinY] \
+                 [list $bMaxX $bMaxY]\
+                 [list $b2MinX $b2MinY]\
+                 [list $b2MaxX $b2MaxY]\
+     false ]
+     set notVirtual [expr {![string match "virtual-programs*" $p2] & ![string match "web-program*" $p2]}]
+     if {$hasIntersections & $notVirtual} {
+       Claim $p2 has docked program $p2
+     }
+}
+
+proc blinkingCursor {count} {
+  expr {$count % 16 == 0 ? "_" : " "}
+}
+
+Wish $this is outlined red
+
+proc insertCharacter {code newCharacter cursor} {
+  set lines [split $code "\n"]
+  lassign $cursor x y
+  # Get the current line
+  set line [lindex $lines $y]
+  # Replace the character at position x with the new character
+  set character [string cat [string index $line $x] $newCharacter]
+  set line [string replace $line $x $x $character]
+  # Put the modified line back in the array
+  lset lines $y $line
+
+  # Return the modified lines
+  return [join $lines "\n"]
+}
+
+proc insertCursor {code cursor count} {
+  return [insertCharacter $code [blinkingCursor $count] $cursor]
+}
+
+When /page/ has docked program /d/ & /d/ has program code /code/ {
+  Wish $this is outlined blue
+}
+
+When /page/ has docked program /d/ & /d/ has program code /code/ & /node/ has step count /count/ & $this has a cursor /cursor/ {
+  Wish $page is outlined white
+  Wish $this is labelled [insertCursor $code $cursor $count]
+  Wish $this has halo message $d
+  if {![checkFileExists $d]} {
+    createTempFile $d
+  }
+}
+
+Commit cursor { Claim $this has a cursor [list 0 0]}
+Commit file { Claim $this has file "" }
+
+proc isCommandWithChar { currentKey lastKey matchChar } {
+  set isS [expr {$currentKey == $matchChar}]
+  set isMeta [string match "Meta*" $lastKey]
+  expr {$isS && $isMeta}
+}
+
+proc isControlWithChar {currentKey lastKey matchChar} {
+  set isS [expr {$currentKey == $matchChar}]
+  set isMeta [string match "leftctrl" $lastKey]
+  expr {$isS && $isMeta}
+}
+
+Every time the keyboard character log is /k/ & $this has a cursor /c/ {
+  Commit cursor {
+    set currentCharacter [lindex $k end]
+    switch $currentCharacter {
+      up { Claim $this has a cursor [list [x $c] [expr {[y $c] - 1}]] }
+      down { Claim $this has a cursor [list [x $c] [expr {[y $c] + 1}]] }
+      right { Claim $this has a cursor [list [expr {[x $c] + 1}] [y $c]] }
+      left { Claim $this has a cursor [list [expr {[x $c] - 1}] [y $c]] }
+      default {
+        When /page/ has docked program /d/ & /d/ has program code /code/ {
+          writeCharAtPosition $currentCharacter $c $d
+          puts "writing $currentCharacter to $d"
+        }
+        Wish $this is labelled "current character: $currentCharacter"
+        Claim $this has a cursor $c
+      }
+    }
+  }
+}
+
+When $this has a cursor /c/ {
+  Wish $this is labelled "cursor: ---- $c"
+}
+
+When $this has file /f/ {
+  When /page/ has docked program /d/ {
+    if {[string length $f] == 0} {
+      Commit file { Claim $this has file $d }
+    }
+  }
+  When /nobody/ has docked program /d/ {
+      if {[string length $f] > 0} {
+        deleteFile $f
+        Commit file { Claim $this has file ""}
+      }
+  }
+}

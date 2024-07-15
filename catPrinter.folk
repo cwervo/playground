@@ -1,0 +1,38 @@
+# Goal: have a button that:
+#  1. Finds a target above itself
+#  2. If the target "displays an $image", grab that image file path
+#  3. Pass that image into a python script version of catprinter/print.py
+#
+# Dependencies:
+# pip3 install argparse asyncio logging sys os
+
+Wish $this is outlined magenta
+
+When $this points up with length 0.25 at /target/ {
+  Wish $target is outlined blue
+}
+
+When $this has region /r/ {
+  lassign [lindex $r 0 3] x y
+  shape 10 $x $y 50 gray true
+  Display::stroke [list  [list $x [expr {$y + 125}]]  [list $x [expr {$y + 50}]]  [list [expr $x - 50] [expr {$y + 50}]]  
+  ] 10 white
+}
+
+set fd [file tempfile py script.py]
+puts $fd {
+# catprinter/print.py goes here
+}; close $fd
+
+Retract $this claims $this has python output /anything/
+
+On process [list apply {{this py} {
+  Assert $this claims $this has python output [exec python3 $py]
+  Step
+}} $this $py]
+
+When $this has python output /o/ {
+  Wish $this is labelled $o
+}
+
+Wish $this is outlined white

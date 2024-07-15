@@ -1,0 +1,35 @@
+set ::num 0
+
+proc getSlicePath {} {
+    return "/home/folk/folk-images/slice${::num}.jpg"
+}
+
+# TODO: Make this an incrementing function that deletes the previous file and increments the number so there's a unique file name
+# for every entry / so they don't conflict with each other.
+
+When /prime/ has template /s/ {
+  # When /nobody/ claims /p/ has a template at /tPath/ {
+    Wish $this is titled "saved slice"
+    # delete all prior slices
+    set filenames [glob -nocomplain /home/folk/folk-images/slice*.jpg]
+    if {[llength $filenames]>0} {
+        foreach fname $filenames    {
+            file delete $fname
+        }
+    }
+
+    set ::num [expr {$::num + 1}]
+    set newPath [getSlicePath]
+
+    image saveAsJpeg $s $newPath
+    Commit template {
+        Claim $this has a template at $newPath
+    }
+  # }
+}
+
+On unmatch {
+    Commit template { }
+}
+
+Wish $this is outlined gold

@@ -1,0 +1,15 @@
+Wish $this is titled "Save slice as jpeg"
+Wish $this is outlined white
+
+When $this points up at /p/ {
+  Wish $this is labelled "page: $p"
+
+  When $p has camera slice /slice/ {
+    Wish $this is labelled "has slice"
+    image saveAsJpeg $slice "/home/folk/folk-images/slice.jpg"
+  }
+
+  When the camera frame is /f/ {
+    image saveAsJpeg $f "/home/folk/folk-images/frame.jpg"
+  }
+}

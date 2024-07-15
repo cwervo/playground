@@ -1,0 +1,3 @@
+When $this has region /r/ & /node/ has step count /c/{
+    Wish $this is labelled $r
+}

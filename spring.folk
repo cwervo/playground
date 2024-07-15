@@ -1,0 +1,42 @@
+Commit {
+  Claim $this has vars {
+    y 0
+    v 0
+    a 0
+    k 0.1
+    c 0.05
+    m 1
+  }
+}
+
+Wish $this is outlined white
+
+
+When $this has region /r/ & $this has vars /vars/ {
+  lassign [region centroid $r] centerX centerY
+  # This is my attempt at centering the spring on the center of the region but 50/50 my order of operations is off
+  dict set vars y [* $centerY 0.5]
+  set y [dict get $vars y]
+
+set centerY [lindex [region centroid $r] 1]
+  # This is my attempt at centering the spring on the center of the region but 50/50 my order of operations is off
+  dict set vars y [* $centerY 0.25]
+  set y [dict get $vars y]
+  
+  # Calculate acceleration based on Hooke's Law and damping
+  dict set vars a [expr {(-[dict get $vars k] * $y - [dict get $vars c] * [dict get $vars v]) / [dict get $vars m]}]
+  set a [dict get $vars a]
+  
+  dict set vars v [expr {[dict get $vars v] + $a}]
+  set v [dict get $vars v]
+  
+  dict set vars y [expr {$y + $v}]
+  set y [dict get $vars y]
+  puts "y is: $y"
+
+  Commit { Claim $this has vars $vars }
+
+  set center [region centroid $r]
+  
+  Display::circle $centerX $centerY 40 1 white true
+}

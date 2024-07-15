@@ -1,0 +1,26 @@
+# Spritesheet demo
+# megaman image dimensions are: 775 × 330
+# so an individual slice is:
+#   - width: 775 / 5 = 155
+#   - height: 330 / 2 = 165
+
+set path "megaman-sprites-5x2.jpg"
+set frameCount 10
+set columns 5
+set im [image load $path]
+set sheetwidth [image width $im]
+set sheetHeight [image height $im]
+set spriteWidth [/ $sheetwidth $columns]
+set rows [/ $frameCount $columns]
+set spriteHeight [/ $sheetHeight $rows]
+
+When the clock time is /t/ {
+    set frameNumber [expr {round ($t * 60 / $columns) % $frameCount}]
+    set x [* [% $frameNumber $columns] $spriteWidth]
+    set y [* [% $frameNumber $rows] $spriteHeight]
+    Wish $this has halo message "$frameNumber In x: $x | y: $y \n spritewidth: $spriteWidth | spriteheight: $spriteHeight"
+    set subimage [image subimage $im $x $y $spriteWidth $spriteHeight]
+    Wish $this displays image $subimage
+} 
+
+Wish $this is outlined gray

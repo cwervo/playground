@@ -1,0 +1,47 @@
+# -------------------------------------
+#   CV Button example
+# -------------------------------------
+
+Wish $this is outlined white
+
+proc target {r x0 y0 radius width height} {
+  lassign [projectorToCamera [lindex $r 0 0]] x1 y1
+  set x [expr {$x0 + $x1}]
+  set y [expr {$y0 + $y1}]
+  lassign [::cameraToProjector [list $x $y]] x y
+  Display::circle [expr {$x + 0}] [expr {$y + 0}] [expr {$radius / 10}] 5 [lindex [list white pink red darkred maroon] [expr {int($y * 0.25) % 5}]]
+}
+
+When $this has region /r/ & the camera frame is /f/ {
+  lassign [lindex $r 0] a b c d
+  set top [region top $r]
+  set bottom [region bottom $r]
+  set slicePoints [list $top $bottom $c $b $top]
+  Display::stroke $slicePoints 2 red
+
+  # display camera slice of left half of page
+  set width 20
+  set height 20
+  set pos [projectorToCamera $b]
+  set pos [list [expr {[lindex $pos 0] - $width}] [expr {[lindex $pos 1] - $height}]]
+  set subimage [image subimage $f {*}$pos $width $height]
+  set origin [lindex $r 0 0]
+
+  set scale [expr {$Display::WIDTH / $Camera::WIDTH * 1}]
+  Wish display runs [list Display::image {*}$origin $subimage $scale]
+  
+  set blobs [::BlobDetect::detect $subimage -200]
+
+  lassign [lindex $r 0] a b c d
+  set w [expr {[lindex $a 0] - [lindex $b 0]}]
+  set h [expr {[lindex $d 1] - [lindex $a 1]}]
+
+  foreach blob $blobs {
+    set center [dict get $blob center]
+    set radius [dict get $blob size]
+    if {$radius > 150} {
+      Wish $this is labelled $radius
+      target $r {*}$center $radius $w $h
+    }
+  }
+}

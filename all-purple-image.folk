@@ -1,0 +1,52 @@
+############################################
+# Code example for drawing a solid purple
+# synthetic image in the Folk language using
+# the C FFI.
+############################################
+set cc [c create]
+::defineImageType $cc
+
+$cc include <stdlib.h>
+$cc include <string.h>
+
+if {[namespace exists ::Heap]} {
+    $cc import ::Heap::cc folkHeapAlloc as folkHeapAlloc
+    $cc import ::Heap::cc folkHeapFree as folkHeapFree
+} else {
+    $cc code { #define folkHeapAlloc malloc }
+    $cc code { #define folkHeapFree free }
+}
+
+$cc proc generateImage {int R int G int B int A} image_t {
+    image_t ret;
+    ret.width = 400;
+    ret.height = 400;
+    ret.components = 4;
+    ret.bytesPerRow = ret.width * ret.components;
+    ret.data = folkHeapAlloc(ret.bytesPerRow * ret.height);
+    int b = ret.bytesPerRow * ret.height * 0.2;
+    uint8_t L = 0xBB;
+
+    memset(ret.data, L, b);
+
+    for (uint32_t y = 0; y < ret.height; ++y) {
+        for (uint32_t x = 0; x < ret.width; ++x) {
+            ret.data[y * ret.bytesPerRow + x * ret.components] = R; // R
+            ret.data[y * ret.bytesPerRow + x * ret.components + 1] = G; // G
+            ret.data[y * ret.bytesPerRow + x * ret.components + 2] = B; // B
+            ret.data[y * ret.bytesPerRow + x * ret.components + 3] = A; // A
+        }
+    }
+    printf("returning fake image");
+    return ret;
+}
+puts "compiling ...."
+$cc compile
+
+# display it
+When $this has region /r/ {
+  set center [region centroid $r]
+  Wish to draw an image with center $center image [generateImage 255 0 255 255] radians 0
+}
+
+Wish $this is outlined magenta

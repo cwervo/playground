@@ -1,0 +1,21 @@
+proc roundVector { v } {
+  return [list [round [lindex $v 0]] [round [lindex $v 1]]]
+}
+
+When $this has region /r/ {
+  set smolRegion [region scale $r 0.25]
+  Claim $this' has region $smolRegion
+  Wish $this' is outlined white
+  # find point 1, get distance, make a line
+  When /p2/ is point 1 & /p2/ has region /p2Region/ {
+  set p1Centroid [region centroid $smolRegion]
+  set p2Centroid [region centroid $p2Region]
+
+  Display::stroke [list $p1Centroid $p2Centroid] 3 white
+  Display::circle {*}$p2Centroid 50 10 gold
+  Display::circle {*}$p1Centroid 50 10 magenta
+  # get distance, display & claim it :)
+  # set distance [region distance [roundVector $p1Centroid] [roundVector $p2Centroid]]
+  # Wish $p2 is labelled $distance
+  }
+}

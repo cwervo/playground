@@ -1,0 +1,8 @@
+When $this has region /r/ {
+  set smolRegion [region scale $r 0.25]
+  Claim $this' has region $smolRegion
+  Wish $this' is outlined white
+  Claim $this' is point 1
+  set smolCentroid [region centroid $smolRegion]
+  # Display::circle {*}$smolCentroid 50 10 white
+}

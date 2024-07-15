@@ -1,0 +1,53 @@
+# Wish $this is outlined white
+
+Commit a {
+  Claim $this has state [dict create \
+    y 100 \
+    v 0 \
+    a 0 \
+    k 0.001 \
+    c 0.005 \
+    m 1 \
+    ]
+}
+
+When $this has state /s/ {
+  set y [dict get $s y]
+  # Wish $this draws a circle with filled true offset [list 0 $y] radius 2
+  Wish $this draws a circle with filled true offset [list 0 $y] radius [expr {int($y / 15) * 10}]
+  Wish $this is titled $y
+}
+
+# return
+Every time the clock time is /t/ & $this has state /s/ {
+  if {[expr {int($t) % 1}] == 0} {
+  Commit a {
+    set k [dict get $s k]
+    set c [dict get $s c]
+    set m [dict get $s m]
+    set y [dict get $s y]
+    set v [dict get $s v]
+
+    set a [expr {(-$k * $y - $c * $v) / $m}]
+
+    # Update velocity and position
+    set v [expr {$v + $a}]
+    set y [expr {$y + $v}]
+    # Claim $this has state [append s "hi"]
+    Claim $this has state [dict replace $s v $v a $a y $y]
+  }
+  }
+}
+
+On unmatch {
+  Commit a {
+    Claim $this has state [dict create \
+      y 100 \
+      v 0 \
+      a 0 \
+      k 0.001 \
+      c 0.005 \
+      m 1 \
+    ]
+  }
+}

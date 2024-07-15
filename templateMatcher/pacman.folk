@@ -1,0 +1,58 @@
+Wish $this is outlined blue
+Wish $this is titled "pacman game"
+set ::imageMatcherList [list]
+
+proc drawBoard {board} {
+  foreach space $board {
+    Wish to draw a circle with center $space thickness 2 \
+      radius 10 color seagreen filled false
+  }
+}
+
+proc testMatchHit {board location} {
+  foreach space $board {
+    lassign $space x y
+    set dist [vec2 distance $space $location]
+    set dist [expr {int($dist)}]
+    # Wish to draw text with x $x y $y text $dist radians 0 color red
+    if {$dist < 55} {
+      set idx [lsearch $::pacmanBoard $space]
+      set ::pacmanBoard [lreplace $::pacmanBoard $idx $idx]
+      puts "removed $space"
+    }
+  }
+}
+
+set ::pacmanBoard [list]
+
+When /p/ has image match location /location/ & /board/ has board image /im/ & /board/ has region /boardRegion/ {
+
+  if {[llength $::pacmanBoard] == 0} {
+    set boardCorner [vec2 add [region topleft $boardRegion] [list 15 15]]
+    Claim $this has a board corner of $boardCorner
+    for {set rows 0} {$rows < 6} {incr rows} {
+      for {set columns 0} {$columns < 15} {incr columns} {
+        lappend ::pacmanBoard [vec2 add $boardCorner [list [* 50 $rows] [* 50 $columns]]]
+      }
+    }
+  }
+  # check for board movement
+
+  When $this has a board corner of /bc/ {
+    set tl [region topleft $boardRegion]
+    puts "tl: $tl \n bc: $bc \n----\n"
+    if {$tl ne $bc} {
+
+      set diff [vec2 sub $bc $tl]
+      foreach space $::pacmanBoard {
+        set idx [lsearch $::pacmanBoard $space]
+        set rep [vec2 add $space $diff]
+        set ::pacmanBoard [lreplace $::pacmanBoard $idx $idx $rep]
+      }
+    }
+  }
+  
+  # test to see if matchLocation is within some distance of a point in pacmanBoard, if so remove it
+  testMatchHit $::pacmanBoard $location
+  drawBoard $::pacmanBoard
+}

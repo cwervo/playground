@@ -1,0 +1,35 @@
+###############
+# Begin with some region $r
+# topleft -------- top ------ topright
+# |                                  |
+# |                                  |
+# bottomleft --- bottom --- bottomright
+#
+#
+#                                      vvvvvvvv ———— Create a concept of a buttonRegionColumn
+#                                                    to the right of the region.
+# topleft -------- top ------ topright ------ buttonRegionColumn_topright
+# |                                  |         |
+# |                                  |         |
+# bottomleft --- bottom --- bottomright ------ buttonRegionColumn_bottomright
+#
+# Can have one big button (A) or two smaller buttons (A, B)
+#
+# one big button:
+#   - A has:                                            * --------------- *
+#     - topleft: topright                               |                 |
+#     - topright: buttonRegionColumn_topright           |        A        |
+#     - bottomleft: bottomright                         |                 |
+#     - bottomright: buttonRegionColumn_bottomright     * --------------- *
+#
+# two small buttons:
+#  - A has:
+#    - topleft: topright                                                               * --------------- *
+#    - topright: buttonRegionColumn_topright                                           |                 |
+#    - bottomleft: (topright + bottomright) / 2                                        |        A        |
+#    - bottomright: (buttonRegionColumn_topright + buttonRegionColumn_topright) / 2    * --------------- *
+#  - B has:
+#    - topleft: (topright + bottomright) / 2                                           * --------------- *
+#    - topright: (buttonRegionColumn_topright + buttonRegionColumn_topright) / 2       |                 |
+#    - bottomleft: bottomright                                                         |        B        |
+#    - bottomright: buttonRegionColumn_bottomright                                     * --------------- *

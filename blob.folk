@@ -1,0 +1,28 @@
+catch { source vendor/blobdetect/blobdetect.tcl }
+
+proc target {r x0 y0 radius} {
+  lassign [::projectorToCamera [lindex $r 0 0]] x1 y1
+  set x [expr {$x0 + $x1}]
+  set y [expr {$y0 + $y1}]
+  lassign [::cameraToProjector [list $x $y]] x y
+  Display::circle [expr {$x + 50}] [expr {$y + 510}] [expr {$radius / 15}] 5 white
+}
+
+When the camera frame is /f/ & $this has region /r/ {
+    lassign [projectorToCamera [lindex $r 0 0]] x0 y0
+    lassign [projectorToCamera [lindex $r 0 2]] x1 y1
+    set thisimage [image subimage $f  [expr {min($x0,$x1)}] [expr {min($y0,$y1)}]  [expr {int(abs($x1-$x0))}] [expr {int(abs($y1-$y0))}]]
+    set dets [::BlobDetect::detect $thisimage -150]
+    set points [list]
+    foreach det $dets {
+      set center [dict get $det center]
+      set radius [dict get $det size]
+      target $r {*}$center $radius
+      lappend points [scale 2 [projectorToCamera $center]]
+    }
+#    foreach p $points { Wish $this is labelled $p }
+    Display::stroke $points 5 white
+    Wish display runs [list Display::image {*}[lindex $r 0 0] $thisimage]
+}
+
+Wish $this is outlined pink

@@ -1,0 +1,42 @@
+proc newcolor {} {
+  set colors [list tomato orange dodgerblue mediumeagreen gray slateblue violet lightgray ]
+
+  set random_index [expr {int(rand() * [llength $colors])}]
+
+  lindex $colors $random_index
+}
+
+Commit {
+  set x0 0
+  set y0 0
+  Claim $this has fairies [list [list $x0 $y0] [list $x0 $y0] [list $x0 $y0] [list $x0 $y0] [list $x0 $y0] [list $x0 $y0] [list $x0 $y0] [list $x0 $y0] [list $x0 $y0] [list $x0 $y0] [list $x0 $y0] [list $x0 $y0] ]
+}
+
+When $this has fairies /fairies/ {
+#   Wish $this is labelled $fairies
+  Wish $this is outlined blue
+}
+
+Every time $::nodename has step count /c/ & $this has fairies /fairies/ & $this has region /r/ {
+   set a [lindex $r 0 0]
+   lassign $a origin_x origin_y
+ 
+    Commit {
+        set fairies [lmap fairy $fairies {
+        lassign $fairy x y
+
+        # Wish $this draws a [newcolor] circle offset [list $x $y]
+        Display::circle [expr {$x + $origin_x}] [expr {$y + $origin_y}] 20 20 [newcolor]
+
+        list [expr {$x + int(rand() * 2.5 - 1) * 30}] [expr {$y + int(rand() * 2.5 -1)* 30}]}]
+        Claim $this has fairies $fairies
+    }
+}
+
+On unmatch {
+    Commit {
+        set x0 0
+        set y0 0
+        Claim $this has fairies [list [list $x0 $y0] [list $x0 $y0] [list $x0 $y0] [list $x0 $y0] [list $x0 $y0] [list $x0 $y0] [list $x0 $y0] [list $x0 $y0] [list $x0 $y0] [list $x0 $y0] [list $x0 $y0] [list $x0 $y0] ]
+    }
+}

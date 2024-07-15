@@ -1,0 +1,15 @@
+Wish $this is outlined purple
+
+When $this has region /region/ {
+  lassign $region corners edges angle
+
+  set vecBottom [sub [lindex $corners 1] [lindex $corners 0]]
+
+  Wish $this is labelled "
+(b - a): [lmap p $vecBottom { format "%.2f" $p}]
+Angle: [format "%.3f" $angle]
+"
+
+  foreach corner $corners v [list a b c d] { Display::text {*}$corner 1 "$v" $angle}
+
+}

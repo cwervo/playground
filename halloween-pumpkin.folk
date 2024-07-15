@@ -1,0 +1,30 @@
+Claim happy halloween
+
+Wish $this is outlined white
+
+# TODO: Add this to all Draw Wishes
+proc rotatePoints {points center angle} {
+  lmap v $points {
+    set v [vec2 sub $v $center]
+    set v [vec2 rotate $v $angle]
+    set v [vec2 add $v $center]
+    set v
+  }
+}
+
+proc constructCenters {center angle} {
+  lassign $center x y
+  rotatePoints [list [list $x [+ $y 100]] [list [- $x 80] [+ $y 100]] [list [+ $x 80] [+ $y 100]]] $center $angle
+}
+
+When $this has region /r/ {
+  set c [region centroid $r]
+  set angle [region angle $r]
+  set centers [constructCenters $c $angle]
+  puts $centers
+  foreach point $centers {
+    puts "pt: $point"
+    Display::circle {*}$point 100 1 orangered true
+  }
+  
+}

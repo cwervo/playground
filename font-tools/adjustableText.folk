@@ -1,0 +1,28 @@
+
+Claim adjustableSize is 5
+# Available fonts on folk0: CourierPrimeCode.png  NeomatrixCode.png  PTSans-Regular.png  VictorMonoRegular.png
+Claim adjustableFontFace is PTSans-Regular
+
+# set fonts [list]
+# foreach fontPath [list {*}[glob {*}vendor/fonts/*.png]] {
+#     set fontName ""
+#     regexp {vendor/fonts/(.*).png} $fontPath whole_match fontName
+#     if {!($fontName eq "")} {
+#         lappend fonts $fontName
+#     }
+# }
+
+When adjustableFontFace is /ff/ & adjustableSize is /size/ & $this has region /r/ {
+}
+
+When $this has region /r/ {
+  lassign [region left $r] x y
+  set angle [region angle $r]
+
+  for {set i 0} {$i < [llength $fonts]} {incr i} {
+    set font [lindex $fonts $i]
+    for {set xOffset 1} {$xOffset < 4} {set xOffset [expr {$xOffset + 0.25}]} {
+      Display::text [+ $x [* $xOffset 800]] [+ $y [* $i 125] 0] $xOffset "Test" $angle $font
+    }
+  }
+}
