@@ -1,0 +1,48 @@
+###############
+# Individual programs in a pile on the table:
+###############
+
+Claim $this is a part of a pile of pages
+
+###############
+#  Table of programs:
+# - each program is a part of table pages
+###############
+
+proc stringToColor {str} {
+    puts "----- unreviewed stringToColor -----"
+    # TODO: -------- review this function ----------
+    # This is a simple hash function that takes a string and returns a color
+    # The color is in HSL format, which is easier to work with than RGB
+    # The hue is determined by the first character of the string
+    # The saturation and lightness are determined by the length of the string
+    # The saturation is 50% + 5% for each character in the string
+    # The lightness is 50% + 5% for each character in the string
+    set hue [expr {[scan $str %c] * 360 / 256}]
+    set saturation [expr {50 + 5 * [string length $str]}]
+    set lightness [expr {50 + 5 * [string length $str]}]
+    return "hsl($hue,$saturation%,$lightness%)"
+}
+
+When /page/ is a part of a pile of pages & /page/ has region /r/ & the clock time is /time/ {
+ # take table X & Y position and animate it
+ # across 2 seconds / (n pages / HEIGHT)
+ # so that you get a reactive page
+ # oh also can do idempotent outline colors with
+ #   tag ID → hsl color for outline :)
+ #  - hmmm, maybe bummp up S & L for when the page is to become "highlighted"?
+    set pageCenter [region centroid $r]
+    lassign $pageCenter x y
+    # Simple rename, makes all the code that follows easier to read
+    set tagID $page
+    set colorFromTag [stringToColor $tagID]
+    if {floor($time) % $x == 0} {
+        # This is the first page in the pile
+        # Move it to the top of the pile
+        # This is the only page that will be visible
+        # So we can make it stand out
+        # We can do this by increasing the saturation and lightness
+        set colorFromTag [stringToColor $tagID]
+    }
+    Wish $tagID has outline $colorFromTag
+}

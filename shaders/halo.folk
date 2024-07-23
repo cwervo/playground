@@ -1,0 +1,56 @@
+#### TODO: solid (0) -> fuzzy (1)
+# TODO: Test this on folk-cwe
+Wish the GPU compiles function "sdSegment" {{vec2 p vec2 a vec2 b fn sdBox} float {
+    vec2 pa = p - a;
+    vec2 ba = b - a;
+    float h = clamp(dot(pa, ba) / dot(ba, ba), 0.0, 1.0);
+    return length(pa - ba * h);
+}}
+
+Wish the GPU compiles function "sdBox" {{vec2 p float radius float fuzzy vec3 haloColor fn sdSegment} vec3 {
+    vec2 P1 = vec2(-0.5, -0.5);
+    vec2 P2 = vec2(0.5, -0.5);
+    vec2 P3 = vec2(0.5, 0.5);
+    vec2 P4 = vec2(-0.5, 0.5);
+
+    // Calculate distances to each line segment
+    float d1 = sdSegment(p, P1, P2);
+    float d2 = sdSegment(p, P2, P3);
+    float d3 = sdSegment(p, P3, P4);
+    float d4 = sdSegment(p, P4, P1);
+    
+    // Get the minimum distance
+    float d = min(min(d1, d2), min(d3, d4));
+    
+    // Apply radius and fuzziness
+    float sdf = smoothstep(radius, radius * (1.0 + fuzzy), d);
+    
+    // Calculate halo color based on distance
+    outColor = mix(haloColor, vec3(0.0), sdf);
+    
+    return sdf;
+}}
+
+Wish the GPU compiles pipeline "$this's triangle" {
+    {vec2 p0 vec2 p1 vec2 p2 float iTime vec2 iResolution} {
+        vec2 vertices[4] = vec2[4](p0, p1, p2, p0);
+        return vertices[gl_VertexIndex];
+    } {fn sdBox fn sdSegment} {
+    vec2 uv = (gl_FragCoord.xy - 0.5 * iResolution.xy) / iResolution.y;
+    
+    float radius = 0.05;
+    float fuzzy = 0.25 + sin(iTime* 0.01);
+    vec3 haloColor = vec3(1.0, 0.5, 0.2);
+    
+    vec3 color;
+    float d = sdBox(uv, radius, fuzzy, haloColor, color);
+    
+    return vec4(color, 1.0);
+    }
+}
+
+Wish $this is outlined blue
+When $this has region /r/ & the clock time is /t/ {
+    set r' [region move $r down 100%]
+    Wish the GPU draws pipeline "$this's triangle" with arguments [list {*}[lrange [region vertices ${r'}] 0 2] [fmod $t 16384] [list [region width $r] [region height $r]]]
+}

@@ -1,0 +1,10 @@
+When the clock time is /t/ {
+  set opacity [expr {1 + sin($t)}]
+  Wish $this is titled $opacity
+  Wish $this draws a circle with radius 120 color "rgba(100,0,5,$opacity)" filled true
+}
+
+When $this has program code /c/ {
+  Wish $this is outlined green
+  Wish $this has halo message "\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n$c"
+}

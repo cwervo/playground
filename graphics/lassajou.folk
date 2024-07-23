@@ -1,0 +1,6 @@
+# TODO: Add a description, tie to real lissajous curves
+When the clock time is /t/ {
+  for {set i 0} {$i < 50} {incr i} {
+    Wish $this draws a circle with offset [list [expr {sin($i * 115 + sin($t)) * 300}] [expr {cos($i * 120+ cos($t)) * 300}]] filled false
+  }
+}
