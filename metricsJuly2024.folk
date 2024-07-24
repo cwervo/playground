@@ -1,9 +1,10 @@
 Commit { Claim $this has metrics { \
   time 0 \
   branch ___ \
-  commit {time 0 description ___} \
+  hold {time 0 description ___} \
   uptime 0 \
   fps "00 fps" \
+  steptime {ms 00 fps 00}
 }}
 
 #### TODO:
@@ -13,38 +14,31 @@ Commit { Claim $this has metrics { \
     #     4. description of last commit, etc
     #     5. uptime
 
-Wish Markdown text "\n\
-  # Metrics
-- you know, new metrics!
-- from https://github.com/FolkComputer/folk/issues/59\n\
-" is drawn above $this
-
-When /someone/ wishes Markdown text /mdText/ is drawn above /page/ & /page/ has region /r/ {
+When $this has region /r/ {
   set center [region centroid $r]
-  # TODO: replace with this drawing the whole block of text clear above the page
-  Wish $page is titled "METRICS"
-  Wish $page is labelled $mdText
+  Wish $this is titled "METRICS"
 
   When the clock time is /t/ & $this has metrics /metricsDict/ {
-    if {round($t) % 5 == 0} {
-      # update time info
       Commit { Claim $this has metrics [dict create \
          time $t \
          branch [lindex [split [exec git status] "\n"] 0] \
-         commit { time [exec git log -1 --format=%cd] description [exec git log -1 --format=%s] } \
+         hold { time [exec git log -1 --format=%cd] description [exec git log -1 --format=%s] } \
          uptime [exec uptime -p] \
          fps [regsub {.*\(([0-9]+ fps)\).*} $::displayTime {\1}] \
+         steptime [dict create ms [regsub {.*\(([0-9]+ ms)\).*} $::cameraTime {\1}] fps [regsub {.*\(([0-9]+ fps)\).*} $::cameraTime {\1}]] \
       ]}
-    }
-
+    Wish $this is labelled "\n\ncameraTime: $::cameraTime"
     Wish $this is labelled [string trim "
       Metrics
       ----
-      Folk clock time: $t ms
-            Step time: $::stepTime ms
+      Folk clock time: [format %-12s [dict get $metricsDict time]]
+            Step time: [dict get $metricsDict steptime] 
           Camera time: $::cameraTime ms
         AprilTag time: $::aprilTime 
-                  FPS: [dict get $metricsDict fps] 
-      "]
+                  FPS: [dict get $metricsDict fps]
+             Uptime: [dict get $metricsDict uptime]
+       [dict get $metricsDict branch]
+      "] with font VictorMonoRegular
+Wish $this is labelled "beep" with font NeomatrixCode
   }
 }
