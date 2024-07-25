@@ -40,10 +40,8 @@ When $this has region /r/ {
  
         Most recent commit:
         -------------------
+        #[exec git rev-parse --short HEAD]
         [dict get $metricsDict commit time] [dict get $metricsDict commit description]
-
-        $::cameraTime
-        $::aprilTime
       " with font VictorMonoRegular
   }
 }
