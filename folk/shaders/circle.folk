@@ -1,0 +1,40 @@
+Wish the GPU compiles function "circle" {{vec2 _st float _radius} float {
+    vec2 dist = _st-vec2(0.5);
+    return 1. - smoothstep(_radius-(_radius*0.01),
+                         _radius+(_radius*0.01),
+                         dot(dist,dist)*4.0);
+}}
+
+Wish the GPU compiles pipeline "$this's circle" {
+  { vec2 p0 vec2 p1 vec2 p2 vec2 p3 float u_time vec2 u_resolution vec2 u_size} {
+    vec2 vertices[4] = vec2[4](p1, p0, p2, p3);
+
+    return vertices[gl_VertexIndex];
+  } {fn circle} {
+    vec2 st = gl_FragCoord.xy/u_resolution.xy;
+        vec2 pos = (gl_FragCoord.xy - p1);
+        vec2 uv = (pos-0.5*u_size)/u_size.y;
+
+        // light green background
+        vec3 color = vec3(0.5, 0.5, 0.25);
+        color += vec3(circle(st,0.1) * vec3(1.,0.,0.5));
+        // color += vec3(circle(st * 0.25,0.1));
+        // color += vec3(circle(uv,0.01));
+
+    return vec4( color, 1.0 );
+  }
+}
+
+When the clock time is /t/ {
+    When $this has region /r/ { 
+        set r' [region move $r left 100%]
+        set size [list [expr {round([region width $r])}] [expr {round([region height $r])}]]
+        # page level shader
+        set extents [region vertices ${r'}]
+        # full screen level shader
+        # set extents [list [list $::Display::WIDTH 0] [list 0 0] [list 0 $::Display::HEIGHT] [list $::Display::WIDTH $::Display::HEIGHT]]
+        Wish the GPU draws pipeline "$this's circle" with arguments [list {*}$extents [fmod $t 2] [list $Display::WIDTH $Display::HEIGHT] $size] layer 1
+    }
+}
+
+Wish $this is outlined magenta

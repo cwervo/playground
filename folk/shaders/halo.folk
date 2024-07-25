@@ -1,5 +1,22 @@
 #### TODO: solid (0) -> fuzzy (1)
 # TODO: Test this on folk-cwe
+
+####### Errors with:
+# Jul 25 17:59:41 folk0 make[438582]: Wrong number of arguments to encodeArgs9
+# Jul 25 17:59:41 folk0 make[438582]:     while executing
+# Jul 25 17:59:41 folk0 make[438582]: "encodeArgs[Pipeline id $pipeline] {*}$args"
+# Jul 25 17:59:41 folk0 make[438582]:     (procedure "Gpu::draw" line 5)
+# Jul 25 17:59:41 folk0 make[438582]:     invoked from within
+# Jul 25 17:59:41 folk0 make[438582]: "{*}$displayCommand "
+# Jul 25 17:59:41 folk0 make[438582]:     ("try" body line 1)
+# Jul 25 17:59:41 folk0 make[438582]: Wrong number of arguments to encodeArgs9
+# Jul 25 17:59:41 folk0 make[438582]:     while executing
+# Jul 25 17:59:41 folk0 make[438582]: "encodeArgs[Pipeline id $pipeline] {*}$args"
+# Jul 25 17:59:41 folk0 make[438582]:     (procedure "Gpu::draw" line 5)
+# Jul 25 17:59:41 folk0 make[438582]:     invoked from within
+# Jul 25 17:59:41 folk0 make[438582]: "{*}$displayCommand "
+# Jul 25 17:59:41 folk0 make[438582]:     ("try" body line 1)
+
 Wish the GPU compiles function "sdSegment" {{vec2 p vec2 a vec2 b fn sdBox} float {
     vec2 pa = p - a;
     vec2 ba = b - a;
