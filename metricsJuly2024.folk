@@ -1,18 +1,15 @@
 Commit { Claim $this has metrics { \
   time 0 \
   branch ___ \
-  hold {time 0 description ___} \
+  commit {time 0 description ___} \
   uptime 0 \
   fps "00 fps" \
-  steptime {ms 00 fps 00}
+  step {us 00 fps 00}
 }}
 
-#### TODO:
-    #     1. stable text position (keep all lines from varying width over time, zero-pad numbers where needed)
-    #     2. current git branch
-    #     3. time of last commit
-    #     4. description of last commit, etc
-    #     5. uptime
+proc leftpad {number {width 5}} {
+    return [format "%0${width}d" [expr {round($number)}]]
+}
 
 When $this has region /r/ {
   set center [region centroid $r]
@@ -22,23 +19,31 @@ When $this has region /r/ {
       Commit { Claim $this has metrics [dict create \
          time $t \
          branch [lindex [split [exec git status] "\n"] 0] \
-         hold { time [exec git log -1 --format=%cd] description [exec git log -1 --format=%s] } \
+         commit [dict create time [exec git log -1 --format=%cd] description [exec git log -1 --format=%s]] \
          uptime [exec uptime -p] \
          fps [regsub {.*\(([0-9]+ fps)\).*} $::displayTime {\1}] \
-         steptime [dict create ms [regsub {.*\(([0-9]+ ms)\).*} $::cameraTime {\1}] fps [regsub {.*\(([0-9]+ fps)\).*} $::cameraTime {\1}]] \
+         step [dict create \
+            us [regsub {^render\s+(\d+)\s+us.*} $::displayTime {\1}] \
+            fps [regsub {.*\((\d+)\s+fps\).*} $::displayTime {\1}] \
+        ] \
       ]}
-    Wish $this is labelled "\n\ncameraTime: $::cameraTime"
-    Wish $this is labelled [string trim "
-      Metrics
-      ----
-      Folk clock time: [format %-12s [dict get $metricsDict time]]
-            Step time: [dict get $metricsDict steptime] 
-          Camera time: $::cameraTime ms
-        AprilTag time: $::aprilTime 
-                  FPS: [dict get $metricsDict fps]
-             Uptime: [dict get $metricsDict uptime]
-       [dict get $metricsDict branch]
-      "] with font VictorMonoRegular
-Wish $this is labelled "beep" with font NeomatrixCode
+
+    Wish $this is labelled "\n
+      ==== Metrics ====
+      Folk clock time: [leftpad [dict get $metricsDict time] 8]
+            Step time: ([leftpad [dict get $metricsDict step fps] 3] fps) | ([leftpad [dict get $metricsDict step us]] us)
+          Camera time: ??? us
+        AprilTag time: ??? us
+               Uptime: [dict get $metricsDict uptime]
+
+        [dict get $metricsDict branch]
+ 
+        Most recent commit:
+        -------------------
+        [dict get $metricsDict commit time] [dict get $metricsDict commit description]
+
+        $::cameraTime
+        $::aprilTime
+      " with font VictorMonoRegular
   }
 }
