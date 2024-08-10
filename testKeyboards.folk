@@ -1,0 +1,18 @@
+Wish $this is outlined thick white
+Wish $this is titled "Key monitor"
+
+When keyboard /k/ claims key /key/ is down with timestamp /any/ {
+  Wish $this is labelled "$k | $key| $any"
+}
+
+When keyboard /k/ claims key /key/ is down with timestamp /any/ printable /p/ {
+  Wish $this is labelled "$k | $key| $any | PRINTABLE"
+}
+
+When /someone/ claims /id/ sees key /key/ {
+  Wish $this is labelled "sees: $key"
+}
+
+When $this has program code /c/ {
+  Wish $this is labelled "\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n$c"
+}

@@ -1,0 +1,65 @@
+# ================================
+# V1: With labelling
+# ================================
+Commit c { Claim $this has seen 0 committed boops }
+Hold h { Claim $this has seen 0 held boops }
+
+Every time there is a committed boop & $this has seen /n/ committed boops {
+  Commit c { Claim $this has seen [expr {$n + 1}] committed boops }
+}
+
+Every time there is a held boop & $this has seen /n/ held boops {
+  Hold h { Claim $this has seen [expr {$n + 1}] held boops }
+}
+
+When the clock time is /t/ {
+  Commit c {
+    Claim there is a committed boop
+  }
+  Hold h {
+    Claim there is a held boop
+  }
+}
+
+When $this has seen /n/ committed boops {
+  Wish $this is labelled "committed boops: $n"
+  # puts "this has $n committed boops"
+}
+
+When $this has seen /n/ held boops {
+  Wish $this has is labelled "held boops: $n"
+  # puts "this has $n held boops"
+}
+
+# ================================
+# V0: With halo messages
+# ================================
+Commit c { Claim $this has seen 0 committed boops }
+Hold h { Claim $this has seen 0 held boops }
+
+Every time there is a committed boop & $this has seen /n/ committed boops {
+  Commit c { Claim $this has seen [expr {$n + 1}] committed boops }
+}
+
+Every time there is a held boop & $this has seen /n/ held boops {
+  Hold h { Claim $this has seen [expr {$n + 1}] held boops }
+}
+
+When the clock time is /t/ {
+  Commit c {
+    Claim there is a committed boop
+  }
+  Hold h {
+    Claim there is a held boop
+  }
+}
+
+When $this has seen /n/ committed boops {
+  Wish $this has halo message "    committed : $n"
+  puts "this has $n committed boops"
+}
+
+When $this has seen /n/ held boops {
+  Wish $this has halo message "           held  : $n"
+  puts "this has $n held boops"
+}

@@ -1,0 +1,66 @@
+# http://folk0.local:4273/page/1049
+# 20240727: On the osnr/checkerboard-calibration branch this fails
+#           because the virtual regions don't inherently have quad information.
+#           Should look at the camera slice implementation in
+#           virtual-programs/images.folk to see how to get the quad information.
+set N_FRAMES 5
+ 
+ When $this has camera slice /s/ {
+    Wish $this is titled "Has camera slice"
+ }
+
+ When camera /cam/ has intrinsics /cameraIntrinsics/ {
+   Wish $this is titled "$cam has intrinsics: $cameraIntrinsics"
+ }
+
+When camera /cam/ has frame /f/ at timestamp /timestamp/ {
+    Wish $this is titled "$cam has frame $f at $timestamp"
+}
+When /p/ has quad /q/ {
+    Wish $this is titled "$p has quad $q"
+}
+
+When $this has region /r/ {
+    set display [region scale [region move $r down 75%] 45%]
+    Claim $this has display $display
+}
+
+When $this has display /d/ & fps is /FPS/ {
+     Wish $this is labelled $FPS
+    for {set i 1} {$i <= $N_FRAMES} {incr i} {
+ 
+        # Define N capture regions
+        Claim frame-${i} has region [region move $d right ${i}00%]
+        Wish frame-${i} is outlined red
+
+        # Cycle between displaying each frame based on clock
+        When the clock time is /t/ { Wish $this is titled "debugging: $t"}
+        When frame-${i} has camera slice /slice/ {
+          Wish frame-${i} is labelled "has slice"
+        }
+
+        When the clock time is /t/ & frame-${i} has camera slice /slice/ {
+            Wish $this is titled "fps * time: [expr {round($t * $FPS)}]"
+            if {round($t * $FPS) % $N_FRAMES == ($i - 1)} {
+ 
+                Wish frame-$i is outlined green
+                set c [region centroid $d]
+                Wish to draw an image with center $c image $slice radians 3.1459 scale 3
+            }
+        }
+    }
+}
+
+##########
+
+# Works with this FPS code:
+# http://folk0.local:4273/page/791
+
+Wish $this is outlined red
+
+When $this has region /r/ {
+  set angle [region angle $r]
+  set fps [expr {int(15 * abs($angle) / 3.14159)}]
+  Wish $this is labelled $fps
+  Claim fps is $fps
+}
