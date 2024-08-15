@@ -1,0 +1,94 @@
+# (20240914) Notes from Omar:
+# RAM usage out of random
+# TODO: watchdog based on RAM?
+
+Wish $this is titled "desksaver"
+Wish $this is outlined white
+
+proc emitHTMLForProgramList {programList label} {
+    set returnList [list "<details><summary>$label ([llength $programList])</summary>"]
+    foreach item $programList {
+        lappend returnList "<li>$item</li>"
+    }
+    lappend returnList "</details>"
+    puts "ret is: $returnList"
+    puts "============ [exec uptime -p] ============"
+
+    join $returnList
+}
+
+When the collected matches for [list /page/ has program code /code/] are /matches/ {
+    set ::displayString "<div class=fullwidth>There are [llength $matches] programs running.</div>"
+    Wish $this is labelled $::displayString
+    set ::matches $matches
+
+    set vp [list]  ; # virtual programs
+    set cp [list]  ; # core programs
+    set wp [list]  ; # web programs
+    set rp [list]  ; # real programs
+
+    foreach match $::matches {
+        set page [dict get $match page]
+        puts "page: $page"
+        switch -glob $page {
+            "virtual-programs/*" {
+                puts "encountered a VP"
+                lappend vp $page
+            }
+            "setup.folk.default" {
+                puts "encountered a CP"
+                lappend cp $page
+            }
+            "web-program-*" {
+                puts "encountered a WP"
+                lappend wp $page
+            }
+            default {
+                puts "encountered an RP $page"
+                lappend rp $page
+            }
+        }
+    }
+
+    set ::vp $vp
+    set ::cp $cp
+    set ::wp $wp
+    set ::rp $rp
+
+
+    Wish the web server handles route "/programs" with handler {
+        set debug false
+
+        set progList [list]
+        # go through ::matches and actually split it into 3 lists:
+        #   - vp (virtual programs, start with 'virtual-programs/')
+        #   - cp (core programs, 'setup.folk.default' for now, could extend this further)
+        #   - wp (web programs, start with 'web-program-')
+        #   - rp (real programs)
+        foreach match $::matches {
+            lappend progList "<li>[dict get $match page]</li>"
+        }
+
+        html "<style>body { font-family: sans-serif; } summary { font-family: math; font-size: 3em; } </style>\n\n\n \
+        <h1>Good (change this to morning, afternoon, evening, night).</br>Here are the programs currently running on hostName:</h1> \
+        <h2>[llength $progList] total programs</h2> \
+
+        <ul>[expr {$debug ? $progList : "Intentionally left blank."}]</ul>
+        
+        [expr {true ? [emitHTMLForProgramList $::vp "Virtual Programs:"] : "(vp would go here)"}]
+        [expr {true? [emitHTMLForProgramList $::cp "Core Programs:"] : "(cp would go here)"}]
+        [expr {true ? [emitHTMLForProgramList $::wp "Web Programs:"] : "(wp would go here)"}]
+        [expr {true? [emitHTMLForProgramList $::rp "Real Programs:"] : "(rp would go here)"}]
+
+        "
+    }
+
+    Wish the web server handles route "/codes$" with handler [list Evaluator::tryRunInSerializedEnvironment {
+    } [Evaluator::serializeEnvironment]]
+}
+
+return
+# This crashes ...
+When the collected matches for [list /page/ has program code /code/] are /matches/ {
+   Wish $this is labelled [join $matches "\n"]
+}
