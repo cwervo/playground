@@ -1,0 +1,105 @@
+Wish $this is titled "Dot detector"
+
+# Dot detector using OpenCV
+
+            puts stdout "dots: starting dot detection \n====================="
+ 
+set makeDotDetector {{} {
+    set detector DotDetector
+    namespace eval $detector {
+ 
+        set cc [c create]
+ 
+        $cc cflags -I$::env(HOME)/opencv
+        $cc include <stdio.h>
+        $cc include <stdlib.h>
+        $cc include <assert.h>
+        $cc include "$::env(HOME)/ocv4/OpenCVWrapper.h"
+ 
+        ::defineImageType $cc
+        $cc import ::Heap::cc folkHeapAlloc as folkHeapAlloc
+        $cc import ::Heap::cc folkHeapFree as folkHeapFree
+ 
+        $cc proc detect {image_t gray} Tcl_Obj* {
+            assert(gray.components == 1);
+            cv_image_t im = (cv_image_t) { .width = gray.width, .height = gray.height, .components = gray.components, .bytesPerRow = gray.bytesPerRow, .data = gray.data };
+ 
+            int max_count = 100;
+            cv_keypoint_t* detections = (cv_keypoint_t*)malloc(sizeof(cv_keypoint_t)*max_count);
+ 
+            int detectionCount = cvSimpleBlobDetector(im, detections, max_count, true);
+ 
+            Tcl_Obj* detectionObjs[detectionCount];
+            for (int i = 0; i < detectionCount; i++) {
+                cv_keypoint_t* det = &detections[i];
+ 
+                detectionObjs[i] = Tcl_ObjPrintf("center {%f %f} radius %f",
+                                                 det->x, det->y, det->radius);
+            }
+            free(detections);
+            Tcl_Obj* result = Tcl_NewListObj(detectionCount, detectionObjs);
+            return result;
+        }
+ 
+        c loadlib $::env(HOME)/ocv4/libopencvwrapper.so
+        $cc compile
+ 
+        namespace export *
+        namespace ensemble create
+ 
+    }
+ 
+    return $detector
+}}
+
+# Plain detector. Runs on entire camera frame.
+set detectorProcess [Start process {
+    set detector [apply $makeDotDetector]
+    
+    Wish $::thisProcess shares statements like \
+        [list /someone/ claims /process/ detects dots /dots/ at /timestamp/ in time /dotTime/]
+    Wish $::thisProcess receives statements like \
+        [list /someone/ claims camera /cam/ has frame /grayFrame/ at timestamp /timestamp/]
+    Wish $::thisProcess receives statements like \
+        [list /someone/ claims camera /cam/ has frame /grayFrame/ at timestamp /timestamp/]
+    Wish $::thisProcess receives statements like \
+        [list /someone/ claims display /proj/ has width /projWidth/ height /projHeight/]
+    Wish $::thisProcess receives statements like \
+        [list /someone/ claims display /proj/ has intrinsics /projectorIntrinsics/]
+ 
+    When camera /cam/ has frame /grayFrame/ at timestamp /timestamp/ &\
+         display /proj/ has width /projWidth/ height /projHeight/ &\
+         display /proj/ has intrinsics /projectorIntrinsics/ {
+        
+        set dotTime [time {
+            set cameraDots [$detector detect $grayFrame]
+            # Transform camera coordinates to projector coordinates
+            set dots [lmap dot $cameraDots {
+                set center [dict get $dot center]
+                set projectedCenter [intrinsics project $projectorIntrinsics \
+                    $projWidth $projHeight $center]
+                dict create center $projectedCenter radius [dict get $dot radius]
+            }]
+        }]
+
+            puts stdout "dots: $cameraDots"
+            
+        Claim $::thisProcess detects dots $dots at $timestamp in time $dotTime
+    }
+}]
+ 
+ 
+When /someone/ detects dots /dots/ at /timestamp/ in time /dotTime/ & \
+   /obj/ has region /region/ {
+ 
+    puts stdout "dots: $dots"
+    set contained [list ]
+    foreach dot $dots {
+        if {[region contains $region [dict get $dot center]]} {
+            lappend contained $dot
+        }
+    }
+    if {[llength $contained] > 0} {
+        Claim $obj contains dots $contained
+    }
+}

@@ -1,0 +1,49 @@
+Hold { Claim $this has value 0 }
+ 
+Wish $this is outlined white
+ 
+When $this has region /r/ {
+ 
+  set width [region width $r]
+  set height [region height $r]
+ 
+  if {$width > $height} {
+    set maxdim $width
+    set base "left"
+    set dir "left"
+  } else {
+    set maxdim $height
+    set base "bottom"
+    set dir "down"
+  }
+ 
+  set origin [region $base $r]
+ 
+  When $this contains dots /dots/ {
+    if {[llength $dots] == 1} {
+ 
+      set angle [* -1 [region angle $r]]
+      # Calculate position of dot in region space
+      set dot [dict get [lindex $dots 0] center]
+      set rel [::vec2 rotate [::vec2 sub $dot $origin] $angle]
+ 
+      set idx [expr {$width > $height ? 0 : 1 }]
+      # Calculate the fraction of the width indicated by the dot
+      set frac [expr {abs([lindex $rel $idx]) / $maxdim}]
+ 
+      Hold { Claim $this has value $frac }
+    }
+  }
+ 
+  When $this has value /v/ {
+ 
+    set shift [expr {(1 - $v) * ($maxdim / 2)}]
+    set scale [expr {$v * 100}]
+    set dim [expr {$width > $height ? "width" : "height"}]
+    set slider [region move [region scale $r $dim ${scale}%] $dir ${shift}px]
+ 
+    Wish to draw a polygon with points [region vertices $slider] color rgba(255,255,255,0.1)
+ 
+    Wish $this is labelled [expr {round($v)}]
+  }
+}
