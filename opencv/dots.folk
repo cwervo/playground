@@ -1,8 +1,5 @@
-Wish $this is titled "Dot detector"
-
 # Dot detector using OpenCV
-
-            puts stdout "dots: starting dot detection \n====================="
+puts stdout "dots: starting dot detection \n====================="
  
 set makeDotDetector {{} {
     set detector DotDetector
@@ -52,10 +49,103 @@ set makeDotDetector {{} {
     return $detector
 }}
 
+
+# example data:
+# [list [list -0.173 0.095] [list 0.043 0.095] [list 0.043 -0.043] [list -0.173 -0.043]] [list [list 1961.0783790892763 333.1175206880423] [list 1300.4097758026242 334.61735664731464] [list 1315.6754562021322 783.5715754563178] [list 1956.3831630394243 765.3932420176845]]
+# solvePGauss [list [list -0.173 0.095] [list 0.043 0.095] [list 0.043 -0.043] [list -0.173 -0.043]] [list [list 1961.0783790892763 333.1175206880423] [list 1300.4097758026242 334.61735664731464] [list 1315.6754562021322 783.5715754563178] [list 1956.3831630394243 765.3932420176845]]
+# -------
+# x leastSquares:
+# leastSquaresSVD [list [list -0.173 0.095] [list 0.043 0.095] [list 0.043 -0.043] [list -0.173 -0.043]] [list 1961.0783790892763 1300.4097758026242 1315.6754562021322 1956.3831630394243]
+# evals to:
+# -8341.972311581463 5184.4363279866175
+# -----
+# y leastSquares:
+# leastSquaresSVD [list [list -0.173 0.095] [list 0.043 0.095] [list 0.043 -0.043] [list -0.173 -0.043]] [list 333.1175206880423 334.61735664731464 783.5715754563178 765.3932420176845]
+# evals to:
+# -2326.032524939078 -868.7995987268417
+# next multiply these x's and y's by the pixel coordinates and you should get meters coordinates
+# [list [list -8341.972311581463 -2326.032524939078] [list 5184.4363279866175 -868.7995987268417]]
+# [orignialthing] [list -2326.032524939078 -868.7995987268417]
+
 # Plain detector. Runs on entire camera frame.
 set detectorProcess [Start process {
+    package require math::linearalgebra
+    foreach p { transpose matmul sub leastSquaresSVD shape} {
+        namespace import ::math::linearalgebra::$p
+    }
+
+    set cc [c create]
+
+    # Represents camera or projector intrinsics, including the classic
+    # intrinsic matrix but also dimensions at which the matrix was created
+    # + distortion coefficients.
+    #
+    # Intrinsic matrix:
+    #   fx  s   cx
+    #   0   fy  cy
+    #   0   0    1
+    $cc struct Intrinsics {
+        double width;
+        double height;
+
+        double fx;
+        double fy;
+        double cx;
+        double cy;
+        double s;
+
+        double k1;
+        double k2;
+    }
+
+    namespace eval intrinsics {
+        set cc [uplevel {set cc}]
+        $cc proc distort {double fx double fy double cx double cy
+                        double k1 double k2
+                        double xy[2] double out[2]} void {
+            double x = (xy[0] - cx)/fx;
+            double y = (xy[1] - cy)/fy;
+            double r2 = x*x + y*y;
+            double D = k1 * r2 + k2 * r2*r2;
+            out[0] = (x * (1.0 + D))*fx + cx;
+            out[1] = (y * (1.0 + D))*fy + cy;
+        }
+        $cc proc project {Intrinsics intr double width double height
+                        double[3] v} Tcl_Obj* {
+            double out[3] = {
+                v[0]*intr.fx +  v[1]*intr.s + v[2]*intr.cx,
+                        0 + v[1]*intr.fy + v[2]*intr.cy,
+                        0 +            0 + v[2]
+            };
+            out[0] /= out[2]; out[1] /= out[2];
+            distort(intr.fx, intr.fy, intr.cx, intr.cy,
+                    intr.k1, intr.k2,
+                    out, out);
+            out[0] *= width / intr.width;
+            out[1] *= height / intr.height;
+            Tcl_Obj* retObjs[2] = { Tcl_NewDoubleObj(out[0]), Tcl_NewDoubleObj(out[1]) };
+            return Tcl_NewListObj(2, retObjs);
+        }
+        namespace export *
+        namespace ensemble create
+    }
+    $cc compile
+
     set detector [apply $makeDotDetector]
     
+    Wish $::thisProcess receives statements like \
+        [list /someone/ wishes /dotDetector/ to detect dots]
+    Wish $::thisProcess shares statements like \
+        [list /someone/ claims /dotDetector/ detects dots]
+
+    Wish $::thisProcess receives statements like \
+        [list /someone/ claims /thing/ has region /r/]
+    Wish $::thisProcess receives statements like \
+        [list /someone/ claims /thing/ has quad /q/]
+    Wish $::thisProcess shares statements like \
+        [list /someone/ wishes /thing/ is labelled /label/]
+
+
     Wish $::thisProcess shares statements like \
         [list /someone/ claims /process/ detects dots /dots/ at /timestamp/ in time /dotTime/]
     Wish $::thisProcess receives statements like \
@@ -66,34 +156,70 @@ set detectorProcess [Start process {
         [list /someone/ claims display /proj/ has width /projWidth/ height /projHeight/]
     Wish $::thisProcess receives statements like \
         [list /someone/ claims display /proj/ has intrinsics /projectorIntrinsics/]
- 
+
     When camera /cam/ has frame /grayFrame/ at timestamp /timestamp/ &\
-         display /proj/ has width /projWidth/ height /projHeight/ &\
-         display /proj/ has intrinsics /projectorIntrinsics/ {
+        display /proj/ has width /projWidth/ height /projHeight/ &\
+        display /proj/ has intrinsics /projectorIntrinsics/ &\
+        /someone/ wishes /dotDetector/ to detect dots &\
+        /dotDetector/ has region /region/ &\
+        /dotDetector/ has quad /q/ {
+
+        Wish $dotDetector is labelled "triggered dots.folk"
+        set cameraDots [$detector detect $grayFrame]
+
+        # Get reference points from region and quad
+        set points2D [lindex $region 0]   # Camera space corners
+        set points3D [lindex $q 1]        # Reference space corners
+
+        # Extract x and y coordinates separately to solve for transformation
+        set xCoords {}
+        set yCoords {}
+        foreach point $points2D {
+            lappend xCoords [lindex $point 0]
+            lappend yCoords [lindex $point 1]
+        }
+
+        # Find transformations for x and y coordinates
+        # Each row in points3D gives us coefficients for the transformation
+        set xTransform [leastSquaresSVD $points3D $xCoords]
+        set yTransform [leastSquaresSVD $points3D $yCoords]
         
+        set converter [list $xTransform $yTransform]
+
         set dotTime [time {
             set cameraDots [$detector detect $grayFrame]
-            # Transform camera coordinates to projector coordinates
             set dots [lmap dot $cameraDots {
                 set center [dict get $dot center]
-                set projectedCenter [intrinsics project $projectorIntrinsics \
-                    $projWidth $projHeight $center]
-                dict create center $projectedCenter radius [dict get $dot radius]
+                # Transform each detected point using our solved coefficients
+                mult $converter $center
             }]
         }]
 
-            puts stdout "dots: $cameraDots"
-            
+        puts stdout "dots (detectorProcess): $cameraDots"
         Claim $::thisProcess detects dots $dots at $timestamp in time $dotTime
-    }
+}
 }]
+
+# When /someone/ wishes /dotDetector/ to detect dots & \
+#     /dotDetector/ has region /region/ & \
+#     /dotDetector/ has quad /q/ {
+#         Claim $dotDetector detects dots 
+#         Wish $dotDetector is labelled "triggered dots.folk"
+# }
+
  
- 
+# Goal: get $dotDetector's presence to trigger the dot detector process
 When /someone/ detects dots /dots/ at /timestamp/ in time /dotTime/ & \
-   /obj/ has region /region/ {
- 
-    puts stdout "dots: $dots"
-    set contained [list ]
+   /obj/ has region /region/ & /obj/ has quad /q/ {
+    # need:
+    # t - tag in real-world coordinates
+    # c - center of dot in pixel coordinates
+    # t_pix - tag corners in pixel coordinates
+    # puts "quad coords: $q"
+    if {[llength $dots] > 0} {
+        puts stdout "dots: $dots"
+    }
+    set contained [list]
     foreach dot $dots {
         if {[region contains $region [dict get $dot center]]} {
             lappend contained $dot
