@@ -49,28 +49,10 @@ set makeDotDetector {{} {
     return $detector
 }}
 
-
-# example data:
-# [list [list -0.173 0.095] [list 0.043 0.095] [list 0.043 -0.043] [list -0.173 -0.043]] [list [list 1961.0783790892763 333.1175206880423] [list 1300.4097758026242 334.61735664731464] [list 1315.6754562021322 783.5715754563178] [list 1956.3831630394243 765.3932420176845]]
-# solvePGauss [list [list -0.173 0.095] [list 0.043 0.095] [list 0.043 -0.043] [list -0.173 -0.043]] [list [list 1961.0783790892763 333.1175206880423] [list 1300.4097758026242 334.61735664731464] [list 1315.6754562021322 783.5715754563178] [list 1956.3831630394243 765.3932420176845]]
-# -------
-# x leastSquares:
-# leastSquaresSVD [list [list -0.173 0.095] [list 0.043 0.095] [list 0.043 -0.043] [list -0.173 -0.043]] [list 1961.0783790892763 1300.4097758026242 1315.6754562021322 1956.3831630394243]
-# evals to:
-# -8341.972311581463 5184.4363279866175
-# -----
-# y leastSquares:
-# leastSquaresSVD [list [list -0.173 0.095] [list 0.043 0.095] [list 0.043 -0.043] [list -0.173 -0.043]] [list 333.1175206880423 334.61735664731464 783.5715754563178 765.3932420176845]
-# evals to:
-# -2326.032524939078 -868.7995987268417
-# next multiply these x's and y's by the pixel coordinates and you should get meters coordinates
-# [list [list -8341.972311581463 -2326.032524939078] [list 5184.4363279866175 -868.7995987268417]]
-# [orignialthing] [list -2326.032524939078 -868.7995987268417]
-
 # Plain detector. Runs on entire camera frame.
 set detectorProcess [Start process {
     package require math::linearalgebra
-    foreach p { transpose matmul sub leastSquaresSVD shape} {
+    foreach p { transpose matmul sub leastSquaresSVD shape dotproduct} {
         namespace import ::math::linearalgebra::$p
     }
 
@@ -138,6 +120,9 @@ set detectorProcess [Start process {
     Wish $::thisProcess shares statements like \
         [list /someone/ claims /dotDetector/ detects dots]
 
+    Wish $::thisProcess shares statements like \
+        [list /someone/ wishes to draw a circle with center /c/ radius /r/ filled /fill/ color /color/ thickness /thickness/]
+
     Wish $::thisProcess receives statements like \
         [list /someone/ claims /thing/ has region /r/]
     Wish $::thisProcess receives statements like \
@@ -165,49 +150,96 @@ set detectorProcess [Start process {
         /dotDetector/ has quad /q/ {
 
         Wish $dotDetector is labelled "triggered dots.folk"
-        set cameraDots [$detector detect $grayFrame]
-
-        # Get reference points from region and quad
-        set points2D [lindex $region 0]   # Camera space corners
-        set points3D [lindex $q 1]        # Reference space corners
-
-        # Extract x and y coordinates separately to solve for transformation
-        set xCoords {}
-        set yCoords {}
-        foreach point $points2D {
-            lappend xCoords [lindex $point 0]
-            lappend yCoords [lindex $point 1]
-        }
-
-        # Find transformations for x and y coordinates
-        # Each row in points3D gives us coefficients for the transformation
-        set xTransform [leastSquaresSVD $points3D $xCoords]
-        set yTransform [leastSquaresSVD $points3D $yCoords]
         
-        set converter [list $xTransform $yTransform]
+        set points2D [lindex $region 0]   
+        set points3D [lindex $q 1]        
 
-        set dotTime [time {
-            set cameraDots [$detector detect $grayFrame]
-            set dots [lmap dot $cameraDots {
-                set center [dict get $dot center]
-                # Transform each detected point using our solved coefficients
-                mult $converter $center
-            }]
-        }]
+# Define our resolution constants
+# TODO: make this dyamic, pull from Folk
+set camWidth 1920
+set camHeight 1080
 
-        puts stdout "dots (detectorProcess): $cameraDots"
-        Claim $::thisProcess detects dots $dots at $timestamp in time $dotTime
+# First normalize both our input spaces to 0-1 range
+set x2D {}
+set y2D {}
+foreach point $points2D {
+    # Normalize camera coordinates
+    set x [expr {[lindex $point 0] / double($camWidth)}]
+    set y [expr {[lindex $point 1] / double($camHeight)}]
+    lappend x2D $x
+    lappend y2D $y
 }
+
+# Find the quad's bounds for normalization
+set quadXs {}
+set quadYs {}
+foreach p $points3D {
+    lappend quadXs [lindex $p 0]
+    lappend quadYs [lindex $p 1]
+}
+set quadMinX [tcl::mathfunc::min {*}$quadXs]
+set quadMaxX [tcl::mathfunc::max {*}$quadXs]
+set quadMinY [tcl::mathfunc::min {*}$quadYs]
+set quadMaxY [tcl::mathfunc::max {*}$quadYs]
+set quadWidth [expr {$quadMaxX - $quadMinX}]
+set quadHeight [expr {$quadMaxY - $quadMinY}]
+
+# Create normalized quad coordinates
+set A {}
+foreach p $points3D {
+    set normX [expr {([lindex $p 0] - $quadMinX) / $quadWidth}]
+    set normY [expr {([lindex $p 1] - $quadMinY) / $quadHeight}]
+    lappend A [concat $normX $normY 0 1]
+}
+
+# Solve for transforms in normalized space
+set xTransform [leastSquaresSVD $A $x2D]
+set yTransform [leastSquaresSVD $A $y2D]
+
+set dotTime [time {
+    set cameraDots [$detector detect $grayFrame]
+    set dots [lmap dot $cameraDots {
+        set center [dict get $dot center]
+        
+        # Step 1: Convert camera coordinates to normalized space
+        set normX [expr {[lindex $center 0] / double($camWidth)}]
+        set normY [expr {[lindex $center 1] / double($camHeight)}]
+        set homogCenter [concat $normX $normY 0 1]
+        
+        # Step 2: Apply our transformation in normalized space
+        set newX [dotproduct $xTransform $homogCenter]
+        set newY [dotproduct $yTransform $homogCenter]
+        
+        # Step 3: Scale to projector resolution
+        # This will effectively double our coordinates since projector
+        # resolution is exactly 2x the camera resolution
+        set projX [expr {$newX * $projWidth}]
+        set projY [expr {$newY * $projHeight}]
+        
+        # Add detailed debugging to verify our scaling is working correctly
+        puts stdout "=== Coordinate Transform Debug ==="
+        puts stdout "Camera pixels: $center"
+        puts stdout "Normalized (0-1): [format {%.3f %.3f} $normX $normY]"
+        puts stdout "Transformed: [format {%.3f %.3f} $newX $newY]"
+        puts stdout "Projector pixels: [format {%.1f %.1f} $projX $projY]"
+        
+        # Before returning, verify coordinates are in reasonable range
+        if {$projX < 0 || $projX > $projWidth || $projY < 0 || $projY > $projHeight} {
+            puts stdout "WARNING: Coordinates outside projector bounds!"
+        }
+        
+        dict replace $dot center [list $projX $projY]
+    }]
 }]
 
-# When /someone/ wishes /dotDetector/ to detect dots & \
-#     /dotDetector/ has region /region/ & \
-#     /dotDetector/ has quad /q/ {
-#         Claim $dotDetector detects dots 
-#         Wish $dotDetector is labelled "triggered dots.folk"
-# }
+        puts stdout "Transformed dots: $dots"
+        Claim $::thisProcess detects dots $dots at $timestamp in time $dotTime
+        foreach dot $dots {
+            Wish to draw a circle with center [dict get $dot center] radius [dict get $dot radius] filled true color green thickness 1
+        }
+    }
+}]
 
- 
 # Goal: get $dotDetector's presence to trigger the dot detector process
 When /someone/ detects dots /dots/ at /timestamp/ in time /dotTime/ & \
    /obj/ has region /region/ & /obj/ has quad /q/ {
@@ -217,7 +249,7 @@ When /someone/ detects dots /dots/ at /timestamp/ in time /dotTime/ & \
     # t_pix - tag corners in pixel coordinates
     # puts "quad coords: $q"
     if {[llength $dots] > 0} {
-        puts stdout "dots: $dots"
+        # puts stdout "dots: $dots"
     }
     set contained [list]
     foreach dot $dots {
