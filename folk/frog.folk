@@ -1,0 +1,41 @@
+Wish $this is titled "Origami Frog tutorial"
+Wish $this is outlined gray
+
+# set width 85
+# set height 110
+
+set width 300
+set height 500
+
+set frogTutorialStep 1
+
+switch {$frogTutorialStep} {
+    1 {
+        Wish $this is labelled "Step 1: Place an index card in the box to the right."
+        Wish $this draws a rect with width $width height $height shift left 110%
+    }
+    default {
+        Wish $this is labelled "Need to set `frogTutorialStep`"
+    }
+}
+# TODO: remove the "shift 0%" need
+Wish $this draws a rect with width $width height $height shift left 110%
+
+# TODO: 
+# - figure out how to draw dotted lines, should probably make a dummy region for the page and use that maybe? [region left $frogRegion] ??
+# - figure out stepping mechanism
+
+
+
+# ----------- TODO: ------------
+
+# set frog_tutorial_step 0
+
+# When /nobody/ claims frog tutorial is on step /step/ {
+#     set frog_tutorial_step 1
+# }
+# When /somebody/ claims frog tutorial is on step /step/ {
+#     set frog_tutorial_step $step
+# }
+
+# Wish $this is labelled "step: $step"
