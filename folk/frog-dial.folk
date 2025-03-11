@@ -1,0 +1,6 @@
+When $this has region /r/ {
+    set angle [region angle $r]
+    set step [expr { round(1 * abs($angle / 3.1415)) }]
+    Wish $this is labelled "Frog tutorial step: $step"
+    Claim the frog tutorial step is $step
+}
