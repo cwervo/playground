@@ -11,9 +11,12 @@ set height 500
 set cardX [expr {$width * 1.1}]
 set cardY 0
 
-When /nobody/ claims the frog tutorial step is /fps/ {
+set quarterWidth [expr {$width / 4.0}]
+set quarterHeight [expr {$height / 4.0}]
+
+When /nobody/ claims the frog tutorial step is /fts/ {
     Hold {
-        Claim $fps is 1
+        Claim the frog tutorial step is 5
     }
 }
 
@@ -21,24 +24,23 @@ When /someone/ claims the frog tutorial step is /fts/ & $this has region /r/ {
     set c [region centroid $r]
     set a [region angle $r]
 
+    # Calculate width-based values once
+    set cardWidth [expr {$cardX + $width}]
+    set cardHeight [expr {$cardY + $height}]
 
-# Calculate width-based values once
-set cardWidth [expr {$cardX + $width}]
-set cardHeight [expr {$cardY + $height}]
+    # Define corner coordinates 
+    set topLeft [list $cardX $cardY]
+    set topRight [list $cardWidth $cardY]
+    set botLeft [list $cardX $cardHeight]
+    set botRight [list $cardWidth $cardHeight]
 
-# Define corner coordinates 
-set topLeft [list $cardX $cardY]
-set topRight [list $cardWidth $cardY]
-set botLeft [list $cardX $cardHeight]
-set botRight [list $cardWidth $cardHeight]
+    # Calculate midpoints more directly
+    set rightMidpoint [list $cardWidth [expr {$cardY + $height/2.0}]]
+    set leftMidpoint [list $cardX [expr {$cardY + $height/2.0}]]
+    set midpointTop [list [expr {$cardX + $width/2.0}] $cardY]
 
-# Calculate midpoints more directly
-set rightMidpoint [list $cardWidth [expr {$cardY + $height/2.0}]]
-set leftMidpoint [list $cardX [expr {$cardY + $height/2.0}]]
-set midpointTop [list [expr {$cardX + $width/2.0}] $cardY]
-
-# Center calculation
-set frogCenter [list [expr {$cardX + $width/2.0}] [expr {$cardY + $height/2.0}]]
+    # Center calculation
+    set frogCenter [list [expr {$cardX + $width/2.0}] [expr {$cardY + $height/2.0}]]
 
     # Wish $this draws a set of points [list $topLeft $topRight $botLeft $botRight] with color green radius 8 filled false thickness 5
 
@@ -57,15 +59,31 @@ set frogCenter [list [expr {$cardX + $width/2.0}] [expr {$cardY + $height/2.0}]]
         }
         3 {
             Wish $this is labelled "Step 3: Push the two triangles on the\nright inward to make this house shape."
-            set leftMidpoint [vec2 midpoint $topLeft $botLeft]
             # Wish $this draws a polyline [list $topLeft $topRight $botRight $botLeft $topLeft] with color blue radius 8 filled false thickness 20 layer -1
             Wish $this draws a polyline [list $botRight $botLeft $leftMidpoint $midpointTop $rightMidpoint $botRight] with color white radius 8 filled false thickness 5
         }
         4 {
-            Wish $this is labelled "Step 4: "
-            set leftMidpoint [vec2 midpoint $topLeft $botLeft]
+            Wish $this is labelled "Step 4: Fold the left and right sides\nof the top triangle toward the center."
             # Wish $this draws a polyline [list $topLeft $topRight $botRight $botLeft $topLeft] with color blue radius 8 filled false thickness 20 layer -1
             # TODO: Figure out points for drawing the front-leg-fold lines.
+
+            set leftLeg [vec2 add $frogCenter [list $quarterWidth -$quarterHeight]]
+            set rightLeg [vec2 add $frogCenter [list -$quarterWidth -$quarterHeight]]
+
+            Wish $this draws a polyline [list $frogCenter $leftLeg] with color yellow thickness 5 dashed true dashlength 15 dashoffset 50
+            Wish $this draws a polyline [list $frogCenter $rightLeg] with color yellow thickness 5 dashed true dashlength 15 dashoffset 50
+            Wish $this draws a polyline [list $botRight $botLeft $leftMidpoint $midpointTop $rightMidpoint $botRight] with color white radius 8  thickness 5
+        }
+        5 {
+            Wish $this is labelled "Step 5: ???"
+            # Wish $this draws a polyline [list $topLeft $topRight $botRight $botLeft $topLeft] with color blue radius 8 filled false thickness 20 layer -1
+            # TODO: Figure out points for drawing the front-leg-fold lines.
+
+            set leftLeg [vec2 add $frogCenter [list $quarterWidth -$quarterHeight]]
+            set rightLeg [vec2 add $frogCenter [list -$quarterWidth -$quarterHeight]]
+
+            Wish $this draws a polyline [list $frogCenter $leftLeg] with color yellow thickness 5 dashed true dashlength 15 dashoffset 50
+            Wish $this draws a polyline [list $frogCenter $rightLeg] with color yellow thickness 5 dashed true dashlength 15 dashoffset 50
             Wish $this draws a polyline [list $botRight $botLeft $leftMidpoint $midpointTop $rightMidpoint $botRight] with color white radius 8  thickness 5
         }
         default {
