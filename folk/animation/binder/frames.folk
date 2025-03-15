@@ -1,0 +1,36 @@
+# TODO list
+# [x] Stabilize main region
+# [ ] Add default value for N_FRAMES (1)
+# [ ] Add default value for FPS (0)
+# [ ] Shift frames to the right of this page
+# [ ] Shift output to below this page
+
+set N_FRAMES 5
+
+Wish tag $this is stabilized
+ 
+When $this has region /r/ {
+    set display [region scale [region move $r down 75%] 45%]
+    Claim $this has display $display
+}
+
+
+When $this has display /d/ & fps is /FPS/ {
+     Wish $this is labelled $FPS
+    for {set i 1} {$i <= $N_FRAMES} {incr i} {
+ 
+        # Define N capture regions
+        Claim frame-${i} has region [region move $d right ${i}00%]
+        Wish frame-${i} is outlined red
+
+        # Cycle between displaying each frame based on clock
+        When the clock time is /t/ & frame-${i} has camera slice /slice/ {
+            if {round($t * $FPS) % $N_FRAMES == ($i - 1)} {
+ 
+                Wish frame-$i is outlined green
+                set c [region centroid $d]
+                Wish to draw an image with center $c image $slice radians 3.1459 scale 1
+            }
+        }
+    }
+}

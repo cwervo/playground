@@ -1,4 +1,4 @@
-Wish $this is titled "Origami Frog tutorial"
+Wish $this is labelled "Origami Frog tutorial"
 Wish $this is outlined gray
 
 # TODO: Allow setting this to a US Letter sie of paper as well.
@@ -7,6 +7,11 @@ Wish $this is outlined gray
 set width 300
 set height 500
 
+set scale 1.25
+
+set width [expr {$width * $scale}]
+set height [expr {$height* $scale}]
+
 # Card position - single expression evaluation
 set cardX [expr {$width * 1.1}]
 set cardY 0
@@ -14,11 +19,11 @@ set cardY 0
 set quarterWidth [expr {$width / 4.0}]
 set quarterHeight [expr {$height / 4.0}]
 
-When /nobody/ claims the frog tutorial step is /fts/ {
-    Hold {
-        Claim the frog tutorial step is 5
-    }
-}
+Claim the frog tutorial step is 7
+
+# When /nobody/ claims the frog tutorial step is /fts/ {
+#     Claim the frog tutorial step is 5
+# }
 
 When /someone/ claims the frog tutorial step is /fts/ & $this has region /r/ {
     set c [region centroid $r]
@@ -39,8 +44,18 @@ When /someone/ claims the frog tutorial step is /fts/ & $this has region /r/ {
     set leftMidpoint [list $cardX [expr {$cardY + $height/2.0}]]
     set midpointTop [list [expr {$cardX + $width/2.0}] $cardY]
 
-    # Center calculation
     set frogCenter [list [expr {$cardX + $width/2.0}] [expr {$cardY + $height/2.0}]]
+
+    set bottomLineMidpoint [list [expr {$cardX + $width/2.0}] $cardHeight]
+    set leftLineTop [vec2 add $frogCenter [list $quarterWidth 0]]
+    set leftLineBottom [vec2 add $bottomLineMidpoint [list $quarterWidth 0]]
+
+    set rightLineTop [vec2 add $frogCenter [list -$quarterWidth 0]]
+    set rightLineBottom [vec2 add $bottomLineMidpoint [list -$quarterWidth 0]]
+
+    set leftMid [vec2 midpoint $leftLineBottom $leftLineTop]
+    set rightMid [vec2 midpoint $rightLineBottom $rightLineTop]
+
 
     # Wish $this draws a set of points [list $topLeft $topRight $botLeft $botRight] with color green radius 8 filled false thickness 5
 
@@ -48,22 +63,22 @@ When /someone/ claims the frog tutorial step is /fts/ & $this has region /r/ {
 
     switch $frogTutorialStep {
         1 {
-            Wish $this is labelled "Step 1: Place an index card in the box to the right,\nfold the top right corner of the index card."
+            Wish $this is titled "Step 1: Place an index card in the box to the right,\nfold the top right corner of the index card."
             Wish $this draws a polyline [list $topLeft $rightMidpoint ] with color yellow thickness 5 dashed true dashlength 15 dashoffset 50
             Wish $this draws a polyline [list $topLeft $topRight $botRight $botLeft $topLeft] with color white radius 8 filled false thickness 5
         }
         2 {
-            Wish $this is labelled "Step 2: Fold the top left corner down."
+            Wish $this is titled "Step 2: Fold the top left corner down."
             Wish $this draws a polyline [list $topRight $leftMidpoint] with color yellow thickness 5 dashed true dashlength 15 dashoffset 50
             Wish $this draws a polyline [list $topLeft $topRight $botRight $botLeft $topLeft] with color white radius 8 filled false thickness 5
         }
         3 {
-            Wish $this is labelled "Step 3: Push the two triangles on the\nright inward to make this house shape."
+            Wish $this is titled "Step 3: Push the two triangles on the\nright inward to make this house shape."
             # Wish $this draws a polyline [list $topLeft $topRight $botRight $botLeft $topLeft] with color blue radius 8 filled false thickness 20 layer -1
             Wish $this draws a polyline [list $botRight $botLeft $leftMidpoint $midpointTop $rightMidpoint $botRight] with color white radius 8 filled false thickness 5
         }
         4 {
-            Wish $this is labelled "Step 4: Fold the left and right sides\nof the top triangle toward the center."
+            Wish $this is titled "Step 4: Fold the left and right sides\nof the top triangle toward the center."
             # Wish $this draws a polyline [list $topLeft $topRight $botRight $botLeft $topLeft] with color blue radius 8 filled false thickness 20 layer -1
             # TODO: Figure out points for drawing the front-leg-fold lines.
 
@@ -75,19 +90,42 @@ When /someone/ claims the frog tutorial step is /fts/ & $this has region /r/ {
             Wish $this draws a polyline [list $botRight $botLeft $leftMidpoint $midpointTop $rightMidpoint $botRight] with color white radius 8  thickness 5
         }
         5 {
-            Wish $this is labelled "Step 5: ???"
-            # Wish $this draws a polyline [list $topLeft $topRight $botRight $botLeft $topLeft] with color blue radius 8 filled false thickness 20 layer -1
-            # TODO: Figure out points for drawing the front-leg-fold lines.
+            Wish $this is titled "Step 5: Fold the sides of the frog's\n body toward the center to make\n the back legs."
 
-            set leftLeg [vec2 add $frogCenter [list $quarterWidth -$quarterHeight]]
-            set rightLeg [vec2 add $frogCenter [list -$quarterWidth -$quarterHeight]]
+            set leftLineTop [vec2 add $frogCenter [list $quarterWidth 0]]
+            set leftLineBottom [vec2 add $bottomLineMidpoint [list $quarterWidth 0]]
 
-            Wish $this draws a polyline [list $frogCenter $leftLeg] with color yellow thickness 5 dashed true dashlength 15 dashoffset 50
-            Wish $this draws a polyline [list $frogCenter $rightLeg] with color yellow thickness 5 dashed true dashlength 15 dashoffset 50
+            set rightLineTop [vec2 add $frogCenter [list -$quarterWidth 0]]
+            set rightLineBottom [vec2 add $bottomLineMidpoint [list -$quarterWidth 0]]
+
+
+            Wish $this draws a polyline [list $leftLineTop $leftLineBottom] with color yellow thickness 5 dashed true dashlength 15 dashoffset 50
+            Wish $this draws a polyline [list $rightLineTop $rightLineBottom] with color yellow thickness 5 dashed true dashlength 15 dashoffset 50
+
             Wish $this draws a polyline [list $botRight $botLeft $leftMidpoint $midpointTop $rightMidpoint $botRight] with color white radius 8  thickness 5
         }
+        6 {
+            Wish $this is titled "Step 6: Fold the bottom of the frog up."
+
+            Wish $this draws a polyline [list $leftMid $rightMid] with color yellow thickness 5 dashed true dashlength 15 dashoffset 50
+
+            Wish $this draws a polyline [list $rightLineBottom $leftLineBottom $leftLineTop $midpointTop $rightLineTop $rightLineBottom ] with color white radius 8  thickness 5
+        }
+        7 {
+            Wish $this is titled "Step 7: Fold the legs in half oncemore\nthe opposite way and you're done!"
+
+            set leftMid [vec2 midpoint $leftLineBottom $leftLineTop]
+            set rightMid [vec2 midpoint $rightLineBottom $rightLineTop]
+
+            set finalFoldLineLeft [vec2 midpoint $leftMid $leftLineTop]
+            set finalFoldLineRight [vec2 midpoint $rightMid $rightLineTop]
+
+            Wish $this draws a polyline [list $finalFoldLineLeft $finalFoldLineRight] with color yellow thickness 5 dashed true dashlength 15 dashoffset 50
+
+            Wish $this draws a polyline [list $rightMid $leftMid $leftLineTop $midpointTop $rightLineTop $rightMid] with color white radius 8  thickness 5
+        }
         default {
-            Wish $this is labelled "You need to:\n`Claim the frog tutorial step is (some number)`"
+            Wish $this is titled "You need to:\n`Claim the frog tutorial step is (some number)`"
         }
     }
 }

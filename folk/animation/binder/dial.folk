@@ -1,0 +1,7 @@
+Wish $this is outlined red
+
+When $this has region /r/ {
+  set angle [region angle $r]
+  Wish $this is labelled $angle
+  Claim fps is [expr {int(24 * abs($angle) / 3.14159)}]
+}
