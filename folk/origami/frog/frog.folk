@@ -19,11 +19,7 @@ set cardY 0
 set quarterWidth [expr {$width / 4.0}]
 set quarterHeight [expr {$height / 4.0}]
 
-Claim the frog tutorial step is 7
-
-# When /nobody/ claims the frog tutorial step is /fts/ {
-#     Claim the frog tutorial step is 5
-# }
+# Claim the frog tutorial step is 7
 
 When /someone/ claims the frog tutorial step is /fts/ & $this has region /r/ {
     set c [region centroid $r]
@@ -125,7 +121,8 @@ When /someone/ claims the frog tutorial step is /fts/ & $this has region /r/ {
             Wish $this draws a polyline [list $rightMid $leftMid $leftLineTop $midpointTop $rightLineTop $rightMid] with color white radius 8  thickness 5
         }
         default {
-            Wish $this is titled "You need to:\n`Claim the frog tutorial step is (some number)`"
+            puts "You need to:\n`Claim the frog tutorial step is (some number)`"
+            # Wish $this is titled "You need to:\n`Claim the frog tutorial step is (some number)`"
         }
     }
 }

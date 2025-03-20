@@ -1,0 +1,7 @@
+When $this has region /r/ {
+    set angle [region angle $r]
+    set step [expr { round(12 * abs($angle / 3.1415)) }]
+    Wish $this is titled "FPS: $step"
+
+    Claim animation binder's fps is $step
+}

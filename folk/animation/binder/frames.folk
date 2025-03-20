@@ -1,35 +1,48 @@
 # TODO list
+# x = done
+# ~ = in progress (e.g. need to test on a real machine)
+# [ ] = to do
 # [x] Stabilize main region
 # [ ] Add default value for N_FRAMES (1)
 # [ ] Add default value for FPS (0)
-# [ ] Shift frames to the right of this page
+# [~] Shift frames to the right of this page in a grid
 # [ ] Shift output to below this page
+# [ ] Make the actual slice smaller than the frames so the lines don't appear in the animation
 
-set N_FRAMES 5
+set COLS 3
 
 Wish tag $this is stabilized
- 
-When $this has region /r/ {
-    set display [region scale [region move $r down 75%] 45%]
-    Claim $this has display $display
+
+When $this has quad /q/ {
+    set displayQuad [quad scale [quad move $q down 35%] 30%]
+    Claim $this-display has quad $displayQuad
+
 }
 
-
-When $this has display /d/ & fps is /FPS/ {
-     Wish $this is labelled $FPS
+When $this-display has quad /d/ \
+     & animation binder's fps is /FPS/ \
+     & animation binder's frame count is /N_FRAMES/ {
+    Wish $this is labelled $FPS
     for {set i 1} {$i <= $N_FRAMES} {incr i} {
- 
-        # Define N capture regions
-        Claim frame-${i} has region [region move $d right ${i}00%]
-        Wish frame-${i} is outlined red
+        # Calculate grid position (row, col) from frame index
+        set col [expr {($i - 1) % $COLS}]
+        set row [expr {($i - 1) / $COLS}]
+        
+        # Create frame quad in grid layout
+        set frame_quad $d
+        set frame_quad [quad move $frame_quad right 400%]
+        set frame_quad [quad move $frame_quad right ${col}00%]
+        set frame_quad [quad move $frame_quad up 100%]
+        set frame_quad [quad move $frame_quad down ${row}00%]
+        
+        Claim $this-frame-$i has quad $frame_quad
+        Wish $this-frame-$i is outlined red
 
         # Cycle between displaying each frame based on clock
-        When the clock time is /t/ & frame-${i} has camera slice /slice/ {
+        When the clock time is /t/ & $this-frame-${i} has camera slice /slice/ {
             if {round($t * $FPS) % $N_FRAMES == ($i - 1)} {
- 
-                Wish frame-$i is outlined green
-                set c [region centroid $d]
-                Wish to draw an image with center $c image $slice radians 3.1459 scale 1
+                Wish $this-frame-$i is outlined green
+                Wish $this-display displays image $slice with scale 4.5 radians 0
             }
         }
     }
