@@ -1,0 +1,92 @@
+# Figure-8 Leader-Follower Animation in Folk
+# A simplified example with a leader circle moving in a figure-8 pattern
+# and follower circles trailing behind with ghost paths
+
+# Define animation parameters
+Claim $this has animation parameters {
+    leaderRadius 20
+    baseRadius 10
+    numFollowers 5
+    figure8Width 150
+    figure8Height 80
+    speed 0.6
+    colorPalette {skyblue cyan azure royalblue turquoise}
+    trailDuration 2.0
+}
+
+When the clock time is /t/ & $this has animation parameters /params/ & $this has region /r/ {
+    set figure8Width [dict get $params figure8Width]
+    set figure8Height [dict get $params figure8Height]
+    set speed [dict get $params speed]
+    set leaderRadius [dict get $params leaderRadius]
+    
+    # Calculate leader position on figure-8 path
+    # The figure-8 pattern is created by using sin(t) for x and sin(2t) for y
+    set leaderX [expr {$figure8Width * sin($t * $speed)}]
+    set leaderY [expr {$figure8Height * sin(2 * $t * $speed)}]
+    
+    Hold {
+        Claim $this has leader position [list $leaderX $leaderY]
+    }
+    Wish $this draws a circle with radius $leaderRadius color white filled true thickness 2 offset [list $leaderX $leaderY]
+    
+    set numFollowers [dict get $params numFollowers]
+    set baseRadius [dict get $params baseRadius]
+    set colorPalette [dict get $params colorPalette]
+    
+    for {set i 0} {$i < $numFollowers} {incr i} {
+        set timeOffset [expr {($i + 1) * 0.3}]
+        set delayedTime [expr {$t - $timeOffset}]
+        
+        set followerX [expr {$figure8Width * sin($delayedTime * $speed)}]
+        set followerY [expr {$figure8Height * sin(2 * $delayedTime * $speed)}]
+        
+        # Calculate follower size (decreasing with index)
+        set sizeFactor [expr {1.0 - ($i * 0.15)}]
+        set followerRadius [expr {$baseRadius + ($leaderRadius - $baseRadius) * $sizeFactor}]
+        
+        set colorIndex [expr {$i % [llength $colorPalette]}]
+        set followerColor [lindex $colorPalette $colorIndex]
+        
+        Wish $this draws a circle with radius $followerRadius color $followerColor filled true thickness 2 offset [list $followerX $followerY]
+        
+        Hold {
+            Claim $this has follower $i position [list $followerX $followerY]
+        }
+    }
+}
+
+# Add ghost trails (simplified)
+When the clock time is /t/ & $this has leader position /leaderPos/ & $this has animation parameters /params/ {
+    # Create a new trail point every 0.15 seconds
+    set trailInterval 0.15
+    set trailTime [expr {int($t / $trailInterval) * $trailInterval}]
+    
+    # Create unique key for this trail point
+    set trailKey [list trail $trailTime]
+    
+    # Get trail parameters
+    set trailDuration [dict get $params trailDuration]
+    
+    # Calculate trail age and fade based on time
+    set trailAge [expr {$t - $trailTime}]
+    set fadeRatio [expr {1.0 - ($trailAge / $trailDuration)}]
+    
+    # Only show trail if it hasn't faded completely
+    if {$fadeRatio > 0} {
+        # Calculate trail appearance properties
+        set opacity [expr {$fadeRatio * 0.5}]
+        set size [expr {[dict get $params leaderRadius] * 0.8}]
+        
+        # Draw trail with a glow effect
+        Hold (on $trailKey) {
+            Wish $this draws a circle with radius $size color "rgba(200,220,255,$opacity)" filled true thickness 1 offset $leaderPos
+        }
+    } else {
+        # If trail has faded completely, clean it up
+        Hold (on $trailKey) {}
+    }
+}
+
+Wish $this is titled "Figure-8 Leader-Follower Animation"
+Wish $this is outlined white
