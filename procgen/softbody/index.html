@@ -1,0 +1,748 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Squishy</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.7.0/p5.min.js"></script>
+    <style>
+      body {
+        margin: 0;
+        padding: 0;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 100vh;
+        background: #f0f0f0;
+        font-family: Arial;
+        overflow: hidden;
+      }
+      #controls {
+        position: absolute;
+        top: 20px;
+        left: 20px;
+        background: rgba(255, 255, 255, 0.8);
+        padding: 10px;
+        border-radius: 5px;
+        font-size: 14px;
+      }
+      #controls > div {
+        margin: 5px 0;
+      }
+      #instruction {
+        position: absolute;
+        bottom: 20px;
+        width: 100%;
+        text-align: center;
+        pointer-events: none;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="controls">
+      <div>
+        <label for="nodeCount">Nodes: </label
+        ><input type="range" id="nodeCount" min="5" max="30" value="15" /><span
+          id="nodeCountValue"
+          >15</span
+        >
+      </div>
+      <div>
+        <label for="springStrength">Spring: </label
+        ><input
+          type="range"
+          id="springStrength"
+          min="1"
+          max="20"
+          value="5"
+        /><span id="springStrengthValue">0.05</span>
+      </div>
+      <div>
+        <label for="damping">Damping: </label
+        ><input type="range" id="damping" min="80" max="99" value="90" /><span
+          id="dampingValue"
+          >0.90</span
+        >
+      </div>
+      <div>
+        <label for="throwPower">Throw: </label
+        ><input type="range" id="throwPower" min="1" max="20" value="8" /><span
+          id="throwPowerValue"
+          >0.8</span
+        >
+      </div>
+      <div>
+        <label for="showLines">Show Lines: </label
+        ><input type="checkbox" id="showLines" checked />
+      </div>
+      <div>
+        <label for="showEyes">Show Face: </label
+        ><input type="checkbox" id="showEyes" checked />
+      </div>
+      <div>
+        <label for="fillColor">Color: </label
+        ><input type="color" id="fillColor" value="#64C8C8" />
+      </div>
+      <div><button id="reset">Reset</button></div>
+    </div>
+    <div id="instruction">Click and drag anywhere on the blob to interact</div>
+
+    <script>
+      new p5((p) => {
+        // Variables
+        let nodes = [],
+          springs = [],
+          outerNodes = [],
+          centerNode,
+          nodeCount = 15,
+          radius = 150,
+          springStrength = 0.05,
+          damping = 0.9,
+          throwMultiplier = 0.8,
+          grabbed = null,
+          showLines = true,
+          showEyes = true,
+          fillColor = "#64C8C8",
+          leftEyeOpen = true,
+          rightEyeOpen = true,
+          blinkTimer = 0,
+          draggingBlob = false,
+          lastMouseX = 0,
+          lastMouseY = 0,
+          dragStartX = 0,
+          dragStartY = 0,
+          blobVelocityX = 0,
+          blobVelocityY = 0,
+          lastUpdateTime = 0;
+
+        // Setup function
+        p.setup = () => {
+          p.createCanvas(window.innerWidth, window.innerHeight);
+          initControls();
+          generateSoftBody();
+          lastUpdateTime = p.millis();
+          lastMouseX = p.mouseX;
+          lastMouseY = p.mouseY;
+        };
+
+        // Initialize UI controls
+        function initControls() {
+          // Get DOM elements
+          const nodeSlider = document.getElementById("nodeCount"),
+            nodeValue = document.getElementById("nodeCountValue"),
+            springSlider = document.getElementById("springStrength"),
+            springValue = document.getElementById("springStrengthValue"),
+            dampSlider = document.getElementById("damping"),
+            dampValue = document.getElementById("dampingValue"),
+            throwSlider = document.getElementById("throwPower"),
+            throwValue = document.getElementById("throwPowerValue"),
+            lineCheck = document.getElementById("showLines"),
+            eyesCheck = document.getElementById("showEyes"),
+            colorPicker = document.getElementById("fillColor");
+
+          // Set up event listeners
+          nodeSlider.addEventListener("input", () => {
+            nodeCount = parseInt(nodeSlider.value);
+            nodeValue.textContent = nodeCount;
+            generateSoftBody();
+          });
+
+          springSlider.addEventListener("input", () => {
+            springStrength = parseInt(springSlider.value) / 100;
+            springValue.textContent = springStrength.toFixed(2);
+          });
+
+          dampSlider.addEventListener("input", () => {
+            damping = parseInt(dampSlider.value) / 100;
+            dampValue.textContent = damping.toFixed(2);
+          });
+
+          throwSlider.addEventListener("input", () => {
+            throwMultiplier = parseInt(throwSlider.value) / 10;
+            throwValue.textContent = throwMultiplier.toFixed(1);
+          });
+
+          lineCheck.addEventListener("change", () => {
+            showLines = lineCheck.checked;
+          });
+          eyesCheck.addEventListener("change", () => {
+            showEyes = eyesCheck.checked;
+          });
+          colorPicker.addEventListener("input", () => {
+            fillColor = colorPicker.value;
+          });
+          document
+            .getElementById("reset")
+            .addEventListener("click", generateSoftBody);
+        }
+
+        // Create soft body
+        function generateSoftBody() {
+          nodes = [];
+          springs = [];
+          outerNodes = [];
+          blobVelocityX = 0;
+          blobVelocityY = 0;
+
+          // Create outer nodes in a circle
+          for (let i = 0; i < nodeCount; i++) {
+            const angle = p.map(i, 0, nodeCount, 0, p.TWO_PI);
+            const x = p.width / 2 + p.cos(angle) * radius;
+            const y = p.height / 2 + p.sin(angle) * radius;
+            const node = new Node(x, y);
+            nodes.push(node);
+            outerNodes.push(node);
+          }
+
+          // Connect adjacent outer nodes
+          for (let i = 0; i < nodeCount; i++) {
+            springs.push(new Spring(nodes[i], nodes[(i + 1) % nodeCount]));
+          }
+
+          // Create center node and connect to outer nodes
+          centerNode = new Node(p.width / 2, p.height / 2);
+          nodes.push(centerNode);
+
+          // Connect all outer nodes to center
+          for (let i = 0; i < nodeCount; i++) {
+            springs.push(new Spring(nodes[i], centerNode));
+          }
+
+          // Add cross-connections for stability
+          for (let i = 0; i < nodeCount; i += 2) {
+            springs.push(
+              new Spring(
+                nodes[i],
+                nodes[(i + Math.floor(nodeCount / 2)) % nodeCount]
+              )
+            );
+          }
+        }
+
+        // Main draw loop
+        p.draw = () => {
+          p.background(240);
+          updatePhysics();
+          updateEyes();
+          drawSmoothOutline();
+
+          // Draw springs and nodes if enabled
+          if (showLines) {
+            drawSpringsAndNodes();
+          }
+
+          // Draw face if enabled
+          if (showEyes) {
+            drawFace();
+          }
+        };
+
+        // Draw springs and nodes
+        function drawSpringsAndNodes() {
+          // Draw springs
+          p.stroke(100, 100, 200);
+          p.strokeWeight(2);
+          springs.forEach((spring) => {
+            p.line(
+              spring.nodeA.x,
+              spring.nodeA.y,
+              spring.nodeB.x,
+              spring.nodeB.y
+            );
+          });
+
+          // Draw outer nodes
+          const bodyColor = p.color(fillColor);
+          p.noStroke();
+          p.fill(bodyColor);
+
+          for (let i = 0; i < outerNodes.length; i++) {
+            const node = outerNodes[i];
+            p.ellipse(node.x, node.y, 15, 15);
+            drawDashedCircle(node.x, node.y, 7.5, p.color(255));
+          }
+
+          // Draw center node
+          p.fill(230, 100, 100);
+          p.ellipse(centerNode.x, centerNode.y, 30, 30);
+          drawDashedCircle(centerNode.x, centerNode.y, 15, p.color(100));
+        }
+
+        // Draw dashed circle
+        function drawDashedCircle(x, y, r, color) {
+          p.push();
+          p.stroke(color);
+          p.strokeWeight(1.5);
+          p.noFill();
+
+          const dashLength = p.PI / 8;
+          for (let a = 0; a < p.TWO_PI; a += dashLength * 2) {
+            p.arc(x, y, r * 2, r * 2, a, a + dashLength);
+          }
+          p.pop();
+        }
+
+        // Random eye blinking
+        function updateEyes() {
+          blinkTimer++;
+
+          if (blinkTimer > 60) {
+            blinkTimer = 0;
+            if (p.random() < 0.05) {
+              leftEyeOpen = !leftEyeOpen;
+              rightEyeOpen = leftEyeOpen;
+            }
+
+            if (!leftEyeOpen && p.random() < 0.7) {
+              leftEyeOpen = rightEyeOpen = true;
+            }
+          }
+        }
+
+        // Draw the character's face
+        function drawFace() {
+          if (outerNodes.length < 3) return;
+
+          // Calculate blob center
+          let sumX = 0,
+            sumY = 0;
+          outerNodes.forEach((node) => {
+            sumX += node.x;
+            sumY += node.y;
+          });
+          const midX = sumX / outerNodes.length;
+          const midY = sumY / outerNodes.length;
+
+          // Draw eyes - fixed positions relative to center
+          const eyeDistance = radius * 0.4;
+          const eyeSize = 28;
+
+          const leftEyeX = midX - eyeDistance * 0.7;
+          const rightEyeX = midX + eyeDistance * 0.7;
+          const eyeY = midY - eyeDistance * 0.3;
+
+          // Draw eye whites with outlines
+          p.fill(255);
+          p.stroke(0);
+          p.strokeWeight(2);
+          p.ellipse(leftEyeX, eyeY, eyeSize * 2, eyeSize * 2);
+          p.ellipse(rightEyeX, eyeY, eyeSize * 2, eyeSize * 2);
+
+          // Eye pupils or closed eyes
+          const mouseAngle = p.atan2(p.mouseY - midY, p.mouseX - midX);
+
+          if (leftEyeOpen && rightEyeOpen) {
+            // Constrain pupils to stay inside eyes
+            const maxPupilDistance = eyeSize * 0.5;
+            const pupilDistance = eyeSize * 0.6;
+
+            const leftPupilX =
+              leftEyeX +
+              p.constrain(
+                p.cos(mouseAngle) * pupilDistance,
+                -maxPupilDistance,
+                maxPupilDistance
+              );
+            const leftPupilY =
+              eyeY +
+              p.constrain(
+                p.sin(mouseAngle) * pupilDistance,
+                -maxPupilDistance,
+                maxPupilDistance
+              );
+            const rightPupilX =
+              rightEyeX +
+              p.constrain(
+                p.cos(mouseAngle) * pupilDistance,
+                -maxPupilDistance,
+                maxPupilDistance
+              );
+            const rightPupilY =
+              eyeY +
+              p.constrain(
+                p.sin(mouseAngle) * pupilDistance,
+                -maxPupilDistance,
+                maxPupilDistance
+              );
+
+            p.fill(0);
+            p.noStroke();
+            p.ellipse(leftPupilX, leftPupilY, eyeSize * 1.0, eyeSize * 1.0);
+            p.ellipse(rightPupilX, rightPupilY, eyeSize * 1.0, eyeSize * 1.0);
+          } else {
+            // Closed eyes
+            p.stroke(0);
+            p.strokeWeight(4);
+            p.line(leftEyeX - eyeSize, eyeY, leftEyeX + eyeSize, eyeY);
+            p.line(rightEyeX - eyeSize, eyeY, rightEyeX + eyeSize, eyeY);
+          }
+
+          // Reset stroke
+          p.noStroke();
+
+          // Draw mouth based on velocity
+          const speed = Math.sqrt(
+            blobVelocityX * blobVelocityX + blobVelocityY * blobVelocityY
+          );
+          const mouthWidth = 80;
+          const mouthHeight = 60;
+          const mouthY = midY + radius * 0.3;
+
+          if (speed < 1) {
+            // Straight line mouth when slow
+            p.stroke(0);
+            p.strokeWeight(4);
+            p.line(
+              midX - mouthWidth / 2,
+              mouthY,
+              midX + mouthWidth / 2,
+              mouthY
+            );
+            p.noStroke();
+          } else {
+            // Filled half-circle smile when moving
+            const smileAmount = Math.min(1, speed * 0.1);
+            p.fill(0);
+            p.arc(
+              midX,
+              mouthY,
+              mouthWidth,
+              mouthHeight * smileAmount,
+              0,
+              p.PI,
+              p.CHORD
+            );
+          }
+        }
+
+        // Draw smooth blob outline
+        function drawSmoothOutline() {
+          if (outerNodes.length < 3) return;
+
+          p.push();
+          p.noStroke();
+          p.fill(p.color(fillColor));
+          p.beginShape();
+
+          // Add control points for smooth curve
+          const n = outerNodes.length;
+          p.curveVertex(outerNodes[n - 1].x, outerNodes[n - 1].y);
+
+          outerNodes.forEach((node) => {
+            p.curveVertex(node.x, node.y);
+          });
+
+          p.curveVertex(outerNodes[0].x, outerNodes[0].y);
+          p.curveVertex(outerNodes[1].x, outerNodes[1].y);
+
+          p.endShape(p.CLOSE);
+          p.pop();
+        }
+
+        // Update blob physics
+        function updatePhysics() {
+          // Update springs and nodes
+          springs.forEach((spring) => spring.update());
+          nodes.forEach((node) => node.update());
+
+          // Calculate time delta
+          const currentTime = p.millis();
+          const deltaTime = Math.max(
+            0.001,
+            (currentTime - lastUpdateTime) / 1000
+          );
+          lastUpdateTime = currentTime;
+
+          // Calculate mouse velocity
+          const mouseVelocityX = (p.mouseX - lastMouseX) / deltaTime;
+          const mouseVelocityY = (p.mouseY - lastMouseY) / deltaTime;
+
+          // Handle mouse interaction
+          if (p.mouseIsPressed) {
+            // Initial grab detection
+            if (grabbed === null && !draggingBlob) {
+              if (isPointInsideBlob(p.mouseX, p.mouseY)) {
+                draggingBlob = true;
+                dragStartX = p.mouseX;
+                dragStartY = p.mouseY;
+              } else {
+                nodes.forEach((node) => {
+                  if (p.dist(p.mouseX, p.mouseY, node.x, node.y) < 20) {
+                    grabbed = node;
+                  }
+                });
+              }
+            }
+
+            // Handle grabbed node
+            if (grabbed !== null) {
+              grabbed.x = p.mouseX;
+              grabbed.y = p.mouseY;
+
+              if (
+                Math.abs(mouseVelocityX) > 5 ||
+                Math.abs(mouseVelocityY) > 5
+              ) {
+                blobVelocityX = mouseVelocityX;
+                blobVelocityY = mouseVelocityY;
+              }
+            }
+            // Handle blob dragging
+            else if (draggingBlob) {
+              const dx = p.mouseX - dragStartX;
+              const dy = p.mouseY - dragStartY;
+
+              if (dx !== 0 || dy !== 0) {
+                if (
+                  Math.abs(mouseVelocityX) > 5 ||
+                  Math.abs(mouseVelocityY) > 5
+                ) {
+                  blobVelocityX = mouseVelocityX;
+                  blobVelocityY = mouseVelocityY;
+                }
+
+                nodes.forEach((node) => {
+                  node.x += dx;
+                  node.y += dy;
+                  node.vx = 0;
+                  node.vy = 0;
+                });
+
+                dragStartX = p.mouseX;
+                dragStartY = p.mouseY;
+              }
+            }
+          }
+          // Handle release (throwing)
+          else if (grabbed !== null || draggingBlob) {
+            // Limit max throw velocity
+            const speed = Math.sqrt(
+              blobVelocityX * blobVelocityX + blobVelocityY * blobVelocityY
+            );
+            if (speed > 1000) {
+              const scale = 1000 / speed;
+              blobVelocityX *= scale;
+              blobVelocityY *= scale;
+            }
+
+            // Apply throw velocity
+            if (grabbed !== null) {
+              grabbed.vx = blobVelocityX * throwMultiplier;
+              grabbed.vy = blobVelocityY * throwMultiplier;
+
+              // Spread some velocity to nearby nodes
+              nodes.forEach((node) => {
+                if (
+                  node !== grabbed &&
+                  p.dist(node.x, node.y, grabbed.x, grabbed.y) < radius
+                ) {
+                  node.vx += blobVelocityX * throwMultiplier * 0.5;
+                  node.vy += blobVelocityY * throwMultiplier * 0.5;
+                }
+              });
+            } else {
+              nodes.forEach((node) => {
+                node.vx = blobVelocityX * throwMultiplier;
+                node.vy = blobVelocityY * throwMultiplier;
+              });
+            }
+
+            grabbed = null;
+            draggingBlob = false;
+          }
+
+          // Update blob velocity from nodes
+          if (!p.mouseIsPressed) {
+            let totalVX = 0,
+              totalVY = 0;
+            nodes.forEach((node) => {
+              totalVX += node.vx;
+              totalVY += node.vy;
+            });
+
+            blobVelocityX = totalVX / nodes.length;
+            blobVelocityY = totalVY / nodes.length;
+          }
+
+          // Store mouse position for next frame
+          lastMouseX = p.mouseX;
+          lastMouseY = p.mouseY;
+        }
+
+        // Check if point is inside blob
+        function isPointInsideBlob(x, y) {
+          const points = getInterpolatedPoints();
+          if (points.length < 3) return false;
+
+          let inside = false;
+          for (let i = 0, j = points.length - 1; i < points.length; j = i++) {
+            const xi = points[i].x,
+              yi = points[i].y;
+            const xj = points[j].x,
+              yj = points[j].y;
+
+            const intersect =
+              yi > y !== yj > y && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi;
+            if (intersect) inside = !inside;
+          }
+
+          return inside;
+        }
+
+        // Get points for hit detection
+        function getInterpolatedPoints() {
+          if (outerNodes.length < 3) return [];
+
+          const points = [];
+          const r = 7.5;
+
+          outerNodes.forEach((current, i) => {
+            const prev =
+              outerNodes[(i - 1 + outerNodes.length) % outerNodes.length];
+            const next = outerNodes[(i + 1) % outerNodes.length];
+
+            const dirToPrev = {
+              x: prev.x - current.x,
+              y: prev.y - current.y,
+            };
+            const dirToNext = {
+              x: next.x - current.x,
+              y: next.y - current.y,
+            };
+
+            const lenToPrev = Math.sqrt(
+              dirToPrev.x * dirToPrev.x + dirToPrev.y * dirToPrev.y
+            );
+            const lenToNext = Math.sqrt(
+              dirToNext.x * dirToNext.x + dirToNext.y * dirToNext.y
+            );
+
+            if (lenToPrev > 0 && lenToNext > 0) {
+              dirToPrev.x /= lenToPrev;
+              dirToPrev.y /= lenToPrev;
+              dirToNext.x /= lenToNext;
+              dirToNext.y /= lenToNext;
+
+              const outwardDir = {
+                x: -(dirToPrev.x + dirToNext.x) / 2,
+                y: -(dirToPrev.y + dirToNext.y) / 2,
+              };
+
+              const outLen = Math.sqrt(
+                outwardDir.x * outwardDir.x + outwardDir.y * outwardDir.y
+              );
+              if (outLen > 0) {
+                outwardDir.x /= outLen;
+                outwardDir.y /= outLen;
+
+                points.push({
+                  x: current.x + outwardDir.x * r,
+                  y: current.y + outwardDir.y * r,
+                });
+              } else {
+                points.push({ x: current.x, y: current.y });
+              }
+            } else {
+              points.push({ x: current.x, y: current.y });
+            }
+          });
+
+          return points;
+        }
+
+        // Mouse release handler
+        p.mouseReleased = () => {
+          grabbed = null;
+          draggingBlob = false;
+        };
+
+        // Window resize handler
+        p.windowResized = () => {
+          p.resizeCanvas(window.innerWidth, window.innerHeight);
+        };
+
+        // Node class
+        class Node {
+          constructor(x, y) {
+            this.x = x;
+            this.y = y;
+            this.vx = p.random(-1, 1);
+            this.vy = p.random(-1, 1);
+          }
+
+          update() {
+            // Apply damping
+            this.vx *= damping;
+            this.vy *= damping;
+
+            // Update position
+            this.x += this.vx;
+            this.y += this.vy;
+
+            // Add gravity and randomness
+            this.vy += 0.1;
+            this.vx += p.random(-0.1, 0.1);
+            this.vy += p.random(-0.1, 0.1);
+
+            // Bounce off edges
+            const bounce = -0.7;
+            if (this.x < 0) {
+              this.x = 0;
+              this.vx *= bounce;
+            }
+            if (this.x > p.width) {
+              this.x = p.width;
+              this.vx *= bounce;
+            }
+            if (this.y < 0) {
+              this.y = 0;
+              this.vy *= bounce;
+            }
+            if (this.y > p.height) {
+              this.y = p.height;
+              this.vy *= bounce;
+            }
+          }
+        }
+
+        // Spring class
+        class Spring {
+          constructor(nodeA, nodeB) {
+            this.nodeA = nodeA;
+            this.nodeB = nodeB;
+            this.length = p.dist(nodeA.x, nodeA.y, nodeB.x, nodeB.y);
+          }
+
+          update() {
+            const dx = this.nodeB.x - this.nodeA.x;
+            const dy = this.nodeB.y - this.nodeA.y;
+            const distance = p.dist(
+              this.nodeA.x,
+              this.nodeA.y,
+              this.nodeB.x,
+              this.nodeB.y
+            );
+
+            if (distance === 0) return;
+
+            // Calculate spring force
+            const force = (distance - this.length) * springStrength;
+            const fx = (dx / distance) * force;
+            const fy = (dy / distance) * force;
+
+            // Apply forces
+            if (this.nodeA !== grabbed) {
+              this.nodeA.vx += fx;
+              this.nodeA.vy += fy;
+            }
+
+            if (this.nodeB !== grabbed) {
+              this.nodeB.vx -= fx;
+              this.nodeB.vy -= fy;
+            }
+          }
+        }
+      });
+    </script>
+  </body>
+</html>
