@@ -1,0 +1,196 @@
+# magnetic-field.folk
+
+When /someone/ claims /m/ is magnet /magnetNumber/ {
+  When $m has region /r/ {
+    set center [region centroid $r]
+    set height [expr {0.5 * [region height $r]}]
+    
+    # Color the magnet based on its number
+    set color [lindex {red blue green} [expr {($magnetNumber - 1) % 3}]]
+    
+    # Draw a colored pentagon at the center of the magnet program
+    Wish to draw a shape with sides 5 center $center radius $height color $color filled true
+    
+    # Store magnet info for field visualization
+    puts "Registering magnet $magnetNumber at position $center with strength [expr {$height * 2}]"
+    Claim $this stores magnet at $center with strength [expr {$height * 2}] and color $color
+  }
+}
+
+# Create a magnetic field sandbox with a grid of lines
+When /someone/ claims /sandbox/ is a magnet sandbox {
+  When $sandbox has region /r/ {
+    set center [region centroid $r]
+    set width [region width $r]
+    set height [region height $r]
+    
+    puts "Sandbox detected at $center with width $width and height $height"
+    
+    # Draw background
+    Wish to draw a rect with center $center width $width height $height color black filled true
+    
+    # Create a grid of lines that will be distorted
+    set gridSpacing [expr {min($width, $height) / 10.0}]
+    set cols [expr {int($width / $gridSpacing) + 1}]
+    set rows [expr {int($height / $gridSpacing) + 1}]
+    
+    puts "Creating grid with $rows rows and $cols columns, spacing: $gridSpacing"
+    
+    # Calculate starting positions for grid lines
+    set startX [expr {[lindex $center 0] - $width/2 + $gridSpacing/2}]
+    set startY [expr {[lindex $center 1] - $height/2 + $gridSpacing/2}]
+    
+    # Collect all magnets to calculate field distortion
+    set magnetsInfo [Statements::findMatches [list /this/ stores magnet at /pos/ with strength /strength/ and color /color/]]
+    
+    puts "Found [llength $magnetsInfo] magnets for distortion calculation:"
+    foreach magnet $magnetsInfo {
+      puts "  Magnet at [dict get $magnet pos] with strength [dict get $magnet strength]"
+    }
+    
+    # Draw horizontal grid lines
+    for {set row 0} {$row < $rows} {incr row} {
+      set y [expr {$startY + $row * $gridSpacing}]
+      set points [list]
+      set pointColors [list]
+      
+      # Create points along the line
+      for {set i 0} {$i < $cols} {incr i} {
+        set baseX [expr {$startX + $i * $gridSpacing}]
+        set baseY $y
+        set point [list $baseX $baseY]
+        
+        # Apply distortion from each magnet
+        set totalDistortion {0 0}
+        set maxEffect 0
+        
+        foreach magnet $magnetsInfo {
+          set magnetPos [dict get $magnet pos]
+          set magnetStrength [dict get $magnet strength]
+          
+          # Calculate distance and direction to magnet
+          set dx [expr {[lindex $magnetPos 0] - $baseX}]
+          set dy [expr {[lindex $magnetPos 1] - $baseY}]
+          set distance [expr {sqrt($dx*$dx + $dy*$dy)}]
+          
+          # Skip if too far away
+          if {$distance > $magnetStrength * 3} continue
+          
+          # Calculate effect based on distance (inverse square law)
+          set effect [expr {$magnetStrength / ($distance * $distance + 1)}]
+          if {$effect > $maxEffect} {set maxEffect $effect}
+          
+          # Calculate distortion vector
+          set factor [expr {$effect * $gridSpacing * 0.5}]
+          set distX [expr {$dx / ($distance + 0.1) * $factor}]
+          set distY [expr {$dy / ($distance + 0.1) * $factor}]
+          
+          # Add to total distortion
+          set totalDistortion [list [expr {[lindex $totalDistortion 0] + $distX}] [expr {[lindex $totalDistortion 1] + $distY}]]
+          
+          if {$row == 5 && $i == 5} {
+            puts "Point ($baseX,$baseY) affected by magnet at $magnetPos: effect=$effect, distortion=($distX,$distY)"
+          }
+        }
+        
+        # Apply distortion to point
+        set distortedPoint [list [expr {$baseX + [lindex $totalDistortion 0]}] [expr {$baseY + [lindex $totalDistortion 1]}]]
+        lappend points $distortedPoint
+        
+        # Calculate color based on maximum effect (gradient from magenta to green)
+        if {$maxEffect > 0} {
+          set redVal [expr {int(255 * (1 - $maxEffect))}]
+          set greenVal [expr {int(255 * $maxEffect)}]
+          set blueVal [expr {int(255 * (1 - $maxEffect))}]
+          set color "rgb($redVal,$greenVal,$blueVal)"
+          
+          if {$row == 5 && $i == 5} {
+            puts "Effect at this point: $maxEffect, color: $color"
+          }
+        } else {
+          set color "magenta"
+        }
+        lappend pointColors $color
+      }
+      
+      # Draw the distorted line with average color for the whole line
+      if {[llength $points] > 1} {
+        # Find the average color - simplified by just using magenta or green
+        set hasEffect 0
+        foreach color $pointColors {
+          if {$color ne "magenta"} {
+            set hasEffect 1
+            break
+          }
+        }
+        set lineColor [expr {$hasEffect ? "green" : "magenta"}]
+        
+        Wish to draw a stroke with points $points width 2 color $lineColor
+      }
+    }
+    
+    # Similarly for vertical lines (with logging removed for brevity)
+    for {set col 0} {$col < $cols} {incr col} {
+      set x [expr {$startX + $col * $gridSpacing}]
+      set points [list]
+      set pointColors [list]
+      
+      for {set i 0} {$i < $rows} {incr i} {
+        set baseX $x
+        set baseY [expr {$startY + $i * $gridSpacing}]
+        
+        set totalDistortion {0 0}
+        set maxEffect 0
+        
+        foreach magnet $magnetsInfo {
+          set magnetPos [dict get $magnet pos]
+          set magnetStrength [dict get $magnet strength]
+          
+          set dx [expr {[lindex $magnetPos 0] - $baseX}]
+          set dy [expr {[lindex $magnetPos 1] - $baseY}]
+          set distance [expr {sqrt($dx*$dx + $dy*$dy)}]
+          
+          if {$distance > $magnetStrength * 3} continue
+          
+          set effect [expr {$magnetStrength / ($distance * $distance + 1)}]
+          if {$effect > $maxEffect} {set maxEffect $effect}
+          
+          set factor [expr {$effect * $gridSpacing * 0.5}]
+          set distX [expr {$dx / ($distance + 0.1) * $factor}]
+          set distY [expr {$dy / ($distance + 0.1) * $factor}]
+          
+          set totalDistortion [list [expr {[lindex $totalDistortion 0] + $distX}] [expr {[lindex $totalDistortion 1] + $distY}]]
+        }
+        
+        set distortedPoint [list [expr {$baseX + [lindex $totalDistortion 0]}] [expr {$baseY + [lindex $totalDistortion 1]}]]
+        lappend points $distortedPoint
+        
+        if {$maxEffect > 0} {
+          set redVal [expr {int(255 * (1 - $maxEffect))}]
+          set greenVal [expr {int(255 * $maxEffect)}]
+          set blueVal [expr {int(255 * (1 - $maxEffect))}]
+          set color "rgb($redVal,$greenVal,$blueVal)"
+        } else {
+          set color "magenta"
+        }
+        lappend pointColors $color
+      }
+      
+      if {[llength $points] > 1} {
+        set hasEffect 0
+        foreach color $pointColors {
+          if {$color ne "magenta"} {
+            set hasEffect 1
+            break
+          }
+        }
+        set lineColor [expr {$hasEffect ? "green" : "magenta"}]
+        
+        Wish to draw a stroke with points $points width 2 color $lineColor
+      }
+    }
+    
+    # Log a completion message
+    puts "Finished drawing magnetic field grid"
+  }
+}
