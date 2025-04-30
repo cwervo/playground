@@ -33,8 +33,8 @@ When /someone/ wishes /page/ to capture a shape with /...options/ & \
     set polyAngle [expr {$polyAngle + $angleIncr}]
   }
   # Add debugging:
-  Wish $page is labelled "debug: numPoints: $numPoints"
-  
+  # Wish $page is labelled "debug: numPoints: $numPoints"
+
   set points [lmap v $points {
     vec2 add [vec2 rotate [vec2 sub $v [vec2 scale $centerPoint [expr {1.0/$numPoints}]]] $angle] $c
   }]
@@ -44,7 +44,7 @@ When /someone/ wishes /page/ to capture a shape with /...options/ & \
   }]
 
   # debug
-  Wish to draw a dashed stroke with points $points width 1 color red layer 0
+  Wish to draw a dashed stroke with points $points width 1 color magenta layer 0
 
   # create new quad in the same tag region as the page.
   set minX 10000; set minY 10000
@@ -58,11 +58,15 @@ When /someone/ wishes /page/ to capture a shape with /...options/ & \
     if {$cy > $maxY} { set maxY $cy }
   }
 
+  # Clamp to image bounds
+  set minX [expr {max(0, min($minX, [image width $f]))}]
+  set maxX [expr {max(0, min($maxX, [image width $f]))}]
+  set minY [expr {max(0, min($minY, [image height $f]))}]
+  set maxY [expr {max(0, min($maxY, [image height $f]))}]
+
   set w [expr {$maxX - $minX}]
   set h [expr {$maxY - $minY}]
 
-  Wish $page is labelled "w: $w, h: $h"
-  Wish $page is labelled "minX: $minX, minY: $minY"
   if {$w <= 0 || $h <= 0} { return }
 
   # Extract and claim the image for the page
