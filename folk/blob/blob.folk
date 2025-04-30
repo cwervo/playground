@@ -1,0 +1,105 @@
+Wish $this is titled "Add Counters"
+
+source vendor/blobdetect/blobdetect.tcl
+
+# Capture a shape from the camera
+# images.folk ::image::submage take a list of points 
+
+When /someone/ wishes /page/ to capture a shape with /...options/ & \
+  camera /cam/ has intrinsics /cameraIntrinsics/ & \
+  camera /cam/ has frame /f/ at timestamp /timestamp/ & \
+  display /proj/ has width /projWidth/ height /projHeight/ & \
+  display /proj/ has intrinsics /projectorIntrinsics/ & \
+  /page/ has quad /q/ {
+
+  # from shapes.folk
+  # define any shape and translate into camera coords to take a slice.
+  # TODO (@cwervo): transition this to the merge default strategy
+  set c [dict_getdef $options center {0 0}]
+  set angle [dict_getdef $options angle 0]
+
+  set numPoints [dict_getdef $options sides 4]
+  set r [dict_getdef $options radius 50]
+
+  set points {{0 0}}
+  set centerPoint {0 0}
+  set polyAngle [expr {2 * 3.14159 / $numPoints + 3.14159}]
+  set angleIncr [expr {2 * 3.14159 / $numPoints}]
+
+  for {set i 0} {$i < $numPoints} {incr i} {
+    set p [vec2 add [lindex $points end] [vec2 scale [list [expr {cos($polyAngle)}] [expr {sin($polyAngle)}]] $r]]
+    lappend points $p
+    set centerPoint [vec2 add $centerPoint $p]
+    set polyAngle [expr {$polyAngle + $angleIncr}]
+  }
+  # Add debugging:
+  Wish $page is labelled "debug: numPoints: $numPoints"
+  
+  set points [lmap v $points {
+    vec2 add [vec2 rotate [vec2 sub $v [vec2 scale $centerPoint [expr {1.0/$numPoints}]]] $angle] $c
+  }]
+
+  set shapeVertices [lmap p $points {
+    list [lindex $p 0] [lindex $p 1] 0
+  }]
+
+  # debug
+  Wish to draw a dashed stroke with points $points width 1 color red layer 0
+
+  # create new quad in the same tag region as the page.
+  set minX 10000; set minY 10000
+  set maxX -10000; set maxY -10000
+
+  foreach v $shapeVertices {
+    lassign $v cx cy
+    if {$cx < $minX} { set minX $cx }
+    if {$cx > $maxX} { set maxX $cx }
+    if {$cy < $minY} { set minY $cy }
+    if {$cy > $maxY} { set maxY $cy }
+  }
+
+  set w [expr {$maxX - $minX}]
+  set h [expr {$maxY - $minY}]
+
+  Wish $page is labelled "w: $w, h: $h"
+  Wish $page is labelled "minX: $minX, minY: $minY"
+  if {$w <= 0 || $h <= 0} { return }
+
+  # Extract and claim the image for the page
+  set subimage [image subimage $f [int $minX] [int $minY] [int $w] [int $h]]
+  Claim $page has camera shape slice $subimage
+}
+
+# Detect blobs within the capture region/shape
+When $this has camera shape slice /slice/ &\
+   $this has region /r/ {
+
+   # debug
+   Wish region $r has highlight true with color yellow dashlength 5 thickness 1
+
+   # capture blobs in this slice
+   set blobTime [time {
+     set threshold 250
+     set blobs [::BlobDetect::detect $slice $threshold]
+   }]
+   Hold {
+      Claim the blob detection time is $blobTime
+      Claim $this has blobs $blobs
+   }
+ 
+   set length [llength $blobs]
+   Claim $this has $length counters
+}
+
+# NOTE (@cwervo): There's flickering in the "Display Shape Slice", maybe
+#                 it has to do with a conflict between these two "trials"?
+# Trial #2
+# slice is defined by this wish.
+When $this has region /r/ {
+    set angle [region angle $r]
+    set center [region centroid $r]
+    Wish $this to capture a shape with sides 4 center $center radius 90 angle $angle
+
+    set captureRegion [region scale $r 1.0]
+    Wish region $captureRegion has highlight true with color green dashlength 5 thickness 5
+}
