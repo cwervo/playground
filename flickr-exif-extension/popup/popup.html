@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Flickr EXIF Viewer</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <h1>Flickr EXIF Viewer</h1>
+  <div id="status-message-container"></div>
+
+  <h2>Current Photo EXIF</h2>
+  <div id="exif-data-container">
+    <p>Loading data from current Flickr page...</p>
+  </div>
+
+  <div style="text-align: center; margin: 15px 0;">
+    <button id="archiveBtn">Archive This Photo's Data</button>
+  </div>
+
+  <h2>Archived Items <span id="archived-count">(0)</span></h2>
+  <div id="archived-items-container">
+    <p>No items archived yet.</p>
+  </div>
+
+  <div class="export-buttons-container">
+    <h2>Export All Archived Data</h2>
+    <button id="exportAllJsonBtn">Export JSON</button>
+    <button id="exportAllCsvBtn">Export CSV</button>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

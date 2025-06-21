@@ -1,0 +1,125 @@
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; /* System fonts */
+  width: 450px;
+  padding: 15px; /* Increased padding */
+  font-size: 14px;
+  background-color: #f0f2f5; /* Light background for body */
+  color: #333;
+}
+h1, h2 {
+  text-align: center;
+  color: #1c1e21; /* Darker heading color */
+  border-bottom: 1px solid #dddfe2; /* Lighter border */
+  padding-bottom: 8px; /* Adjusted padding */
+  margin-top: 20px; /* Increased top margin */
+  margin-bottom: 15px; /* Increased bottom margin */
+}
+h1 { font-size: 1.5em; }
+h2 { font-size: 1.2em; }
+h1:first-child {
+    margin-top: 0;
+}
+
+#exif-data-container, #archived-items-container {
+  border: 1px solid #dddfe2; /* Lighter border */
+  padding: 12px; /* Increased padding */
+  margin-bottom: 20px; /* Increased margin */
+  min-height: 40px;
+  max-height: 220px;
+  overflow-y: auto;
+  background-color: #ffffff; /* White background for containers */
+  border-radius: 6px; /* Rounded corners */
+  box-shadow: 0 1px 2px rgba(0,0,0,0.05); /* Subtle shadow */
+}
+#archived-items-container ul {
+    padding-left: 0;
+    list-style-type: none;
+}
+#archived-items-container li {
+    padding: 10px 8px; /* Adjusted padding */
+    border-bottom: 1px solid #e9ebee; /* Lighter item border */
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+ #archived-items-container li:last-child {
+    border-bottom: none;
+}
+.item-info {
+    flex-grow: 1;
+    margin-right: 10px;
+    font-size: 0.95em;
+    overflow: hidden; /* Prevents long text from breaking layout */
+    text-overflow: ellipsis; /* Adds ellipsis for overflow */
+}
+.item-info a {
+    color: #007bff;
+    text-decoration: none;
+    white-space: nowrap; /* Prevents link text from wrapping */
+}
+.item-info a:hover {
+    text-decoration: underline;
+}
+.item-info .date { /* Class for archive date span */
+    font-size: 0.85em;
+    color: #606770; /* Subdued color for date */
+    display: block; /* Make it appear on new line or control with margin */
+    margin-top: 3px;
+}
+.item-actions {
+    white-space: nowrap; /* Ensure buttons stay on one line */
+}
+.item-actions button {
+    margin-left: 8px; /* Increased margin */
+    background-color: #e4e6eb; /* Lighter button background */
+    color: #4b4f56; /* Darker text for light buttons */
+    font-size: 0.85em;
+    padding: 6px 10px; /* Adjusted padding */
+    border: 1px solid #ccd0d5; /* Border for buttons */
+}
+.item-actions button:hover {
+    background-color: #d8dade; /* Slightly darker hover */
+}
+
+button { /* General button style */
+  padding: 10px 15px; /* Increased padding */
+  background-color: #007bff;
+  color: white;
+  border: none;
+  border-radius: 5px; /* Slightly more rounded */
+  cursor: pointer;
+  font-size: 0.95em; /* Adjusted font size */
+  margin: 5px;
+  transition: background-color 0.2s ease-in-out; /* Smooth transition */
+}
+button:hover {
+  background-color: #0056b3;
+}
+
+#status-message-container {
+  margin-bottom: 15px;
+  min-height: 22px;
+  text-align: center;
+}
+.status-message {
+  padding: 12px; /* Increased padding */
+  border-radius: 5px;
+  font-size: 0.9em;
+  border: 1px solid transparent; /* For consistency */
+}
+.status-success {
+  background-color: #d4edda;
+  color: #155724;
+  border-color: #c3e6cb;
+}
+.status-error {
+  background-color: #f8d7da;
+  color: #721c24;
+  border-color: #f5c6cb;
+}
+.export-buttons-container {
+    text-align: center;
+    margin-top: 20px;
+    padding-top: 15px;
+    border-top: 1px solid #dddfe2;
+}
