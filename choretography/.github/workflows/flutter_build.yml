@@ -1,0 +1,63 @@
+# choretography/.github/workflows/flutter_build.yml
+name: Flutter CI Build for Choretography
+
+on:
+  push:
+    branches: [ main ] # Or your default branch
+    paths:
+      - 'choretography/**' # Trigger only if files within choretography/ change
+  pull_request:
+    branches: [ main ] # Or your default branch
+    paths:
+      - 'choretography/**'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: ./choretography # Set working directory for all run steps
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3
+
+    - name: Set up Flutter
+      uses: subosito/flutter-action@v2 # Or dart-lang/setup-dart for Flutter
+      with:
+        flutter-version: '3.x' # Specify your Flutter version
+        # channel: 'stable' # Optional: specify channel
+        # cache: true # Optional: enable caching for faster builds
+
+    - name: Get Flutter dependencies
+      run: flutter pub get
+      # working-directory: ./choretography # Redundant if defaults.run.working-directory is set
+
+    - name: Analyze project source
+      run: flutter analyze
+      # working-directory: ./choretography
+
+    - name: Run widget tests
+      run: flutter test
+      # working-directory: ./choretography
+
+    - name: Build Flutter web application (example)
+      run: flutter build web --release --base-href /choretography/
+      # working-directory: ./choretography
+      # The --base-href should match the path where it will be deployed on GitHub Pages,
+      # if deploying from the root of the gh-pages branch to a /choretography/ subpath.
+
+    # - name: Deploy to GitHub Pages (Example)
+    #   # This step would typically be more complex, involving uploading artifacts
+    #   # or using a dedicated GitHub Pages deployment action.
+    #   # This is a conceptual placeholder.
+    #   uses: peaceiris/actions-gh-pages@v3
+    #   if: github.ref == 'refs/heads/main' # Only deploy from main branch
+    #   with:
+    #     github_token: ${{ secrets.GITHUB_TOKEN }}
+    #     publish_dir: ./choretography/build/web
+    #     destination_dir: choretography # Deploy to a /choretography/ subfolder on gh-pages branch
+    #     # user_name: 'github-actions[bot]'
+    #     # user_email: 'github-actions[bot]@users.noreply.github.com'
+    #     # commit_message: 'Deploy to GitHub Pages'

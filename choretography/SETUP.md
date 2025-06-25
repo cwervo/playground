@@ -139,3 +139,25 @@ The application includes UI placeholders for attaching photos to rooms and tasks
 2.  Run `flutter pub get`.
 3.  Follow the setup instructions for `image_picker` for each platform (iOS, Android, Web) you intend to support. This often involves adding permissions or specific entries to native configuration files (e.g., `Info.plist` on iOS, `AndroidManifest.xml` on Android). Refer to the `image_picker` package documentation on [pub.dev](https://pub.dev/packages/image_picker).
 4.  You will then need to implement the image picking logic in the relevant `_selectCoverPhoto()` (in `add_room_form.dart`) and `_selectTaskPhoto()` (in `add_edit_task_screen.dart`) methods, using the `ImagePicker` class to get an image file and then determining how to store/manage its path.
+
+## CI/CD with GitHub Actions (Placeholder)
+
+A placeholder GitHub Actions workflow file is provided in this repository at `.github/workflows/flutter_build.yml` (relative to the `choretography` directory if you copied it inside).
+
+This workflow (`choretography/.github/workflows/flutter_build.yml`) is designed to:
+- Trigger on pushes and pull requests to the main branch that affect files within the `choretography/` directory.
+- Set the working directory to `./choretography` for all Flutter commands.
+- Check out the code.
+- Set up a specific Flutter version.
+- Get dependencies (`flutter pub get`).
+- Analyze the project (`flutter analyze`).
+- Run widget tests (`flutter test`).
+- Build the Flutter web application (`flutter build web`).
+- Includes a commented-out conceptual placeholder for deploying to GitHub Pages.
+
+**To use this workflow:**
+1.  Ensure your Flutter project (created by following the steps above) is a Git repository and pushed to GitHub.
+2.  Make sure the `.github/workflows/flutter_build.yml` file (from the `choretography` directory of this repository) is placed in the `.github/workflows/` directory *at the root of your own Git repository*.
+3.  You may need to adjust the Flutter version, branch names, paths, and deployment steps to fit your specific needs.
+4.  The `working-directory: ./choretography` in the workflow assumes that your Flutter project files (pubspec.yaml, lib, etc.) are in a subdirectory named `choretography` within your repository root. If your Flutter project is at the root of your repository, you would remove the `working-directory` lines or set it to `./`.
+5.  For deployment to GitHub Pages, you'll need to configure the `peaceiris/actions-gh-pages` action (or a similar one) correctly, especially the `publish_dir` and `destination_dir` if you want it to live under `/choretography` on your GitHub Pages site. You might also need to set the base URL in your Flutter web build (`--base-href` flag).
