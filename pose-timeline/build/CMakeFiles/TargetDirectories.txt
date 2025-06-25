@@ -1,0 +1,3 @@
+/app/pose-timeline/build/CMakeFiles/PoseTimeline.dir
+/app/pose-timeline/build/CMakeFiles/edit_cache.dir
+/app/pose-timeline/build/CMakeFiles/rebuild_cache.dir
