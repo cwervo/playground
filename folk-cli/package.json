@@ -1,0 +1,23 @@
+{
+  "name": "folk-cli",
+  "version": "0.1.0",
+  "description": "A CLI for FolkComputer.",
+  "main": "index.js",
+  "bin": {
+    "folk": "./index.js"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "folk",
+    "folkcomputer"
+  ],
+  "author": "",
+  "license": "ISC",
+  "files": [
+    "index.js",
+    "folk.tcl"
+  ],
+  "type": "commonjs"
+}
