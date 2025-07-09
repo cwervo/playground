@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Poetry Camera</title>
+    <link rel="stylesheet" href="css/style.css">
+    <!-- htmx library -->
+    <script src="js/htmx.min.js"></script>
+    <!-- Import is-even, is-odd, and is-number -->
+    <script type="module">
+        import isEven from './is-even.js';
+        import isOdd from './is-odd.js';
+        // Example usage (can be removed)
+        console.log("Is 2 even?", isEven(2));
+        console.log("Is 3 odd?", isOdd(3));
+    </script>
+</head>
+<body>
+    <div class="mesh-gradient"></div> <!-- Added mesh gradient div -->
+    <header>
+        <!-- Applied class to h1 for neon effect -->
+        <h1 id="main-title" class="title">Poetry Camera</h1>
+    </header>
+
+    <main>
+        <div id="controls" style="display: flex; flex-direction: column; align-items: center; z-index: 10;">
+            <!-- Button to load p5.js sketch using htmx -->
+            <button id="start-button" hx-get="sketch-content.html" hx-target="#sketch-loader" hx-swap="innerHTML" style="padding: 15px 30px; font-size: 1.5rem; cursor: pointer; border-radius: 10px; border: none; background-color: #0fa; color: white; margin-bottom: 10px;">Start Poetry Camera</button>
+            <button id="selfie-button">Attach Selfie</button>
+            <button id="take-picture-button" style="display: none;">Take Picture</button>
+        </div>
+
+        <!-- This div will be the target for htmx to load sketch-content.html -->
+        <div id="sketch-loader"></div>
+
+        <div id="media-elements" style="display: none;"> <!-- Initially hidden -->
+            <video id="webcam-stream" style="display: none;" autoplay playsinline></video>
+            <canvas id="selfie-canvas" style="display: none;"></canvas>
+        </div>
+
+        <!-- p5-canvas-container is now created by sketch-content.html, so this can be removed or repurposed if needed -->
+        <!-- <div id="p5-canvas-container"> -->
+            <!-- p5.js canvas will be appended here by sketch.js -->
+        <!-- </div> -->
+    </main>
+
+    <footer>
+        <!-- Library scripts are now loaded via sketch-content.html or directly in head -->
+        <!-- Custom main script for webcam interactions, etc. (if needed separately from sketch.js) -->
+        <!-- <script src="js/main.js"></script> -->
+    </footer>
+
+    <script>
+        // JavaScript to hide the start button and selfie button after sketch is loaded
+        document.body.addEventListener('htmx:afterSwap', function(event) {
+            if (event.detail.target.id === 'sketch-loader') {
+                const startButton = document.getElementById('start-button');
+                if (startButton) {
+                    startButton.style.display = 'none';
+                }
+                // The selfie button remains, as per requirements
+            }
+        });
+
+        // Placeholder for webcam and selfie functionality
+        const selfieButton = document.getElementById('selfie-button');
+        const takePictureButton = document.getElementById('take-picture-button');
+        const webcamStream = document.getElementById('webcam-stream');
+        const selfieCanvas = document.getElementById('selfie-canvas');
+        const mediaElementsDiv = document.getElementById('media-elements'); // Get the container
+        // Get the sketch-loader div which contains the p5 canvas
+        const sketchLoaderDiv = document.getElementById('sketch-loader');
+
+        selfieButton.addEventListener('click', () => {
+            // Logic to start webcam
+            if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+                navigator.mediaDevices.getUserMedia({ video: true })
+                    .then(function (stream) {
+                        if (mediaElementsDiv) mediaElementsDiv.style.display = 'flex'; // Show media container
+                        webcamStream.srcObject = stream;
+                        webcamStream.style.display = 'block'; // Show webcam
+                        takePictureButton.style.display = 'block'; // Show take picture button
+                        selfieButton.style.display = 'none'; // Hide 'Attach Selfie' button
+                        if (sketchLoaderDiv) sketchLoaderDiv.style.display = 'none'; // Hide sketch area
+                    })
+                    .catch(function (err) {
+                        console.log("Something went wrong with webcam!", err);
+                        // Optionally re-show selfie button and sketch area if webcam fails
+                        if (mediaElementsDiv) mediaElementsDiv.style.display = 'none'; // Hide media container
+                        selfieButton.style.display = 'block';
+                        if (sketchLoaderDiv) sketchLoaderDiv.style.display = 'block';
+                    });
+            }
+        });
+
+        takePictureButton.addEventListener('click', () => {
+            // Logic to take picture
+            const context = selfieCanvas.getContext('2d');
+            selfieCanvas.width = webcamStream.videoWidth;
+            selfieCanvas.height = webcamStream.videoHeight;
+            context.drawImage(webcamStream, 0, 0, selfieCanvas.width, selfieCanvas.height);
+
+            // Stop webcam stream
+            webcamStream.srcObject.getTracks().forEach(track => track.stop());
+            if (mediaElementsDiv) mediaElementsDiv.style.display = 'none'; // Hide media container
+            webcamStream.style.display = 'none'; // Hide webcam
+            takePictureButton.style.display = 'none'; // Hide take picture button
+            selfieButton.style.display = 'block'; // Re-show 'Attach Selfie' button
+
+            if (sketchLoaderDiv) sketchLoaderDiv.style.display = 'block'; // Show sketch area again
+
+            const imageDataUrl = selfieCanvas.toDataURL('image/png');
+
+            // Pass the image data URL to the sketch
+            if (window.sketchInstance && typeof window.sketchInstance.setSelfieTextureFromUrl === 'function') {
+                window.sketchInstance.setSelfieTextureFromUrl(imageDataUrl);
+            } else {
+                console.log("Sketch instance or setSelfieTextureFromUrl function not ready.");
+            }
+        });
+    </script>
+</body>
+</html>
