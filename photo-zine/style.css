@@ -1,0 +1,46 @@
+body {
+    font-family: sans-serif;
+    padding: 20px;
+}
+
+#upload-container {
+    border: 2px dashed #ccc;
+    padding: 20px;
+    text-align: center;
+    margin-bottom: 20px;
+}
+
+#upload-container.dragover {
+    background-color: #f0f0f0;
+}
+
+#file-input {
+    display: none;
+}
+
+#photo-container {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 10px;
+}
+
+.photo-item {
+    border: 1px solid #ccc;
+    padding: 10px;
+}
+
+.photo-item img {
+    max-width: 100%;
+    height: auto;
+}
+
+.photo-item .location {
+    font-size: 0.8em;
+    color: #666;
+}
+
+.photo-item .note {
+    margin-top: 10px;
+    border: 1px solid #eee;
+    padding: 5px;
+}
