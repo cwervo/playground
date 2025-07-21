@@ -1,0 +1,10 @@
+{
+  "manifest_version": 3,
+  "name": "Save to Are.na",
+  "version": "1.0",
+  "description": "Save selected tabs to Are.na.",
+  "permissions": ["storage", "tabs"],
+  "action": {
+    "default_popup": "popup.html"
+  }
+}

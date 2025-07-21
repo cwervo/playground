@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Save to Are.na</title>
+  <style>
+    body { font-family: sans-serif; font-size: 14px; }
+    #login, #main { padding: 10px; }
+    #login input { width: 200px; }
+    #tabs { max-height: 200px; overflow-y: auto; }
+    .tab { display: flex; align-items: center; }
+    .tab input { margin-right: 5px; }
+  </style>
+</head>
+<body>
+  <div id="login">
+    <h1>Connect to Are.na</h1>
+    <p>Enter your Are.na API key:</p>
+    <input type="password" id="apiKey">
+    <button id="loginBtn">Save</button>
+  </div>
+  <div id="main" style="display: none;">
+    <h1>Save to Are.na</h1>
+    <div id="tabs"></div>
+    <button id="saveBtn">Save Selected Tabs</button>
+    <button id="logoutBtn">Logout</button>
+  </div>
+  <script src="popup.js"></script>
+</body>
+</html>
