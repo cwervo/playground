@@ -1,0 +1,207 @@
+Wish $this is outlined gold
+# Drawing API capability grid: 50cm x 50cm, 2cm above this page's quad.
+# Assumes $this has a quad.
+
+fn dgAdd {a b} {
+    list [expr {[lindex $a 0] + [lindex $b 0]}] \
+         [expr {[lindex $a 1] + [lindex $b 1]}] \
+         [expr {[lindex $a 2] + [lindex $b 2]}]
+}
+fn dgSub {a b} {
+    list [expr {[lindex $a 0] - [lindex $b 0]}] \
+         [expr {[lindex $a 1] - [lindex $b 1]}] \
+         [expr {[lindex $a 2] - [lindex $b 2]}]
+}
+fn dgScale {s v} {
+    list [expr {$s * [lindex $v 0]}] \
+         [expr {$s * [lindex $v 1]}] \
+         [expr {$s * [lindex $v 2]}]
+}
+fn dgUnit {v} {
+    set n [expr {sqrt([lindex $v 0] * [lindex $v 0] + [lindex $v 1] * [lindex $v 1] + [lindex $v 2] * [lindex $v 2])}]
+    if {$n == 0} { return {0 0 0} }
+    dgScale [expr {1.0 / $n}] $v
+}
+fn dgCell {grid name} {
+    list $grid cell $name
+}
+fn dgPct {x y} {
+    list [format "%.2f%%" $x] [format "%.2f%%" $y]
+}
+fn dgQuadAbove {quadLib q} {
+    lassign [$quadLib vertices $q] tl tr br bl
+    set right [dgUnit [dgSub $tr $tl]]
+    set up [dgUnit [dgSub $tl $bl]]
+    set topCenter [dgScale 0.5 [dgAdd $tl $tr]]
+    set center [dgAdd $topCenter [dgScale 0.27 $up]]
+
+    set hw 0.25
+    set hh 0.25
+    set a [dgAdd [dgAdd $center [dgScale -$hw $right]] [dgScale $hh $up]]
+    set b [dgAdd [dgAdd $center [dgScale  $hw $right]] [dgScale $hh $up]]
+    set c [dgAdd [dgAdd $center [dgScale  $hw $right]] [dgScale -$hh $up]]
+    set d [dgAdd [dgAdd $center [dgScale -$hw $right]] [dgScale -$hh $up]]
+    $quadLib create [$quadLib space $q] [list $a $b $c $d]
+}
+fn dgSubQuad {quadLib q x y w h} {
+    lassign [$quadLib vertices $q] tl tr br bl
+    set right [dgUnit [dgSub $tr $tl]]
+    set down [dgUnit [dgSub $bl $tl]]
+    set a [dgAdd $tl [dgAdd [dgScale $x $right] [dgScale $y $down]]]
+    set b [dgAdd $tl [dgAdd [dgScale [expr {$x + $w}] $right] [dgScale $y $down]]]
+    set c [dgAdd $tl [dgAdd [dgScale [expr {$x + $w}] $right] [dgScale [expr {$y + $h}] $down]]]
+    set d [dgAdd $tl [dgAdd [dgScale $x $right] [dgScale [expr {$y + $h}] $down]]]
+    $quadLib create [$quadLib space $q] [list $a $b $c $d]
+}
+fn dgPanel {quadLib gridQuad grid name x y w h cw ch} {
+    set panel [dgCell $grid $name]
+    set q [dgSubQuad $quadLib $gridQuad $x $y $w $h]
+    Claim $panel has quad $q
+    Claim $panel has drawing quad $q
+    Claim $panel has resolved geometry [dict create width $w height $h]
+    Wish $panel has a canvas with width $cw height $ch settle 0ms
+}
+fn dgClaimCell {quadLib gridQuad grid name col row} {
+    set marginX 0.015
+    set top 0.070
+    set gapX 0.008
+    set gapY 0.008
+    set w 0.1115
+    set h 0.133
+    set x [expr {$marginX + $col * ($w + $gapX)}]
+    set y [expr {$top + $row * ($h + $gapY)}]
+    dgPanel $quadLib $gridQuad $grid $name $x $y $w $h 1100 1300
+}
+fn dgCard {panel title bg} {
+    Wish $panel is filled with color $bg layer -20
+    Wish $panel is outlined with color {0.90 0.96 1.0 1.0} thickness 0.11cm
+    Wish $panel draws text $title with position {50% 9%} anchor center scale 0.50cm color white layer 30
+}
+
+set grid [list $this drawing-api-capability-grid]
+
+When the quad library is /quadLib/ & $this has quad /pageQuad/ {
+    set gridQuad [dgQuadAbove $quadLib $pageQuad]
+    Claim $grid has quad $gridQuad
+    Claim $grid has drawing quad $gridQuad
+    Claim $grid has resolved geometry [dict create width 0.50 height 0.50]
+
+    dgPanel $quadLib $gridQuad $grid header 0.015 0.008 0.470 0.050 3000 320
+    foreach {name col row} {
+        fill 0 0 shapes 1 0 line 2 0 text 3 0
+        curve 0 1 image 1 1 apriltag 2 1 gif 3 1
+        defaults 0 2 decorate 1 2 motion 2 2 units 3 2
+    } {
+        dgClaimCell $quadLib $gridQuad $grid $name $col $row
+    }
+}
+
+set header [dgCell $grid header]
+Wish $header is filled with color {0.08 0.10 0.12 0.92}
+Wish $header is outlined with color {1.0 1.0 1.0 0.85} thickness 0.08cm
+Wish $header draws text "drawing api capability grid - 50cm x 50cm above page quad" with \
+    position {50% 50%} anchor center scale 0.76cm color white
+
+set fill [dgCell $grid fill]
+dgCard $fill "fill + polygon" {0.09 0.13 0.15 1.0}
+Wish $fill draws fill with color {0.08 0.20 0.23 1.0}
+Wish to draw a polygon onto $fill with \
+    points {{0.014 0.080} {0.034 0.030} {0.060 0.044} {0.076 0.086}} \
+    color {0.98 0.68 0.30 0.92} layer 8
+Wish $fill draws text "filled page + polygon" with position {50% 86%} anchor center scale 0.38cm color white layer 20
+
+set shapes [dgCell $grid shapes]
+dgCard $shapes "shapes" {0.12 0.10 0.18 1.0}
+Wish $shapes draws a rect with position {24% 55%} width 2.8cm height 2.1cm color {0.38 0.82 0.92 1.0} filled true layer 6
+Wish $shapes draws a circle with position {54% 55%} radius 1.25cm color {1.0 0.82 0.28 1.0} filled false thickness 0.16cm layer 7
+Wish $shapes draws an octagon with position {78% 55%} radius 1.05cm color {0.62 0.96 0.62 1.0} filled true layer 8
+
+set line [dgCell $grid line]
+dgCard $line "line caps + dash" {0.10 0.12 0.20 1.0}
+Wish to draw a line onto $line with points {{0.014 0.034} {0.076 0.034}} width 0.004 color {0.60 0.88 1.0 1.0} caps round layer 8
+Wish to draw a line onto $line with points {{0.014 0.058} {0.076 0.058}} width 0.004 color {1.0 0.82 0.34 1.0} caps square layer 9
+When the clock time is /t/ {
+    set off [format "%.2f%%min" [expr {-20.0 * $t}]]
+    Wish $line draws a polyline {{12% 80%} {88% 80%}} with \
+        origin absolute dashed true dashlength 0.75cm dashoffset $off \
+        width 0.16cm color white layer 12
+}
+
+set text [dgCell $grid text]
+dgCard $text "text anchors" {0.10 0.10 0.14 1.0}
+Wish $text draws text "left" with position {12% 38%} anchor left scale 0.46cm color {0.55 0.90 1.0 1.0}
+Wish $text draws text "center" with position {50% 56%} anchor center scale 0.59cm color white
+Wish $text draws text "right" with position {88% 74%} anchor right scale 0.46cm color {1.0 0.82 0.34 1.0}
+
+set curve [dgCell $grid curve]
+dgCard $curve "arc + curve" {0.12 0.09 0.16 1.0}
+When the clock time is /t/ {
+    Wish to draw an arc onto $curve with \
+        center {0.028 0.062} radius 0.018 thickness 0.003 \
+        start [expr {fmod($t * 0.9, $::TAU)}] arclen 4.2 \
+        color {1.0 0.72 0.28 1.0} layer 8
+    Wish to draw a curve onto $curve with \
+        p0 {0.043 0.082} p1 {0.052 0.030} p2 {0.072 0.088} p3 {0.082 0.040} \
+        thickness 0.002 color {0.54 0.90 1.0 1.0} layer 9
+}
+
+set image [dgCell $grid image]
+dgCard $image "image" {0.08 0.11 0.14 1.0}
+Wish $image displays image "https://folk.computer/_media/logo.png" with \
+    position {50% 57%} width 5.8cm anchor center
+Wish $image draws text "remote PNG through image loader" with position {50% 88%} anchor center scale 0.34cm color white
+
+set apriltag [dgCell $grid apriltag]
+dgCard $apriltag "AprilTag" {0.12 0.12 0.12 1.0}
+Wish to draw an AprilTag onto $apriltag with \
+    id 204 corners {{0.025 0.032} {0.065 0.032} {0.065 0.072} {0.025 0.072}} \
+    background {1.0 1.0 1.0 1.0} layer 10
+Wish $apriltag draws text "direct calibration tag" with position {50% 86%} anchor center scale 0.36cm color white
+
+set gif [dgCell $grid gif]
+dgCard $gif "GIF" {0.10 0.10 0.18 1.0}
+Wish $gif draws text "uses drawing-gallery-assets/gallery.gif when present" with \
+    position {50% 84%} anchor center scale 0.32cm color white
+When the gif library is /gifLib/ {
+    set gifPath ""
+    foreach candidate [list \
+        [file join [pwd] drawing-gallery-assets gallery.gif] \
+        [file join $::env(HOME) folk drawing-gallery-assets gallery.gif] \
+        [file join $::env(HOME) folk-images drawing-gallery-assets gallery.gif]] {
+        if {[file exists $candidate]} { set gifPath $candidate; break }
+    }
+    if {$gifPath ne ""} {
+        set loadedGif [$gifLib loadGif $gifPath]
+        Wish $gif displays gif $loadedGif with position {50% 55%} width 4.8cm anchor center
+    }
+}
+
+set defaults [dgCell $grid defaults]
+dgCard $defaults "defaults" {0.12 0.10 0.12 1.0}
+Wish $defaults draws a circle
+Wish $defaults draws a rect with position {70% 42%} width 2.1cm height 1.4cm color {1.0 0.75 0.30 1.0} filled false thickness 0.14cm
+Wish $defaults draws points {{26% 72%} {44% 78%} {62% 72%}} with origin absolute color white radius 0.20cm thickness 0cm filled true
+Wish $defaults draws text "no-option circle" with position {50% 86%} anchor center scale 0.38cm color white
+
+set decorate [dgCell $grid decorate]
+dgCard $decorate "decorations" {0.09 0.12 0.18 1.0}
+Wish $decorate is labelled "labelled\ncenter"
+Wish $decorate is titled "title" with scale 25 padding 0.25cm
+Wish $decorate is footnoted "footnote" with scale 19 padding 0.25cm
+Wish $decorate points right with length 0.62
+
+set motion [dgCell $grid motion]
+dgCard $motion "animated" {0.09 0.10 0.14 1.0}
+Wish $motion draws a polyline {{12% 70%} {88% 70%}} with origin absolute color {0.45 0.70 0.78 1.0} width 0.10cm
+When the clock time is /t/ {
+    set p [dgPct [expr {50.0 + 31.0 * sin($t * 1.25)}] [expr {55.0 + 16.0 * cos($t * 0.85)}]]
+    Wish $motion draws a circle with position $p radius 0.78cm thickness 0cm color {1.0 0.64 0.82 0.96} filled true layer 12
+}
+
+set units [dgCell $grid units]
+dgCard $units "units + %" {0.11 0.11 0.12 1.0}
+Wish $units draws a polyline {{12% 72%} {34% 36%} {58% 70%} {84% 32%}} with \
+    origin absolute width 0.16cm color {0.55 0.90 1.0 1.0}
+Wish $units draws points {{12% 72%} {34% 36%} {58% 70%} {84% 32%}} with \
+    origin absolute radius 0.18cm thickness 0cm color {1.0 0.86 0.30 1.0} filled true
+Wish $units draws text "cm, %, %min" with position {50% 86%} anchor center scale 0.42cm color white

@@ -1,0 +1,21 @@
+Claim user cwervo exists
+# in Tcl:
+When user /user/ exists {
+    # ensure directory exists
+    # check for ~/folk/$user
+    # make it if it doesn't exist
+    #
+    # Construct the path to the target directory: ~/folk/$user
+    # 'glob' safely expands the tilde (~) to the user's home directory.
+    set targetDir [file join "~/folk-users/" $user]
+
+    # Check if the directory does not already exist
+    if {![file isdirectory $targetDir]} {
+        puts "Directory '$targetDir' not found. Creating it..."
+        # Create the directory
+        file mkdir $targetDir
+        puts "Directory created."
+    } else {
+        puts "Directory '$targetDir' already exists."
+    }
+}

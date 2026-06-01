@@ -1,0 +1,280 @@
+Wish $this is titled "Laptop File Drop"
+Wish $this has text "Hosts the /drop web endpoint to allow dragging files onto the table"
+
+Wish the web server handles route "/drop" with nav "<button>Drop files</button>" handler {
+    html {
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Folk File Drop</title>
+    <style>
+        body { margin: 0; display: flex; height: 100vh; background: #111; color: white; font-family: sans-serif; overflow: hidden; }
+        #dropzone {
+            flex: 1; margin: 2rem; border: 4px dashed #555; border-radius: 20px;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            font-size: 2rem; color: #aaa; transition: all 0.2s ease; position: relative;
+        }
+        #dropzone.dragover { border-color: #4CAF50; color: #4CAF50; background: rgba(76, 175, 80, 0.1); }
+        .dragme {
+            position: absolute; width: 150px; height: 150px;
+            background-color: rgba(255, 255, 255, 0.1); border: 2px solid white;
+            cursor: move; padding: 10px; box-sizing: border-box;
+            user-select: none; overflow: hidden; word-break: break-all;
+        }
+        .gallery {
+            display: flex; flex-wrap: wrap; gap: 15px; margin-top: 20px;
+            width: 90%; justify-content: center; overflow-y: auto; max-height: 60%;
+        }
+        .gallery-item {
+            cursor: pointer; border: 2px solid transparent; border-radius: 8px;
+            transition: all 0.2s ease; padding: 5px; background: rgba(255,255,255,0.05);
+            display: flex; flex-direction: column; align-items: center; font-size: 1rem;
+        }
+        .gallery-item:hover { background: rgba(255,255,255,0.1); }
+        .gallery-item.active { border-color: #4CAF50; }
+        .gallery-item.inactive { opacity: 0.4; }
+    </style>
+</head>
+<body>
+    <span id="status" style="position: absolute; top: 10px; left: 10px;">Status</span>
+    <div id="dropzone">
+        <div id="dropMsg">Drop files here</div>
+        <div id="gallery" class="gallery"></div>
+    </div>
+    <script src="/lib/folk.js"></script>
+    <script>
+        const ws = new FolkWS(document.getElementById('status'));
+        
+        function uuidv4() {
+            return ([1e7]+-1e3+-4e3+-8e3+-1e11).replace(/[018]/g, c =>
+                (c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4).toString(16)
+            );
+        }
+
+        function updateQuad(id, ele, save) {
+            const w = ele.offsetWidth, h = ele.offsetHeight;
+            const top = ele.offsetTop, left = ele.offsetLeft;
+            
+            const tclCode = tcl`
+              package require linalg
+              namespace import ::math::linearalgebra::add
+              namespace import ::math::linearalgebra::sub
+              namespace import ::math::linearalgebra::matmul
+              namespace import ::math::linearalgebra::scale
+
+              Expect! the quad library is /quadLib/
+              Expect! display /disp/ has width /displayWidth/ height /displayHeight/
+
+              set x [expr {int(double(${(left + (left/window.innerWidth) * w)}) * (double($displayWidth) / ${window.innerWidth}))}]
+              set y [expr {int(double(${(top + (top/window.innerHeight) * h)}) * (double($displayHeight) / ${window.innerHeight}))}]
+              set w [expr {int(double(${w}) * (double($displayWidth) / ${window.innerWidth}))}]
+              set h [expr {int(double(${h}) * (double($displayHeight) / ${window.innerHeight}))}]
+
+              set depth 1.5
+              Expect! display $disp has intrinsics /displayIntrinsics/
+              
+              set fx [dict get $displayIntrinsics fx]
+              set fy [dict get $displayIntrinsics fy] 
+              set cx [dict get $displayIntrinsics cx]
+              set cy [dict get $displayIntrinsics cy]
+              
+              set scale_x [expr {[dict get $displayIntrinsics width] / double($displayWidth)}]
+              set scale_y [expr {[dict get $displayIntrinsics height] / double($displayHeight)}]
+              
+              set x_scaled [expr {$x * $scale_x}]
+              set y_scaled [expr {$y * $scale_y}]
+              set w_scaled [expr {$w * $scale_x}]
+              set h_scaled [expr {$h * $scale_y}]
+              
+              set x1_3d [expr {($x_scaled - $cx) * $depth / $fx}]
+              set y1_3d [expr {($y_scaled - $cy) * $depth / $fy}]
+              set x2_3d [expr {($x_scaled + $w_scaled - $cx) * $depth / $fx}]
+              set y2_3d [expr {($y_scaled + $h_scaled - $cy) * $depth / $fy}]
+              
+              set vertices [list \
+                  [list $x1_3d $y1_3d $depth] \
+                  [list $x2_3d $y1_3d $depth] \
+                  [list $x2_3d $y2_3d $depth] \
+                  [list $x1_3d $y2_3d $depth] \
+              ]
+
+              set q [$quadLib create "display $disp" $vertices]
+              
+              if {${save ? 1 : 0}} {
+                  Hold! -save -key geom-${id} [list Claim ${id} has quad $q]
+              } else {
+                  Claim ${id} has quad $q
+              }
+            `;
+            
+            if (save) {
+                ws.send(tclCode);
+            } else {
+                ws.hold(`quad-${id}`, tclCode);
+            }
+        }
+
+        function createDraggableBox(id, filename, index) {
+            const box = document.createElement('div');
+            box.dataset.id = id;
+            box.className = 'dragme';
+            box.style.top = (100 + index * 50) + 'px';
+            box.style.left = (100 + index * 50) + 'px';
+            box.innerHTML = `<strong>${filename}</strong><br><small>${id}</small>`;
+            document.body.appendChild(box);
+
+            let dragX = 0, dragY = 0;
+            
+            const onMove = e => {
+                const dx = e.clientX - dragX;
+                const dy = e.clientY - dragY;
+                box.style.top = (box.offsetTop + dy) + 'px';
+                box.style.left = (box.offsetLeft + dx) + 'px';
+                dragX = e.clientX;
+                dragY = e.clientY;
+                
+                updateQuad(id, box, false);
+            };
+            
+            const onUp = () => {
+                document.removeEventListener('pointermove', onMove);
+                document.removeEventListener('pointerup', onUp);
+                updateQuad(id, box, true);
+            };
+            
+            box.addEventListener('pointerdown', e => {
+                dragX = e.clientX;
+                dragY = e.clientY;
+                document.addEventListener('pointermove', onMove);
+                document.addEventListener('pointerup', onUp);
+            });
+            
+            // Give it an initial quad on the table based on its default placement
+            updateQuad(id, box, true);
+        }
+
+        const dz = document.getElementById('dropzone');
+        dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('dragover'); });
+        dz.addEventListener('dragleave', e => { e.preventDefault(); dz.classList.remove('dragover'); });
+        dz.addEventListener('drop', async e => {
+            e.preventDefault(); dz.classList.remove('dragover');
+            for (const file of e.dataTransfer.files) {
+                dz.textContent = "Uploading " + file.name + "...";
+                const reader = new FileReader();
+                reader.onload = async (event) => {
+                    const base64 = event.target.result.split(',')[1];
+                    const uuid = uuidv4();
+                    
+                    const tclScript = tcl`
+                        set imgDir [file join $::env(HOME) "folk-data" "images"]
+                        file mkdir $imgDir
+                        set imgPath [file join $imgDir ${file.name}]
+                        set fp [open $imgPath w]
+                        fconfigure $fp -translation binary
+                        puts -nonewline $fp [binary decode base64 ${base64}]
+                        close $fp
+
+                        set progDir [file join $::env(HOME) "folk-data" "program"]
+                        file mkdir $progDir
+                        
+                        set spawnPoints [Query! /spawn/ has quad /q/ & /someone/ wishes /spawn/ is a /drop spawn]
+                        set results [list]
+                        
+                        if {[llength $spawnPoints] == 0} {
+                            set uid "drop-${uuid}"
+                            set fp [open [file join $progDir "$uid.folk"] w]
+                            puts $fp "Wish \\$this is titled {${file.name}}"
+                            puts $fp "Wish \\$this displays image {$imgPath}"
+                            close $fp
+                            
+                            Hold! -save -key load-$uid "[list Claim $uid has a program]\\n[list Claim $uid is a tag]"
+                            lappend results [list id $uid]
+                        } else {
+                            for {set i 0} {$i < [llength $spawnPoints]} {incr i} {
+                                set uid "drop-${uuid}-$i"
+                                set q [dict get [lindex $spawnPoints $i] q]
+                                
+                                set fp [open [file join $progDir "$uid.folk"] w]
+                                puts $fp "Wish \\$this is titled {${file.name}}"
+                                puts $fp "Wish \\$this displays image {$imgPath}"
+                                close $fp
+                                
+                                Hold! -save -key load-$uid "[list Claim $uid has a program]\\n[list Claim $uid is a tag]"
+                                # Bake in the initial quad from the spawn point
+                                Hold! -save -key geom-$uid [list Claim $uid has quad $q]
+                                
+                                lappend results [list id $uid]
+                            }
+                        }
+                        
+                        set json "\["
+                        set first 1
+                        foreach res $results {
+                            if {!$first} { append json "," }
+                            set first 0
+                            append json "{\\"id\\":\\"[dict get $res id]\\"}"
+                        }
+                        append json "\]"
+                        return $json
+                    `;
+                    
+                    // TODO: Use a proper multipart form upload in the future
+                    // instead of evaluating Tcl POST bodies directly, to handle large files better.
+                    const resp = await fetch('/api/upload', { method: 'POST', body: tclScript });
+                    try {
+                        const data = await resp.json();
+                        const ids = data.map(d => d.id);
+                        
+                        document.getElementById('dropMsg').style.display = 'none';
+                        const gal = document.getElementById('gallery');
+                        const thumb = document.createElement('div');
+                        thumb.className = 'gallery-item active';
+                        if (file.type.startsWith('image/')) {
+                            thumb.innerHTML = `<img src="\${URL.createObjectURL(file)}" style="max-width: 100px; max-height: 100px; border-radius: 8px;">`;
+                        } else {
+                            thumb.innerHTML = `<span>\${file.name}</span>`;
+                        }
+                        
+                        thumb.addEventListener('click', (e) => {
+                            e.stopPropagation();
+                            if (thumb.classList.contains('active')) {
+                                thumb.classList.remove('active');
+                                thumb.classList.add('inactive');
+                                ids.forEach(id => {
+                                    ws.send(tcl\`Hold! -save -key load-\${id} ""\`);
+                                    document.querySelectorAll('.dragme').forEach(el => {
+                                        if (el.dataset.id === id) el.style.display = 'none';
+                                    });
+                                });
+                            } else {
+                                thumb.classList.add('active');
+                                thumb.classList.remove('inactive');
+                                ids.forEach(id => {
+                                    ws.send(tcl\`Hold! -save -key load-\${id} "[list Claim \${id} has a program]\\n[list Claim \${id} is a tag]"\`);
+                                    document.querySelectorAll('.dragme').forEach(el => {
+                                        if (el.dataset.id === id) el.style.display = 'block';
+                                    });
+                                });
+                            }
+                        });
+                        gal.appendChild(thumb);
+
+                        data.forEach((item, index) => {
+                            createDraggableBox(item.id, file.name, index);
+                        });
+                    } catch (err) {
+                        console.error("Failed to parse response", err);
+                    }
+                    
+                    const orig = dz.style.backgroundColor;
+                    dz.style.backgroundColor = 'rgba(76, 175, 80, 0.2)';
+                    setTimeout(() => dz.style.backgroundColor = orig, 500);
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+    </script>
+</body>
+</html>
+    }
+}

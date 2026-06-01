@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Color Space Inversion Comparison</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+    <script src="colorUtils.js"></script>
+    <script src="grid.js"></script>
+            cell.innerHTML = `
+            ${wheel}
+            <div class=\"text-xs mb-2\">${space}</div>
+            <span class=\"px-2 py-1 rounded text-lg font-bold\" style=\"background:${fg};color:${bg};margin-top:16px;\">A</span>
+            <div class=\"text-xs mt-2\">FG: ${fg}<br>BG: ${bg}</div>
+          `;
+            grid.appendChild(cell);
+          });
+        });
+      }
+
+      document.getElementById("reverseBtn").onclick = function () {
+        reversed = !reversed;
+        renderGrid();
+      };
+
+      renderGrid();
+
+      // TODO: Add dynamic Tailwind color override tool
+    </script>
+  </body>
+</html>
