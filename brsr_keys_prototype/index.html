@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Brsr Keys - Keyboard Shortcut Browser Prototype</title>
+  <!-- Google Fonts for premium typography -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500&family=Outfit:wght@300;400;500;600;700&family=Playfair+Display:ital,wght@0,400;0,600;1,400&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./style.css">
+</head>
+<body class="browser-theme-light">
+  <div class="app-container">
+    
+    <!-- Header info showing how to get started -->
+    <header class="app-header">
+      <div class="logo-area">
+        <h1>brsr://<span>keys</span></h1>
+        <span class="badge">Prototype Mockup</span>
+      </div>
+      <p class="tagline">An interactive simulation of a single-key keyboard shortcut-driven browser. <strong>Click inside the viewport to focus</strong>, then try the shortcuts!</p>
+      <div class="quick-status">
+        <span class="status-indicator active"></span>
+        <span id="shortcut-status-text">Shortcuts Active</span>
+      </div>
+    </header>
+
+    <!-- Main Emulated Browser UI -->
+    <main class="browser-window" id="browserWindow">
+      
+      <!-- Browser Top Chrome (Tabs & Navigation) -->
+      <div class="browser-chrome">
+        
+        <!-- Tab Bar Row -->
+        <div class="tab-bar-row">
+          <!-- macOS Window Control Dots -->
+          <div class="window-controls">
+            <span class="control dot-close"></span>
+            <span class="control dot-minimize"></span>
+            <span class="control dot-expand"></span>
+          </div>
+
+          <!-- Tabs Container -->
+          <div class="tab-container" id="tabContainer">
+            <!-- Tabs will be rendered here dynamically -->
+          </div>
+
+          <!-- New Tab Button -->
+          <button class="chrome-btn btn-new-tab" id="btnNewTab" title="Open new tab (Ctrl+T / Double click tab bar)">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
+          </button>
+        </div>
+
+        <!-- Navigation & Address Bar Row -->
+        <div class="navigation-row">
+          <div class="nav-actions">
+            <button class="chrome-btn" id="btnBack" title="Go Back">
+              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+            </button>
+            <button class="chrome-btn" id="btnForward" title="Go Forward">
+              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+            </button>
+            <button class="chrome-btn" id="btnRefresh" title="Refresh Page">
+              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
+            </button>
+          </div>
+
+          <!-- Address Bar Container -->
+          <div class="address-bar-container">
+            <div class="address-icon" id="addressIcon">
+              <svg class="icon icon-lock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+            </div>
+            <input type="text" id="addressInput" class="address-input" value="brsr://newtab" placeholder="Search or enter web address" autocomplete="off" spellcheck="false">
+            <div class="address-actions">
+              <button class="chrome-btn btn-star" id="btnFavorite" title="Favorite this site (f or d)">
+                <svg class="icon icon-star" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+              </button>
+            </div>
+          </div>
+
+          <!-- Utility buttons on the right side of chrome -->
+          <div class="utility-actions">
+            <button class="chrome-btn" id="btnHistory" title="Access History (h)">
+              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            </button>
+            <button class="chrome-btn" id="btnDarkMode" title="Toggle Dark Mode (d)">
+              <svg class="icon icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+            </button>
+            <button class="chrome-btn" id="btnTabView" title="Spaces Tab Overview (Esc)">
+              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></svg>
+            </button>
+          </div>
+        </div>
+
+        <!-- Favorites Bar (0-9) -->
+        <div class="favorites-bar">
+          <span class="fav-label">Favorites:</span>
+          <div class="fav-list" id="favoritesList">
+            <!-- Favorites rendered dynamically -->
+          </div>
+        </div>
+      </div>
+
+      <!-- Browser Core Viewport (Mock Web Pages) -->
+      <div class="browser-body">
+        <div class="page-content-wrapper" id="pageWrapper" tabindex="0">
+          <div class="page-viewport" id="pageViewport">
+            <!-- Mock page HTML rendered here -->
+          </div>
+        </div>
+      </div>
+      
+    </main>
+
+    <!-- Tab View overlay (Spaces style Grid) -->
+    <div class="tab-view-overlay" id="tabViewOverlay">
+      <div class="tab-view-container">
+        <div class="tab-view-header">
+          <h2>Spaces Tab Overview</h2>
+          <p>Switch with mouse or arrows, close with click, search tabs. Press <code>Esc</code> to return.</p>
+          <div class="tab-view-search-box">
+            <input type="text" id="tabViewSearch" placeholder="Type to filter tabs..." autocomplete="off">
+          </div>
+        </div>
+        <div class="tab-view-grid" id="tabViewGrid">
+          <!-- Grid items representing active tabs -->
+        </div>
+        <button class="tab-view-add-btn" id="tabViewAddBtn">+ Open New Tab</button>
+      </div>
+    </div>
+
+    <!-- Print / Save as PDF modal -->
+    <div class="print-modal-overlay" id="printModalOverlay">
+      <div class="print-dialog-card">
+        <div class="print-dialog-header">
+          <div class="title-with-icon">
+            <svg class="icon-print" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9V2h12v7M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+            <h3>Save Page as PDF</h3>
+          </div>
+          <button class="close-modal-btn" id="btnPrintClose">&times;</button>
+        </div>
+        <div class="print-dialog-body">
+          <div class="print-preview-pane">
+            <div class="preview-header">
+              <span class="preview-dot"></span>
+              <span id="preview-url-text">brsr://newtab</span>
+            </div>
+            <div class="preview-content-placeholder">
+              <div class="skeleton-text title"></div>
+              <div class="skeleton-text line1"></div>
+              <div class="skeleton-text line2"></div>
+              <div class="skeleton-text line3"></div>
+            </div>
+          </div>
+          <div class="print-settings-pane">
+            <div class="setting-group">
+              <label for="pdfLayout">Layout</label>
+              <select id="pdfLayout">
+                <option value="portrait">Portrait</option>
+                <option value="landscape">Landscape</option>
+              </select>
+            </div>
+            <div class="setting-group">
+              <label for="pdfPaper">Paper Size</label>
+              <select id="pdfPaper">
+                <option value="letter">Letter</option>
+                <option value="a4">A4</option>
+                <option value="legal">Legal</option>
+              </select>
+            </div>
+            <div class="setting-group">
+              <label for="pdfMargins">Margins</label>
+              <select id="pdfMargins">
+                <option value="default">Default (0.4 in)</option>
+                <option value="none">None</option>
+                <option value="minimum">Minimum</option>
+              </select>
+            </div>
+            <div class="setting-group checkbox-group">
+              <label class="checkbox-label">
+                <input type="checkbox" id="pdfBackground" checked>
+                <span>Print background graphics</span>
+              </label>
+              <label class="checkbox-label">
+                <input type="checkbox" id="pdfHeaders" checked>
+                <span>Headers and footers</span>
+              </label>
+            </div>
+          </div>
+        </div>
+        <div class="print-dialog-footer">
+          <button class="modal-btn secondary" id="btnPrintCancel">Cancel</button>
+          <button class="modal-btn primary" id="btnPrintSave">Save PDF</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Floating Shortcut Cheatsheet -->
+    <div class="shortcut-cheatsheet" id="cheatsheet">
+      <div class="cheatsheet-header">
+        <h4>Keyboard Shortcuts</h4>
+        <button class="cheatsheet-toggle" id="btnToggleCheatsheet" title="Minimize Cheatsheet">
+          <svg class="chevron-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 9l-7 7-7-7"/></svg>
+        </button>
+      </div>
+      <div class="cheatsheet-content">
+        <ul class="shortcut-list">
+          <li>
+            <span class="key-badge">n</span>
+            <span class="action-desc">Open New Tab</span>
+          </li>
+          <li>
+            <span class="key-badge">f</span>
+            <span class="action-desc">Favorite current site</span>
+          </li>
+          <li>
+            <span class="key-badge">h</span>
+            <span class="action-desc">Access History <span class="dim-info">(disabled in history)</span></span>
+          </li>
+          <li>
+            <span class="key-badge">c</span>
+            <span class="action-desc">Copy selection <span class="dim-info">(tap again to copy entire page)</span></span>
+          </li>
+          <li>
+            <span class="key-badge">s</span>
+            <span class="action-desc">Suspend active tab <span class="dim-info">(unload memory)</span></span>
+          </li>
+          <li>
+            <span class="key-badge">p</span>
+            <span class="action-desc">Save Page as PDF Menu</span>
+          </li>
+          <li>
+            <span class="key-badge">d</span>
+            <span class="action-desc">Toggle Dark Mode</span>
+          </li>
+          <li>
+            <span class="key-badge">0-9</span>
+            <span class="action-desc">Go to Favorite 0 to 9</span>
+          </li>
+          <li>
+            <span class="key-badge">Backspace</span>
+            <span class="action-desc">Close current tab</span>
+          </li>
+          <li>
+            <span class="key-badge">Esc</span>
+            <span class="action-desc">Spaces Tab View <span class="dim-info">(closes modals first)</span></span>
+          </li>
+          <li>
+            <span class="key-badge">Shift</span>
+            <span class="action-desc">Scroll page down 6px</span>
+          </li>
+          <li>
+            <span class="key-badge">Shift+Opt</span>
+            <span class="action-desc">Scroll page up 6px</span>
+          </li>
+        </ul>
+        <div class="cheatsheet-hint">
+          <span class="bullet"></span> Shortcuts work only when you are <strong>not</strong> typing in input fields.
+        </div>
+      </div>
+    </div>
+
+    <!-- Custom Toasts container for shortcuts visual feedback -->
+    <div class="toast-container" id="toastContainer"></div>
+  </div>
+
+  <!-- Main scripts -->
+  <script type="module" src="./app.js"></script>
+</body>
+</html>
