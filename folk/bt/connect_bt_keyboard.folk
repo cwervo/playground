@@ -1,0 +1,141 @@
+# ---------------------------------------------------------
+# Bluetooth Keyboard Auto-Pairing Tool (Simplified)
+# ---------------------------------------------------------
+
+# Defensive Cleanup: Clear stale state from previous runs
+Retract! $this has phase /any/
+Retract! $this target is /any/ named /any/
+
+# Initialize the state machine
+When /nobody/ claims $this has phase /any/ {
+    puts "[clock milliseconds] auto_bt: No phase detected, initializing to 'scanning'."
+    Hold! -key [list $this phase] Claim $this has phase scanning
+}
+
+# Phase: scanning
+When $this has phase scanning {
+    puts "[clock milliseconds] auto_bt: Phase -> scanning"
+    set scanner [list scanner $this]
+    
+    Wish $this is outlined blue
+
+    # Start the Bluetooth scanning pipeline
+    Wish $scanner runs Unix command "/bin/sh" with arguments \
+        [list "-c" "/usr/bin/bluetoothctl power on; /usr/bin/bluetoothctl pairable on; /usr/bin/stdbuf -oL /usr/bin/bluetoothctl scan on"]
+
+    When $scanner has Unix output lines /lines/ {
+        foreach line $lines {
+            # Look for lines matching: "[NEW] Device F4:73:35:8E:B1:7F K380 for Mac"
+            if {[regexp {Device ([0-9A-F:]+) (.*)} $line match mac name]} {
+                set name [string trim $name]; puts "[clock milliseconds] auto_bt: Seen device: $name ($mac)"
+                if {[regexp -nocase {keyboard|k380|mac} $name]} {
+                    puts "[clock milliseconds] auto_bt: Found potential keyboard '$name' ($mac). Switching to 'connecting' phase."
+                    Hold! -key [list $this target] Claim $this target is $mac named $name
+                    Hold! -key [list $this phase] Claim $this has phase connecting
+                }
+            }
+        }
+    }
+}
+
+# Display scanning dots
+When $this has phase scanning &\
+     the clock time is /t/ {
+    set dot_states [list "o.." ".o." "..o"]
+    set dots [lindex $dot_states [expr {int($t * 4) % 3}]]
+    Wish $this is footnoted "Scanning for Keyboards $dots\n(Put your keyboard in pairing mode!)"
+}
+
+# Phase: connecting
+When $this has phase connecting &\
+     $this target is /mac/ named /name/ {
+    puts "[clock milliseconds] auto_bt: Phase -> connecting to $name ($mac)"
+    set connector [list connector $this $mac]
+    
+    Wish $this is outlined yellow
+    Wish $this is footnoted "Connecting to $name...\n($mac)"
+    
+    Wish $connector runs Unix command "/usr/bin/bluetoothctl" with arguments [list "connect" $mac]
+    
+    When $connector has Unix output lines /connectLines/ {
+        if {[llength $connectLines] > 0} {
+            set start_idx [expr {[llength $connectLines] - 10}]
+            if {$start_idx < 0} { set start_idx 0 }
+            set recent_lines [join [lrange $connectLines $start_idx end] "\n"]
+            set full_output [join $connectLines "\n"]
+            Wish $this is labelled $recent_lines
+            
+            if {[regexp -nocase {successful} $full_output]} {
+                puts "[clock milliseconds] auto_bt: Connection successful for $name."
+                Wish $this is footnoted "Connecting to $name...\nStatus: Successful"
+                Hold! -key [list $this phase] Claim $this has phase connected
+            } elseif {[regexp -nocase {failed|error|not available} $full_output]} {
+                puts "[clock milliseconds] auto_bt: Connection failed for $name."
+                Wish $this is footnoted "Connecting to $name...\nStatus: Failed"
+                Hold! -key [list $this phase] Claim $this has phase scanning
+            } else {
+                Wish $this is footnoted "Connecting to $name...\nWaiting for status..."
+            }
+        }
+    }
+}
+
+# Phase: connected
+When $this has phase connected &\
+     $this target is /mac/ named /name/ {
+    puts "[clock milliseconds] auto_bt: Phase -> connected to $name ($mac)"
+    Wish $this is outlined green
+    Wish $this is footnoted "Connected: $name\nMAC: $mac"
+
+    # Set up the visual countdown start time
+    When /nobody/ claims $this has countdown-start /any/ {
+        Hold! -key [list $this countdown-start] Claim $this has countdown-start [expr {[clock milliseconds] / 1000.0}]
+        
+        # Trigger the robust 3-second state transition timer
+        Hold! -keep 3000ms -key [list $this reset-timer] Claim $this is waiting for reset
+        Hold! -key [list $this reset-timer] {}
+    }
+}
+
+# Process state transition when the timer expires
+When $this has phase connected &\
+     /nobody/ claims $this is waiting for reset {
+    puts "[clock milliseconds] auto_bt: Reset timer fired. Clearing target and returning to 'scanning' phase."
+
+    # Re-scan for new keyboards in /dev/input/by-path/ to inform the system of hot-plugs
+    set allDevices [glob -nocomplain "/dev/input/by-path/*"]
+    foreach device $allDevices {
+        set properties [exec udevadm info --query=property --name=$device]
+        if {[string match *ID_INPUT_KEYBOARD=1* $properties]} {
+            if {[file readable $device] == 0} {
+                puts stderr "auto_bt: Device $device is not readable. Attempting to change permissions."
+                catch {exec sudo chmod +r $device}
+            }
+            # Assert a global claim for the new keyboard so builtin-programs/keyboard.folk picks it up
+            Hold! -key [list auto-bt-keyboard $device] Claim $device is a keyboard device
+        }
+    }
+
+    Hold! -key [list $this target] {}
+    Hold! -key [list $this countdown-start] {}
+    Hold! -key [list $this phase] Claim $this has phase scanning
+}
+
+# Visual countdown display
+When $this has phase connected &\
+     $this has countdown-start /start_t/ &\
+     the clock time is /t/ {
+    set elapsed [expr {$t - $start_t}]
+    set remaining [expr {3 - int($elapsed)}]
+    if {$remaining > 0} {
+        Wish $this is titled "Resuming scanning in $remaining seconds ..."
+    }
+}
+
+When $this target is /mac/ named /name/ {
+    Wish $this is left-margined "Connected Keyboards:\n- $name ($mac)"
+}
+
+When /nobody/ claims $this target is /any/ named /any/ {
+    Wish $this is left-margined "Connected Keyboards:\n(0 connected keyboards)"
+}
