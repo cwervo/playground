@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Webcam Color Segmentation</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 100%; height: 100%; overflow: hidden; background: #000; }
+  #view {
+    position: fixed;
+    inset: 0;
+    width: 100vw;
+    height: 100vh;
+    object-fit: cover;
+  }
+  #controls {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    align-items: flex-end;
+    padding: 14px;
+    background: linear-gradient(transparent, rgba(0,0,0,0.6));
+    font-family: system-ui, sans-serif;
+  }
+  button {
+    padding: 12px 18px;
+    font-size: 16px;
+    border: 1px solid rgba(255,255,255,0.4);
+    border-radius: 10px;
+    background: rgba(20,20,20,0.75);
+    color: #fff;
+    cursor: pointer;
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+  }
+  button:active { background: rgba(80,80,80,0.85); }
+  button.active { border-color: #fff; background: rgba(255,255,255,0.25); }
+  /* Segment picker: a button whose list opens UPWARD (upside-down <input list>) */
+  #segWrap { position: relative; }
+  #segList {
+    position: absolute;
+    bottom: calc(100% + 8px);   /* opens upward from the button */
+    left: 50%;
+    transform: translateX(-50%);
+    display: none;
+    flex-direction: column;
+    min-width: 100%;
+    border: 1px solid rgba(255,255,255,0.4);
+    border-radius: 10px;
+    overflow: hidden;
+    background: rgba(20,20,20,0.85);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+  }
+  #segList.open { display: flex; }
+  #segList button {
+    border: none;
+    border-radius: 0;
+    background: transparent;
+    text-align: left;
+    white-space: nowrap;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  #segList button:hover { background: rgba(255,255,255,0.15); }
+  #segList button + button { border-top: 1px solid rgba(255,255,255,0.15); }
+  .swatch {
+    display: inline-block;
+    width: 14px;
+    height: 14px;
+    border-radius: 3px;
+    border: 1px solid rgba(255,255,255,0.5);
+  }
+  #err {
+    position: fixed;
+    top: 12px;
+    left: 50%;
+    transform: translateX(-50%);
+    max-width: 90vw;
+    padding: 10px 16px;
+    border-radius: 8px;
+    background: rgba(180,30,30,0.9);
+    color: #fff;
+    font-family: system-ui, sans-serif;
+    display: none;
+  }
+</style>
+</head>
+<body>
+
+<video id="cam" autoplay playsinline muted style="display:none"></video>
+<canvas id="view"></canvas>
+<div id="err"></div>
+
+<div id="controls">
+  <button id="switchBtn" title="Cycle through available cameras">Switch camera</button>
+  <button id="rgbBtn" class="active" title="Raw RGB feed">RGB</button>
+  <div id="segWrap">
+    <div id="segList"></div>
+    <button id="segBtn" title="Color segmentation mode">Segment&hairsp;&#9650;</button>
+  </div>
+</div>
+
+<script>
+  const video   = document.getElementById('cam');
+  const canvas  = document.getElementById('view');
+  const ctx     = canvas.getContext('2d', { willReadFrequently: true });
+  const errBox  = document.getElementById('err');
+  const rgbBtn  = document.getElementById('rgbBtn');
+  const segBtn  = document.getElementById('segBtn');
+  const segList = document.getElementById('segList');
+
+  // ---- Segmentation modes -------------------------------------------------
+  // Each test(r, g, b, mx, mn) returns true if the pixel belongs to the class.
+  const T = 45;   // chroma dominance threshold
+  const MODES = {
+    C: { name: 'Cyan',    css: '#0ff', test: (r,g,b) => Math.min(g,b) - r > T },
+    Y: { name: 'Yellow',  css: '#ff0', test: (r,g,b) => Math.min(r,g) - b > T },
+    M: { name: 'Magenta', css: '#f0f', test: (r,g,b) => Math.min(r,b) - g > T },
+    K: { name: 'Black',   css: '#000', test: (r,g,b,mx,mn) => mx < 60 },
+    R: { name: 'Red',     css: '#f00', test: (r,g,b) => r - Math.max(g,b) > T },
+    G: { name: 'Green',   css: '#0f0', test: (r,g,b) => g - Math.max(r,b) > T },
+    B: { name: 'Blue',    css: '#00f', test: (r,g,b) => b - Math.max(r,g) > T },
+    W: { name: 'White',   css: '#fff', test: (r,g,b,mx,mn) => mn > 170 && (mx - mn) < 45 },
+  };
+  let mode = 'RGB';   // 'RGB' or a key of MODES
+
+  // Build the upward list (C/Y/M/K/R/G/B/W)
+  for (const key of ['C','Y','M','K','R','G','B','W']) {
+    const m = MODES[key];
+    const item = document.createElement('button');
+    item.innerHTML = `<span class="swatch" style="background:${m.css}"></span>${key} — ${m.name}`;
+    item.addEventListener('click', () => {
+      mode = key;
+      segBtn.innerHTML = `${key} — ${m.name}&hairsp;&#9650;`;
+      segBtn.classList.add('active');
+      rgbBtn.classList.remove('active');
+      segList.classList.remove('open');
+    });
+    segList.appendChild(item);
+  }
+
+  segBtn.addEventListener('click', e => {
+    e.stopPropagation();
+    segList.classList.toggle('open');
+  });
+  document.addEventListener('click', () => segList.classList.remove('open'));
+
+  rgbBtn.addEventListener('click', () => {
+    mode = 'RGB';
+    rgbBtn.classList.add('active');
+    segBtn.classList.remove('active');
+    segBtn.innerHTML = 'Segment&hairsp;&#9650;';
+  });
+
+  // ---- Camera handling ----------------------------------------------------
+  let stream = null;
+  let devices = [];
+  let deviceIndex = 0;
+
+  function showError(msg) {
+    errBox.textContent = msg;
+    errBox.style.display = 'block';
+  }
+
+  async function startCamera(deviceId) {
+    if (stream) stream.getTracks().forEach(t => t.stop());
+    const constraints = {
+      audio: false,
+      video: deviceId
+        ? { deviceId: { exact: deviceId }, width: { ideal: 1280 }, height: { ideal: 720 } }
+        : { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } },
+    };
+    stream = await navigator.mediaDevices.getUserMedia(constraints);
+    video.srcObject = stream;
+    await video.play();
+    errBox.style.display = 'none';
+  }
+
+  document.getElementById('switchBtn').addEventListener('click', async () => {
+    try {
+      devices = (await navigator.mediaDevices.enumerateDevices())
+        .filter(d => d.kind === 'videoinput');
+      if (devices.length < 2) return;
+      deviceIndex = (deviceIndex + 1) % devices.length;
+      await startCamera(devices[deviceIndex].deviceId);
+    } catch (e) {
+      showError('Could not switch camera: ' + e.message);
+    }
+  });
+
+  // ---- Render loop --------------------------------------------------------
+  function render() {
+    if (video.readyState >= 2 && video.videoWidth) {
+      if (canvas.width !== video.videoWidth || canvas.height !== video.videoHeight) {
+        canvas.width  = video.videoWidth;
+        canvas.height = video.videoHeight;
+      }
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+      if (mode !== 'RGB') {
+        const test  = MODES[mode].test;
+        const frame = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const px    = frame.data;
+        for (let i = 0; i < px.length; i += 4) {
+          const r = px[i], g = px[i + 1], b = px[i + 2];
+          const mx = Math.max(r, g, b), mn = Math.min(r, g, b);
+          // Binary CV mask: matching pixels white, everything else black.
+          const v = test(r, g, b, mx, mn) ? 255 : 0;
+          px[i] = px[i + 1] = px[i + 2] = v;
+        }
+        ctx.putImageData(frame, 0, 0);
+      }
+    }
+    requestAnimationFrame(render);
+  }
+
+  (async () => {
+    try {
+      await startCamera();
+      devices = (await navigator.mediaDevices.enumerateDevices())
+        .filter(d => d.kind === 'videoinput');
+      const current = stream.getVideoTracks()[0].getSettings().deviceId;
+      deviceIndex = Math.max(0, devices.findIndex(d => d.deviceId === current));
+    } catch (e) {
+      showError('Could not open webcam: ' + e.message);
+    }
+    requestAnimationFrame(render);
+  })();
+</script>
+</body>
+</html>
