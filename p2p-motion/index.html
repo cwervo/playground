@@ -1,0 +1,563 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>p2p-motion — UW motion-triggered mini camera → hub simulator</title>
+<!--
+  Simulator of the system described in:
+
+    Vikram Iyer, Ali Najafi, Johannes James, Sawyer Fuller, Shyamnath Gollakota.
+    "Wireless steerable vision for live insects and insect-scale robots."
+    Science Robotics, Vol 5, Issue 44, July 2020. doi:10.1126/scirobotics.abb0839
+    (University of Washington — 248 mg camera board, accelerometer motion
+    triggering, 160x120 monochrome frames streamed over Bluetooth to a
+    smartphone/base station that stores and processes them.)
+
+  Related UW lineage: WISPCam (Naderiparizi et al., IEEE RFID 2015) — a
+  battery-free RF-powered camera that backscatters images to a reader in the
+  same room.
+
+  This page is NETWORK-LAST: zero external requests, works from file:// or any
+  static host, fully offline. All captured photos persist on-device in
+  localStorage (JPEG data URLs + metadata), with oldest-first eviction when the
+  quota budget is reached.
+-->
+<style>
+  :root{
+    --bg:#0b0e12; --panel:#12161d; --panel2:#171c25; --line:#232b38;
+    --ink:#dbe4f0; --dim:#7d8ba1; --amber:#f5a524; --green:#3fb950;
+    --red:#f05252; --blue:#58a6ff; --mono:'SF Mono',ui-monospace,Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{background:var(--bg);color:var(--ink);font-family:var(--mono);font-size:13px}
+  a{color:var(--blue);text-decoration:none} a:hover{text-decoration:underline}
+  header{padding:14px 18px 10px;border-bottom:1px solid var(--line)}
+  header h1{font-size:16px;letter-spacing:.5px}
+  header h1 .tag{color:var(--amber)}
+  header p{color:var(--dim);margin-top:4px;line-height:1.5;max-width:100ch}
+  .wrap{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(300px,1fr);gap:14px;padding:14px 18px;align-items:start}
+  @media(max-width:980px){.wrap{grid-template-columns:1fr}}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:10px;overflow:hidden}
+  .card h2{font-size:11px;letter-spacing:1.5px;text-transform:uppercase;color:var(--dim);
+    padding:8px 12px;border-bottom:1px solid var(--line);background:var(--panel2)}
+  .card .body{padding:10px 12px}
+  #room{display:block;width:100%;height:auto;background:#0d1117;cursor:crosshair}
+  .hud{display:grid;grid-template-columns:auto 1fr;gap:12px;padding:10px 12px;border-top:1px solid var(--line);align-items:start}
+  #viewfinder{width:240px;height:180px;image-rendering:pixelated;border:1px solid var(--line);border-radius:4px;background:#000;display:block}
+  .vf-label{color:var(--dim);font-size:10px;margin-top:4px;text-align:center}
+  .meters{display:flex;flex-direction:column;gap:8px;min-width:0}
+  .meter{display:grid;grid-template-columns:110px 1fr 64px;gap:8px;align-items:center}
+  .meter label{color:var(--dim);font-size:11px}
+  .bar{height:10px;background:#0d1117;border:1px solid var(--line);border-radius:5px;overflow:hidden}
+  .bar i{display:block;height:100%;background:var(--green);width:0%;transition:width .15s linear}
+  .bar.charge i{background:linear-gradient(90deg,var(--red),var(--amber),var(--green))}
+  .meter .val{text-align:right;color:var(--ink);font-size:11px}
+  .state{font-size:12px}
+  .state b{padding:2px 8px;border-radius:4px;background:#0d1117;border:1px solid var(--line);color:var(--amber)}
+  .controls{display:flex;flex-wrap:wrap;gap:10px 16px;padding:10px 12px;border-top:1px solid var(--line);align-items:center}
+  .ctl{display:flex;align-items:center;gap:6px;color:var(--dim);font-size:11px}
+  .ctl input[type=range]{width:110px;accent-color:var(--amber)}
+  .seg{display:flex;border:1px solid var(--line);border-radius:6px;overflow:hidden}
+  .seg button{background:transparent;border:0;color:var(--dim);padding:5px 10px;font:inherit;font-size:11px;cursor:pointer}
+  .seg button.on{background:var(--amber);color:#111}
+  button.act{background:var(--panel2);border:1px solid var(--line);color:var(--ink);padding:5px 10px;
+    border-radius:6px;font:inherit;font-size:11px;cursor:pointer}
+  button.act:hover{border-color:var(--amber)}
+  button.danger:hover{border-color:var(--red);color:var(--red)}
+  #log{height:170px;overflow-y:auto;padding:8px 12px;font-size:11px;line-height:1.7;background:#0d1117}
+  #log .t{color:var(--dim)} #log .cam{color:var(--amber)} #log .lnk{color:var(--blue)}
+  #log .hub{color:var(--green)} #log .err{color:var(--red)}
+  .stats{display:grid;grid-template-columns:repeat(2,1fr);gap:1px;background:var(--line)}
+  .stat{background:var(--panel);padding:8px 12px}
+  .stat .k{color:var(--dim);font-size:10px;letter-spacing:1px;text-transform:uppercase}
+  .stat .v{font-size:16px;margin-top:2px}
+  #gallery{display:grid;grid-template-columns:repeat(auto-fill,minmax(84px,1fr));gap:8px;padding:10px 12px;
+    max-height:320px;overflow-y:auto;min-height:60px}
+  #gallery .ph{position:relative;cursor:pointer;border:1px solid var(--line);border-radius:4px;overflow:hidden}
+  #gallery .ph:hover{border-color:var(--amber)}
+  #gallery img{display:block;width:100%;image-rendering:pixelated;aspect-ratio:4/3;object-fit:cover}
+  #gallery .n{position:absolute;left:0;bottom:0;right:0;background:rgba(0,0,0,.65);color:#cdd6e4;
+    font-size:9px;padding:1px 4px}
+  .empty{color:var(--dim);font-size:11px;padding:6px 0}
+  dialog{border:1px solid var(--line);border-radius:12px;background:var(--panel);color:var(--ink);
+    max-width:720px;width:92vw;padding:0}
+  dialog::backdrop{background:rgba(0,0,0,.6)}
+  dialog .body{padding:14px}
+  .modal-imgs{display:flex;gap:12px;flex-wrap:wrap;justify-content:center}
+  .modal-imgs figure{text-align:center}
+  .modal-imgs canvas,.modal-imgs img{width:288px;height:216px;image-rendering:pixelated;
+    border:1px solid var(--line);border-radius:4px;background:#000}
+  .modal-imgs figcaption{color:var(--dim);font-size:10px;margin-top:4px}
+  .meta{color:var(--dim);font-size:11px;line-height:1.8;margin-top:10px;white-space:pre-wrap}
+  .modal-actions{display:flex;gap:8px;margin-top:12px;justify-content:flex-end}
+  footer{color:var(--dim);font-size:11px;padding:6px 18px 20px;line-height:1.6}
+  .right-col{display:flex;flex-direction:column;gap:14px}
+</style>
+</head>
+<body>
+<header>
+  <h1>p2p-motion <span class="tag">· motion-triggered mini camera → room hub simulator</span></h1>
+  <p>Simulates the UW insect-scale wireless camera (Iyer et&nbsp;al., <i>Science Robotics</i> 2020):
+     a milligram-scale camera board rides a beetle, an accelerometer wakes it <b>only when the beetle moves</b>,
+     it captures a 160×120 monochrome frame, JPEG-compresses it, and radios the packets to a more powerful
+     hub across the room, which stores and processes the photos. Network-last: everything runs and persists
+     on this device (localStorage).</p>
+</header>
+
+<div class="wrap">
+  <!-- ============ LEFT: room + camera node ============ -->
+  <section class="card">
+    <h2>Room — camera node (on beetle) ⇢ hub</h2>
+    <canvas id="room" width="820" height="430"></canvas>
+    <div class="hud">
+      <div>
+        <canvas id="viewfinder" width="160" height="120"></canvas>
+        <div class="vf-label">live viewfinder · 160×120 mono (as in the paper)</div>
+      </div>
+      <div class="meters">
+        <div class="state">node state: <b id="state">SLEEP</b> <span id="statenote" style="color:var(--dim)"></span></div>
+        <div class="meter"><label>energy store</label><div class="bar charge"><i id="chargeBar"></i></div><span class="val" id="chargeVal">0%</span></div>
+        <div class="meter"><label>accel (motion)</label><div class="bar"><i id="accelBar"></i></div><span class="val" id="accelVal">0.00 g</span></div>
+        <div class="meter"><label>link quality</label><div class="bar"><i id="rssiBar"></i></div><span class="val" id="rssiVal">—</span></div>
+        <div class="meter"><label>tx progress</label><div class="bar"><i id="txBar" style="background:var(--blue)"></i></div><span class="val" id="txVal">idle</span></div>
+      </div>
+    </div>
+    <div class="controls">
+      <span class="ctl">link:
+        <span class="seg" id="linkSeg">
+          <button data-link="ble" class="on">BLE</button><button data-link="wifi">WiFi</button><button data-link="ir">IR</button>
+        </span>
+      </span>
+      <label class="ctl">jpeg q <input id="quality" type="range" min="10" max="90" value="45"><span id="qualityVal">0.45</span></label>
+      <label class="ctl">wake threshold <input id="thresh" type="range" min="5" max="60" value="18"><span id="threshVal">0.18 g</span></label>
+      <label class="ctl">harvest rate <input id="harvest" type="range" min="0" max="100" value="55"><span id="harvestVal">55%</span></label>
+      <label class="ctl">extra pkt loss <input id="loss" type="range" min="0" max="60" value="8"><span id="lossVal">8%</span></label>
+      <button class="act" id="pauseBtn">⏸ pause</button>
+      <button class="act" id="nudgeBtn">👉 nudge beetle</button>
+    </div>
+  </section>
+
+  <!-- ============ RIGHT: hub ============ -->
+  <div class="right-col">
+    <section class="card">
+      <h2>Hub — event log</h2>
+      <div id="log"></div>
+    </section>
+    <section class="card">
+      <h2>Hub — link &amp; storage stats</h2>
+      <div class="stats">
+        <div class="stat"><div class="k">photos stored</div><div class="v" id="stPhotos">0</div></div>
+        <div class="stat"><div class="k">storage used</div><div class="v" id="stBytes">0 KB</div></div>
+        <div class="stat"><div class="k">packets acked</div><div class="v" id="stPkts">0</div></div>
+        <div class="stat"><div class="k">packets lost</div><div class="v" id="stLost">0</div></div>
+        <div class="stat"><div class="k">frames captured</div><div class="v" id="stFrames">0</div></div>
+        <div class="stat"><div class="k">energy spent</div><div class="v" id="stEnergy">0 mJ</div></div>
+      </div>
+      <div class="meter" style="padding:8px 12px"><label>localStorage budget</label><div class="bar"><i id="quotaBar" style="background:var(--blue)"></i></div><span class="val" id="quotaVal">0%</span></div>
+    </section>
+    <section class="card">
+      <h2>Hub — photo store (persisted on device)</h2>
+      <div id="gallery"></div>
+      <div class="controls">
+        <button class="act danger" id="clearBtn">🗑 clear photo store</button>
+        <span class="ctl" id="storeNote">persists across reloads via localStorage</span>
+      </div>
+    </section>
+  </div>
+</div>
+
+<dialog id="modal">
+  <h2 style="padding:10px 14px;border-bottom:1px solid var(--line);font-size:12px;color:var(--dim)" id="modalTitle"></h2>
+  <div class="body">
+    <div class="modal-imgs">
+      <figure><img id="modalImg" alt="stored JPEG"><figcaption>stored JPEG (as received by hub)</figcaption></figure>
+      <figure><canvas id="modalEdges" width="160" height="120"></canvas><figcaption>hub processing: Sobel edge extraction</figcaption></figure>
+    </div>
+    <div class="meta" id="modalMeta"></div>
+    <div class="modal-actions">
+      <button class="act" id="dlBtn">⬇ download jpeg</button>
+      <button class="act danger" id="delBtn">delete</button>
+      <button class="act" id="closeBtn">close</button>
+    </div>
+  </div>
+</dialog>
+
+<footer>
+  Paper: Iyer, Najafi, James, Fuller &amp; Gollakota,
+  <a href="https://www.science.org/doi/10.1126/scirobotics.abb0839">“Wireless steerable vision for live insects and insect-scale robots”</a>,
+  Science Robotics 5(44), 2020 · see also UW’s battery-free
+  <a href="https://sensor.cs.washington.edu/research/wisp_1">WISPCam</a>.
+  This page makes no network requests; links above are the only outbound references and are never fetched automatically.
+</footer>
+
+<script>
+'use strict';
+/* ============================================================ utilities */
+const $=id=>document.getElementById(id);
+const clamp=(v,a,b)=>Math.min(b,Math.max(a,v));
+const rand=(a,b)=>a+Math.random()*(b-a);
+const dist=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
+const fmtKB=n=>n<1024?n+' B':(n/1024).toFixed(1)+' KB';
+
+/* ============================================================ world */
+const ROOM={w:820,h:430};
+const HUB={x:740,y:215,r:26};                       // the "more powerful chip"
+const OBST=[ {x:250,y:110,r:34},{x:430,y:300,r:46},{x:560,y:120,r:28},
+             {x:180,y:330,r:30},{x:640,y:330,r:22} ];   // rocks in the room
+
+const LINKS={
+  ble : {name:'Bluetooth LE', mtu:244, pktPerTick:3,  ePerPkt:.20, baseLoss:.04, range:520, needsLoS:false},
+  wifi: {name:'WiFi',         mtu:1400,pktPerTick:10, ePerPkt:.55, baseLoss:.02, range:900, needsLoS:false},
+  ir  : {name:'IR (line-of-sight)', mtu:64, pktPerTick:2, ePerPkt:.06, baseLoss:.10, range:420, needsLoS:true},
+};
+
+const sim={
+  paused:false, t:0, link:'ble',
+  beetle:{x:120,y:220,heading:0,speed:0,target:null,pause:1.2,prevSpeed:0,accel:0,wiggle:0},
+  charge:38, maxCharge:100,
+  state:'SLEEP', stateNote:'',
+  captureCost:6, cooldown:0,
+  tx:null,                    // {dataUrl,bytes,total,sent,retries,frame}
+  particles:[],               // in-flight packet dots
+  frames:0, pktsAcked:0, pktsLost:0, energySpent:0,
+  nextId: 1,
+};
+
+/* ============================================================ persistence (network-last: localStorage only) */
+const STORE_KEY='p2p-motion-photos';
+const QUOTA=4.2*1024*1024;                 // self-imposed budget in bytes of JSON
+let photos=[];
+try{ photos=JSON.parse(localStorage.getItem(STORE_KEY)||'[]'); }catch(e){ photos=[]; }
+sim.nextId = photos.reduce((m,p)=>Math.max(m,p.id),0)+1;
+
+function storeSize(){ return photos.reduce((s,p)=>s+p.dataUrl.length+120,0); }
+function persist(){
+  // evict oldest photos until we fit the budget and the browser accepts the write
+  while(storeSize()>QUOTA && photos.length){ const ev=photos.shift(); log('hub',`quota: evicted oldest photo #${ev.id}`); }
+  for(;;){
+    try{ localStorage.setItem(STORE_KEY,JSON.stringify(photos)); break; }
+    catch(e){
+      if(!photos.length){ log('err','localStorage unavailable — photos kept in memory only'); break; }
+      const ev=photos.shift(); log('hub',`quota: evicted oldest photo #${ev.id}`);
+    }
+  }
+}
+
+/* ============================================================ log */
+const logEl=$('log');
+function log(cls,msg){
+  const line=document.createElement('div');
+  const ts=(sim.t).toFixed(1).padStart(6,' ');
+  line.innerHTML=`<span class="t">[${ts}s]</span> <span class="${cls}">${{cam:'cam',lnk:'link',hub:'hub',err:'err '}[cls]||cls}</span> ${msg}`;
+  logEl.appendChild(line);
+  while(logEl.children.length>250) logEl.removeChild(logEl.firstChild);
+  logEl.scrollTop=logEl.scrollHeight;
+}
+
+/* ============================================================ beetle behaviour */
+function tickBeetle(dt){
+  const b=sim.beetle;
+  if(b.pause>0){ b.pause-=dt; b.speed*=0.8; }
+  else{
+    if(!b.target || dist(b,b.target)<12){
+      if(Math.random()<0.35){ b.pause=rand(0.8,3.5); b.target=null; }   // death-feigning beetle likes to stop
+      else b.target={x:rand(50,ROOM.w-140),y:rand(40,ROOM.h-40)};
+    }
+    if(b.target){
+      const want=Math.atan2(b.target.y-b.y,b.target.x-b.x);
+      let d=want-b.heading; while(d>Math.PI)d-=2*Math.PI; while(d<-Math.PI)d+=2*Math.PI;
+      b.heading+=clamp(d,-2.2*dt,2.2*dt);
+      b.speed=clamp(b.speed+rand(-30,60)*dt,0,70);
+    }
+  }
+  b.wiggle+=b.speed*dt*0.6;
+  b.x=clamp(b.x+Math.cos(b.heading)*b.speed*dt,20,ROOM.w-20);
+  b.y=clamp(b.y+Math.sin(b.heading)*b.speed*dt,20,ROOM.h-20);
+  // crude accelerometer: change in speed + gait wiggle while walking
+  const jerk=Math.abs(b.speed-b.prevSpeed)/Math.max(dt,1e-3)/900;
+  b.accel=clamp(0.92*b.accel+0.08*(jerk+(b.speed>4?0.15+b.speed/300:0)+rand(0,0.02)),0,1);
+  b.prevSpeed=b.speed;
+}
+
+/* ============================================================ energy (motion harvesting + trickle) */
+function tickEnergy(dt){
+  const hr=+$('harvest').value/100;
+  const harvested=(sim.beetle.speed/70)*hr*7.5*dt + 0.35*dt;   // motion-powered + ambient trickle
+  sim.charge=clamp(sim.charge+harvested,0,sim.maxCharge);
+}
+
+/* ============================================================ first-person frame renderer (160x120 mono) */
+const vf=$('viewfinder'), vctx=vf.getContext('2d',{willReadFrequently:true});
+function renderFrame(){
+  const b=sim.beetle, FOV=Math.PI/3, W=160, H=120, HOR=52;
+  // sky + ground
+  const sky=vctx.createLinearGradient(0,0,0,HOR); sky.addColorStop(0,'#c8c8c8'); sky.addColorStop(1,'#8a8a8a');
+  vctx.fillStyle=sky; vctx.fillRect(0,0,W,HOR);
+  const gnd=vctx.createLinearGradient(0,HOR,0,H); gnd.addColorStop(0,'#5a5a5a'); gnd.addColorStop(1,'#262626');
+  vctx.fillStyle=gnd; vctx.fillRect(0,HOR,W,H-HOR);
+  // objects, far → near
+  const objs=OBST.map(o=>({o,d:dist(b,o),hub:false})).concat([{o:HUB,d:dist(b,HUB),hub:true}])
+                 .sort((p,q)=>q.d-p.d);
+  for(const {o,d,hub} of objs){
+    let rel=Math.atan2(o.y-b.y,o.x-b.x)-b.heading;
+    while(rel>Math.PI)rel-=2*Math.PI; while(rel<-Math.PI)rel+=2*Math.PI;
+    if(Math.abs(rel)>FOV/2+0.35) continue;
+    const x=W/2+(rel/(FOV/2))*(W/2);
+    const s=clamp(o.r*1500/(d*d+40)+o.r*26/(d+8),3,90);
+    const shade=Math.round(clamp(200-d*0.35,40,190));
+    vctx.fillStyle=`rgb(${shade},${shade},${shade})`;
+    if(hub){ // the hub chip: box + antenna
+      vctx.fillRect(x-s*0.7,HOR-s*0.9,s*1.4,s*0.9);
+      vctx.fillRect(x-1,HOR-s*1.6,2,s*0.7);
+      vctx.beginPath(); vctx.arc(x,HOR-s*1.6,Math.max(1.5,s*0.12),0,7); vctx.fill();
+    }else{
+      vctx.beginPath(); vctx.ellipse(x,HOR,s,s*0.72,0,Math.PI,0); vctx.fill();
+    }
+  }
+  // force mono + sensor noise + vignette
+  const img=vctx.getImageData(0,0,W,H), p=img.data;
+  for(let i=0;i<p.length;i+=4){
+    const px=(i/4)%W, py=(i/4/W)|0;
+    let v=0.299*p[i]+0.587*p[i+1]+0.114*p[i+2];
+    v+=rand(-14,14);                                                     // shot noise
+    const dx=(px-W/2)/W, dy=(py-H/2)/H;
+    v*=1-1.1*(dx*dx+dy*dy);                                              // vignette
+    v=clamp(v,0,255)|0; p[i]=p[i+1]=p[i+2]=v;
+  }
+  vctx.putImageData(img,0,0);
+}
+
+/* ============================================================ capture + transmit */
+function lineBlocked(a,b){ // segment a-b vs obstacle circles (for IR line-of-sight)
+  for(const o of OBST){
+    const l2=(b.x-a.x)**2+(b.y-a.y)**2;
+    const t=clamp(((o.x-a.x)*(b.x-a.x)+(o.y-a.y)*(b.y-a.y))/l2,0,1);
+    if(Math.hypot(a.x+t*(b.x-a.x)-o.x, a.y+t*(b.y-a.y)-o.y) < o.r) return true;
+  }
+  return false;
+}
+function linkLoss(){
+  const L=LINKS[sim.link], d=dist(sim.beetle,HUB);
+  let loss=L.baseLoss + +$('loss').value/100 + clamp((d-L.range*0.55)/L.range,0,0.5);
+  if(L.needsLoS && lineBlocked(sim.beetle,HUB)) loss=1;
+  return clamp(loss,0,1);
+}
+function tryCapture(){
+  const th=+$('thresh').value/100;
+  if(sim.beetle.accel<th || sim.cooldown>0) return;
+  if(sim.charge<sim.captureCost+2){ sim.stateNote='(motion seen, waiting for charge)'; return; }
+  sim.charge-=sim.captureCost; sim.energySpent+=sim.captureCost;
+  const q=+$('quality').value/100;
+  renderFrame();
+  const dataUrl=vf.toDataURL('image/jpeg',q);
+  const bytes=Math.round((dataUrl.length-23)*0.75);
+  const L=LINKS[sim.link];
+  sim.frames++;
+  sim.tx={dataUrl,bytes,total:Math.ceil(bytes/L.mtu),sent:0,retries:0,frame:sim.frames,q};
+  sim.state='TX'; sim.stateNote='';
+  sim.cooldown=2.5;
+  log('cam',`motion ${sim.beetle.accel.toFixed(2)} g ≥ ${th.toFixed(2)} g → frame #${sim.frames} captured (${fmtKB(bytes)}, q=${q.toFixed(2)}, ${sim.tx.total} pkts over ${L.name})`);
+}
+function tickTx(dt){
+  const t=sim.tx; if(!t) return;
+  const L=LINKS[sim.link], loss=linkLoss();
+  let budget=L.pktPerTick;
+  while(budget-->0 && t.sent<t.total){
+    if(sim.charge<L.ePerPkt){ sim.stateNote='(recharging mid-transfer)'; return; }
+    sim.charge-=L.ePerPkt; sim.energySpent+=L.ePerPkt;
+    const ok=Math.random()>=loss;
+    sim.particles.push({p:0,ok,y:rand(-8,8)});
+    if(ok){ t.sent++; sim.pktsAcked++; }
+    else  { t.retries++; sim.pktsLost++; }
+    if(loss>=1){ sim.stateNote='(IR blocked — no line of sight)'; break; }
+  }
+  sim.stateNote = loss>=1 ? '(IR blocked — no line of sight)' : '';
+  if(t.sent>=t.total){
+    const rec={id:sim.nextId++, ts:Date.now(), frame:t.frame, dataUrl:t.dataUrl, bytes:t.bytes,
+               pkts:t.total, retries:t.retries, link:LINKS[sim.link].name, q:t.q,
+               pos:{x:Math.round(sim.beetle.x),y:Math.round(sim.beetle.y)}};
+    photos.push(rec); persist(); renderGallery();
+    log('lnk',`frame #${t.frame}: ${t.total}/${t.total} pkts ACKed (${t.retries} retries)`);
+    log('hub',`stored photo #${rec.id} (${fmtKB(t.bytes)}); edge-extraction available in viewer`);
+    sim.tx=null; sim.state='SLEEP';
+  }
+}
+
+/* ============================================================ room drawing */
+const room=$('room'), rctx=room.getContext('2d');
+function drawRoom(){
+  rctx.clearRect(0,0,ROOM.w,ROOM.h);
+  // floor grid
+  rctx.strokeStyle='#151b25'; rctx.lineWidth=1; rctx.beginPath();
+  for(let x=0;x<ROOM.w;x+=41){rctx.moveTo(x,0);rctx.lineTo(x,ROOM.h);}
+  for(let y=0;y<ROOM.h;y+=41){rctx.moveTo(0,y);rctx.lineTo(ROOM.w,y);}
+  rctx.stroke();
+  // obstacles
+  for(const o of OBST){
+    rctx.fillStyle='#1d2634'; rctx.strokeStyle='#2c3a4f';
+    rctx.beginPath(); rctx.arc(o.x,o.y,o.r,0,7); rctx.fill(); rctx.stroke();
+  }
+  // link line
+  const b=sim.beetle, blocked=LINKS[sim.link].needsLoS&&lineBlocked(b,HUB);
+  rctx.setLineDash([5,6]);
+  rctx.strokeStyle=blocked?'rgba(240,82,82,.5)':(sim.tx?'rgba(88,166,255,.7)':'rgba(125,139,161,.25)');
+  rctx.beginPath(); rctx.moveTo(b.x,b.y); rctx.lineTo(HUB.x,HUB.y); rctx.stroke(); rctx.setLineDash([]);
+  // in-flight packets
+  for(const pt of sim.particles){
+    const x=b.x+(HUB.x-b.x)*pt.p, y=b.y+(HUB.y-b.y)*pt.p+Math.sin(pt.p*9)*pt.y;
+    rctx.fillStyle=pt.ok?'#58a6ff':'#f05252';
+    rctx.beginPath(); rctx.arc(x,y,pt.ok?2.4:3,0,7); rctx.fill();
+  }
+  // hub
+  rctx.fillStyle='#1b2a1e'; rctx.strokeStyle='#3fb950'; rctx.lineWidth=1.5;
+  rctx.beginPath(); rctx.roundRect(HUB.x-26,HUB.y-20,52,40,6); rctx.fill(); rctx.stroke();
+  rctx.fillStyle='#3fb950'; rctx.font='10px monospace'; rctx.textAlign='center';
+  rctx.fillText('HUB',HUB.x,HUB.y+3); rctx.fillText('store+proc',HUB.x,HUB.y+14);
+  rctx.strokeStyle='#3fb950'; rctx.beginPath(); rctx.moveTo(HUB.x,HUB.y-20); rctx.lineTo(HUB.x,HUB.y-34); rctx.stroke();
+  rctx.beginPath(); rctx.arc(HUB.x,HUB.y-36,2.5,0,7); rctx.fill();
+  if(sim.tx){ rctx.strokeStyle='rgba(63,185,80,.35)';
+    rctx.beginPath(); rctx.arc(HUB.x,HUB.y-36,8+ (sim.t*40)%14,0,7); rctx.stroke(); }
+  // beetle + camera board
+  rctx.save(); rctx.translate(b.x,b.y); rctx.rotate(b.heading);
+  rctx.fillStyle='#2b1f14';
+  rctx.beginPath(); rctx.ellipse(0,0,13,8,0,0,7); rctx.fill();          // body
+  rctx.beginPath(); rctx.ellipse(11,0,5,4,0,0,7); rctx.fill();          // head
+  rctx.strokeStyle='#2b1f14';
+  for(const s of[-1,1])for(const lx of[-6,0,6]){                        // legs
+    rctx.beginPath(); rctx.moveTo(lx,s*6);
+    rctx.lineTo(lx+3,s*(11+2*Math.sin(b.wiggle+lx))); rctx.stroke(); }
+  rctx.fillStyle='#f5a524'; rctx.fillRect(-7,-4.5,9,9);                 // camera backpack
+  rctx.fillStyle='#111'; rctx.beginPath(); rctx.arc(-2.5,0,2.2,0,7); rctx.fill();  // lens
+  rctx.restore();
+  // FOV wedge
+  rctx.fillStyle=sim.state==='TX'?'rgba(245,165,36,.14)':'rgba(245,165,36,.06)';
+  rctx.beginPath(); rctx.moveTo(b.x,b.y);
+  rctx.arc(b.x,b.y,86,b.heading-Math.PI/6,b.heading+Math.PI/6); rctx.closePath(); rctx.fill();
+  rctx.fillStyle='#7d8ba1'; rctx.font='10px monospace'; rctx.textAlign='left';
+  rctx.fillText(`cam node · d=${dist(b,HUB)|0}px · ${LINKS[sim.link].name}`,10,ROOM.h-10);
+}
+
+/* ============================================================ gallery + modal */
+const gal=$('gallery');
+function renderGallery(){
+  gal.innerHTML='';
+  if(!photos.length){ gal.innerHTML='<div class="empty">no photos yet — the hub stores each received JPEG here</div>'; }
+  for(const p of [...photos].reverse()){
+    const d=document.createElement('div'); d.className='ph';
+    d.innerHTML=`<img src="${p.dataUrl}" alt="photo ${p.id}"><div class="n">#${p.id} · ${fmtKB(p.bytes)}</div>`;
+    d.onclick=()=>openModal(p.id);
+    gal.appendChild(d);
+  }
+  $('stPhotos').textContent=photos.length;
+  $('stBytes').textContent=fmtKB(storeSize());
+  const pct=clamp(storeSize()/QUOTA*100,0,100);
+  $('quotaBar').style.width=pct+'%'; $('quotaVal').textContent=pct.toFixed(1)+'%';
+}
+const modal=$('modal');
+let modalId=null;
+function openModal(id){
+  const p=photos.find(x=>x.id===id); if(!p) return;
+  modalId=id;
+  $('modalTitle').textContent=`photo #${p.id} — frame ${p.frame}`;
+  $('modalImg').src=p.dataUrl;
+  $('modalMeta').textContent=
+    `received : ${new Date(p.ts).toLocaleString()}\n`+
+    `link     : ${p.link} · ${p.pkts} packets · ${p.retries} retries\n`+
+    `size     : ${fmtKB(p.bytes)} · jpeg q=${p.q.toFixed(2)} · 160×120 mono\n`+
+    `node pos : (${p.pos.x}, ${p.pos.y})`;
+  // hub-side processing demo: Sobel edges
+  const img=new Image();
+  img.onload=()=>{
+    const c=$('modalEdges'),cx=c.getContext('2d');
+    cx.drawImage(img,0,0,160,120);
+    const src=cx.getImageData(0,0,160,120), out=cx.createImageData(160,120);
+    const g=(x,y)=>src.data[(clamp(y,0,119)*160+clamp(x,0,159))*4];
+    for(let y=0;y<120;y++)for(let x=0;x<160;x++){
+      const gx=-g(x-1,y-1)-2*g(x-1,y)-g(x-1,y+1)+g(x+1,y-1)+2*g(x+1,y)+g(x+1,y+1);
+      const gy=-g(x-1,y-1)-2*g(x,y-1)-g(x+1,y-1)+g(x-1,y+1)+2*g(x,y+1)+g(x+1,y+1);
+      const v=clamp(Math.hypot(gx,gy),0,255)|0, i=(y*160+x)*4;
+      out.data[i]=out.data[i+1]=out.data[i+2]=v; out.data[i+3]=255;
+    }
+    cx.putImageData(out,0,0);
+  };
+  img.src=p.dataUrl;
+  modal.showModal();
+}
+$('closeBtn').onclick=()=>modal.close();
+$('delBtn').onclick=()=>{ photos=photos.filter(p=>p.id!==modalId); persist(); renderGallery(); modal.close(); };
+$('dlBtn').onclick=()=>{
+  const p=photos.find(x=>x.id===modalId); if(!p)return;
+  const a=document.createElement('a'); a.href=p.dataUrl; a.download=`p2p-motion-${p.id}.jpg`; a.click();
+};
+$('clearBtn').onclick=()=>{ if(photos.length&&!confirm('Delete all stored photos from this device?'))return;
+  photos=[]; persist(); renderGallery(); log('hub','photo store cleared'); };
+
+/* ============================================================ controls */
+document.querySelectorAll('#linkSeg button').forEach(b=>b.onclick=()=>{
+  document.querySelectorAll('#linkSeg button').forEach(x=>x.classList.remove('on'));
+  b.classList.add('on'); sim.link=b.dataset.link;
+  log('lnk',`radio switched to ${LINKS[sim.link].name}`);
+});
+$('quality').oninput=e=>$('qualityVal').textContent=(+e.target.value/100).toFixed(2);
+$('thresh').oninput=e=>$('threshVal').textContent=(+e.target.value/100).toFixed(2)+' g';
+$('harvest').oninput=e=>$('harvestVal').textContent=e.target.value+'%';
+$('loss').oninput=e=>$('lossVal').textContent=e.target.value+'%';
+$('pauseBtn').onclick=()=>{ sim.paused=!sim.paused; $('pauseBtn').textContent=sim.paused?'▶ resume':'⏸ pause'; };
+$('nudgeBtn').onclick=()=>{ const b=sim.beetle; b.pause=0; b.speed=70;
+  b.target={x:rand(50,ROOM.w-140),y:rand(40,ROOM.h-40)}; b.accel=Math.max(b.accel,0.6); };
+room.addEventListener('click',e=>{             // click the room to send the beetle there
+  const r=room.getBoundingClientRect();
+  sim.beetle.target={x:(e.clientX-r.left)*ROOM.w/r.width,y:(e.clientY-r.top)*ROOM.h/r.height};
+  sim.beetle.pause=0;
+});
+
+/* ============================================================ HUD */
+function drawHud(){
+  $('chargeBar').style.width=sim.charge+'%';
+  $('chargeVal').textContent=sim.charge.toFixed(0)+'%';
+  $('accelBar').style.width=(sim.beetle.accel*100)+'%';
+  $('accelVal').textContent=sim.beetle.accel.toFixed(2)+' g';
+  const loss=linkLoss(), q=(1-loss)*100;
+  $('rssiBar').style.width=q+'%';
+  $('rssiBar').style.background=loss>=1?'var(--red)':'var(--green)';
+  $('rssiVal').textContent=loss>=1?'blocked':q.toFixed(0)+'%';
+  if(sim.tx){ $('txBar').style.width=(sim.tx.sent/sim.tx.total*100)+'%';
+    $('txVal').textContent=`${sim.tx.sent}/${sim.tx.total}`; }
+  else{ $('txBar').style.width='0%'; $('txVal').textContent='idle'; }
+  $('state').textContent=sim.state;
+  $('statenote').textContent=sim.stateNote;
+  $('stPkts').textContent=sim.pktsAcked;
+  $('stLost').textContent=sim.pktsLost;
+  $('stFrames').textContent=sim.frames;
+  $('stEnergy').textContent=sim.energySpent.toFixed(0)+' mJ';
+}
+
+/* ============================================================ main loop */
+let last=performance.now(), vfTimer=0;
+function loop(now){
+  requestAnimationFrame(loop);
+  const dt=Math.min((now-last)/1000,0.05); last=now;
+  if(!sim.paused){
+    sim.t+=dt; sim.cooldown=Math.max(0,sim.cooldown-dt);
+    tickBeetle(dt); tickEnergy(dt);
+    if(sim.state==='SLEEP'){
+      const th=+$('thresh').value/100;
+      sim.state = sim.beetle.accel>=th ? 'WAKE' : 'SLEEP';
+    }
+    if(sim.state==='WAKE'||sim.state==='SLEEP'){ if(!sim.tx) tryCapture(); }
+    tickTx(dt);
+    for(const p of sim.particles) p.p+=dt*1.6;
+    sim.particles=sim.particles.filter(p=>p.p<1);
+    vfTimer-=dt;
+    if(vfTimer<=0){ renderFrame(); vfTimer=sim.tx?0.5:0.18; }   // viewfinder refresh (slower while radio busy)
+  }
+  drawRoom(); drawHud();
+}
+log('hub',`hub online — ${photos.length} photo(s) restored from localStorage`);
+log('cam','camera node booted · accelerometer armed · motion-triggered capture');
+renderGallery();
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
