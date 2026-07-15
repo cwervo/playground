@@ -1,0 +1,307 @@
+# email-piles.folk
+#
+# Gives you a *sense* of your Gmail inbox on the table -- not an inbox
+# replacement. Recent email is dealt into three piles of overlapping,
+# opaque 8.5"x11" "pages", each page labelled at its center with the
+# email's subject and the date it was received:
+#
+#     [ today ]      [ this week ]      [ older ]
+#
+# SETUP -- one file, one variable:
+#   1. mkdir -p ~/folk-data/user-programs/folk-cwe
+#   2. create ~/folk-data/user-programs/folk-cwe/.env containing:
+#        GMAIL_ACCESS_TOKEN=ya29.a0...
+#      (renamed from GOOGLETOKEN: what this actually is, is a Gmail
+#       OAuth2 *access token* -- not an API key, not a general Google
+#       token -- so the name should say so)
+#   3. quickest way to get a token (lasts ~1 hour):
+#        - open https://developers.google.com/oauthplayground
+#        - Step 1: find "Gmail API v1" and tick
+#            https://www.googleapis.com/auth/gmail.readonly
+#        - click "Authorize APIs" and sign in as your Gmail account
+#        - Step 2: click "Exchange authorization code for tokens"
+#        - copy the "Access token" value into the .env file
+#   4. optional, so this program can refresh tokens itself instead of
+#      you re-pasting one every hour, also add:
+#        GMAIL_CLIENT_ID=...apps.googleusercontent.com
+#        GMAIL_CLIENT_SECRET=...
+#        GMAIL_REFRESH_TOKEN=1//...
+#      (README.md next to this program has the full walkthrough)
+#
+# Until Gmail access has been granted (no .env, empty/expired token),
+# this page flashes its outline dark green / green and projects the
+# setup instructions. Once granted: steady green outline + the piles.
+
+Wish $this is titled "email piles"
+
+package require json
+
+set envDir  [file join $::env(HOME) folk-data user-programs folk-cwe]
+set envPath [file join $envDir .env]
+
+set ::epCachedToken ""
+set ::epLastFetch 0
+set ::epFetchInterval 5
+
+# ---------------------------------------------------------------- helpers
+
+proc epReadEnv {path} {
+    set result [dict create]
+    if {![file exists $path]} { return $result }
+    set fp [open $path r]
+    set contents [read $fp]
+    close $fp
+    foreach line [split $contents "\n"] {
+        set line [string trim $line]
+        if {$line eq "" || [string index $line 0] eq "#"} { continue }
+        set idx [string first "=" $line]
+        if {$idx < 1} { continue }
+        set key [string trim [string range $line 0 [expr {$idx - 1}]]]
+        set val [string trim [string range $line [expr {$idx + 1}] end]]
+        set val [string trim $val "\"'"]
+        dict set result $key $val
+    }
+    return $result
+}
+
+proc epEnvToken {envDict} {
+    # GMAIL_ACCESS_TOKEN is the real name; GOOGLETOKEN accepted as a
+    # legacy alias so an old .env still works.
+    foreach key {GMAIL_ACCESS_TOKEN GOOGLETOKEN} {
+        if {[dict exists $envDict $key] && [dict get $envDict $key] ne ""} {
+            return [dict get $envDict $key]
+        }
+    }
+    return ""
+}
+
+proc epHasAnyCreds {envDict} {
+    if {[epEnvToken $envDict] ne ""} { return 1 }
+    if {[dict exists $envDict GMAIL_REFRESH_TOKEN] &&
+        [dict get $envDict GMAIL_REFRESH_TOKEN] ne ""} { return 1 }
+    return 0
+}
+
+proc epHttpGet {token url} {
+    # returns {httpCode body}; code 0 means curl itself failed
+    if {[catch {
+        set out [exec curl -s --max-time 10 \
+                     -H "Authorization: Bearer $token" \
+                     -w "\n%{http_code}" $url]
+    } err]} {
+        return [list 0 $err]
+    }
+    set nl [string last "\n" $out]
+    set code [string range $out [expr {$nl + 1}] end]
+    set body [string range $out 0 [expr {$nl - 1}]]
+    return [list $code $body]
+}
+
+proc epRefreshAccessToken {envDict} {
+    # Needs GMAIL_CLIENT_ID + GMAIL_CLIENT_SECRET + GMAIL_REFRESH_TOKEN.
+    foreach key {GMAIL_CLIENT_ID GMAIL_CLIENT_SECRET GMAIL_REFRESH_TOKEN} {
+        if {![dict exists $envDict $key] || [dict get $envDict $key] eq ""} {
+            return ""
+        }
+    }
+    if {[catch {
+        set resp [exec curl -s --max-time 10 -X POST \
+                      https://oauth2.googleapis.com/token \
+                      --data-urlencode client_id=[dict get $envDict GMAIL_CLIENT_ID] \
+                      --data-urlencode client_secret=[dict get $envDict GMAIL_CLIENT_SECRET] \
+                      --data-urlencode refresh_token=[dict get $envDict GMAIL_REFRESH_TOKEN] \
+                      --data-urlencode grant_type=refresh_token]
+        set respDict [::json::json2dict $resp]
+    } err]} {
+        return ""
+    }
+    if {[dict exists $respDict access_token]} {
+        return [dict get $respDict access_token]
+    }
+    return ""
+}
+
+proc epFetchEmails {envDict maxResults} {
+    # returns a dict: status ok|error, message, emails {{epoch subject} ...}
+    set token $::epCachedToken
+    if {$token eq ""} { set token [epEnvToken $envDict] }
+    if {$token eq ""} {
+        set token [epRefreshAccessToken $envDict]
+        set ::epCachedToken $token
+    }
+    if {$token eq ""} {
+        return [dict create status error message "no usable token in .env"]
+    }
+
+    set listUrl "https://gmail.googleapis.com/gmail/v1/users/me/messages?maxResults=$maxResults"
+    lassign [epHttpGet $token $listUrl] code body
+    if {$code eq "401"} {
+        # access token expired -- try one self-refresh
+        set token [epRefreshAccessToken $envDict]
+        if {$token eq ""} {
+            set ::epCachedToken ""
+            return [dict create status error message \
+                "token expired -- paste a fresh GMAIL_ACCESS_TOKEN,\nor add refresh credentials so I can renew it myself"]
+        }
+        set ::epCachedToken $token
+        lassign [epHttpGet $token $listUrl] code body
+    }
+    if {$code ne "200"} {
+        return [dict create status error message "Gmail list failed (HTTP $code)"]
+    }
+    if {[catch {set listDict [::json::json2dict $body]} err]} {
+        return [dict create status error message "could not parse Gmail response"]
+    }
+
+    set emails [list]
+    if {[dict exists $listDict messages]} {
+        foreach m [dict get $listDict messages] {
+            set id [dict get $m id]
+            set msgUrl "https://gmail.googleapis.com/gmail/v1/users/me/messages/$id?format=metadata&metadataHeaders=Subject"
+            lassign [epHttpGet $token $msgUrl] mcode mbody
+            if {$mcode ne "200"} { continue }
+            if {[catch {set msg [::json::json2dict $mbody]} err]} { continue }
+            set subject "(no subject)"
+            if {[dict exists $msg payload headers]} {
+                foreach h [dict get $msg payload headers] {
+                    if {[string tolower [dict get $h name]] eq "subject" &&
+                        [dict get $h value] ne ""} {
+                        set subject [dict get $h value]
+                    }
+                }
+            }
+            set epoch 0
+            if {[dict exists $msg internalDate]} {
+                set epoch [expr {[dict get $msg internalDate] / 1000}]
+            }
+            lappend emails [list $epoch $subject]
+        }
+    }
+    return [dict create status ok emails $emails]
+}
+
+proc epTruncate {s n} {
+    if {[string length $s] <= $n} { return $s }
+    return "[string range $s 0 [expr {$n - 3}]]..."
+}
+
+# ------------------------------------------------------------ fetch cycle
+
+When the clock time is /t/ {
+    # Guarded so Gmail is hit rarely: every 5s until access works (so it
+    # lights up right after you write the .env), then every 5 minutes.
+    # The fetch is synchronous curl, so this program pauses briefly
+    # (~a few seconds for 12 messages) while it refreshes.
+    if {[clock seconds] - $::epLastFetch >= $::epFetchInterval} {
+        set ::epLastFetch [clock seconds]
+        set envDict [epReadEnv $envPath]
+        if {![epHasAnyCreds $envDict]} {
+            set ::epFetchInterval 5
+            set state [dict create status setup message "no token found -- create the .env file"]
+        } else {
+            set state [epFetchEmails $envDict 12]
+            if {[dict get $state status] eq "ok"} {
+                set ::epFetchInterval 300
+            } else {
+                set ::epFetchInterval 20
+            }
+        }
+        Commit emailState {
+            Claim $this has email state $state
+        }
+    }
+}
+
+# --------------------------------- not granted yet: flash + instructions
+
+When $this has email state /state/ & the clock time is /t/ {
+    if {[dict get $state status] ne "ok"} {
+        # Gmail hasn't been granted -> flash outline dark green / green
+        if {int($t * 2) % 2 == 0} {
+            Wish $this is outlined darkgreen
+        } else {
+            Wish $this is outlined green
+        }
+        set why ""
+        if {[dict exists $state message]} { set why [dict get $state message] }
+        Wish $this is labelled "email piles needs Gmail access\n$why\n\nPut a read-only Gmail token in:\n~/folk-data/user-programs/folk-cwe/.env\n\n  GMAIL_ACCESS_TOKEN=ya29....\n\nGet one at developers.google.com/oauthplayground:\ntick Gmail API v1 -> gmail.readonly -> Authorize APIs\n-> Exchange authorization code for tokens -> copy Access token.\nFull walkthrough (and a no-expiry option): README.md\nnext to this program."
+    }
+}
+
+# ------------------------------------------- granted: draw the 3 piles
+
+When $this has email state /state/ & $this has region /r/ {
+    if {[dict get $state status] eq "ok"} {
+        set emails [dict get $state emails]
+        lassign [region centroid $r] cx cy
+
+        # 8.5" x 11" pages at ~16 px/inch -- tune these for your table
+        set pageW 136
+        set pageH 176
+        set fanStep 16   ;# how far each page under the top one peeks out
+        set maxShown 5   ;# pages drawn per pile, newest on top
+        set pileGap 230  ;# distance between pile centers
+        set pileDrop [expr {$cy + $pageH * 1.2}] ;# piles sit below the page
+
+        set now [clock seconds]
+        set midnight [clock scan [clock format $now -format "%Y-%m-%d"] -format "%Y-%m-%d"]
+        set weekAgo [expr {$now - 7 * 86400}]
+
+        set sorted [lsort -integer -decreasing -index 0 $emails]
+        set pile(0) [list]; set pile(1) [list]; set pile(2) [list]
+        foreach e $sorted {
+            set epoch [lindex $e 0]
+            if {$epoch >= $midnight} {
+                lappend pile(0) $e
+            } elseif {$epoch >= $weekAgo} {
+                lappend pile(1) $e
+            } else {
+                lappend pile(2) $e
+            }
+        }
+
+        set pileNames [list "today" "this week" "older"]
+        for {set i 0} {$i < 3} {incr i} {
+            set pcx [expr {$cx + ($i - 1) * $pileGap}]
+            set pcy $pileDrop
+            set n [llength $pile($i)]
+            set shown [expr {min($n, $maxShown)}]
+
+            Wish to draw text with \
+                center [list $pcx [expr {$pcy - $pageH / 2 - 36}]] \
+                text "[lindex $pileNames $i] ($n)" radians 0 scale 1.2 color white
+
+            if {$n == 0} {
+                Wish to draw a rect with center [list $pcx $pcy] \
+                    width $pageW height $pageH \
+                    color rgba(255,255,255,0.15) filled false thickness 2
+                Wish to draw text with center [list $pcx $pcy] \
+                    text "empty" radians 0 scale 0.8 color rgba(255,255,255,0.5)
+            } else {
+                # draw the bottom of the pile first so the newest email's
+                # opaque page lands on top
+                for {set j [expr {$shown - 1}]} {$j >= 0} {incr j -1} {
+                    lassign [lindex $pile($i) $j] epoch subject
+                    set px [expr {$pcx + $j * 5}]
+                    set py [expr {$pcy + $j * $fanStep}]
+                    Wish to draw a rect with center [list $px $py] \
+                        width $pageW height $pageH color white filled true
+                    Wish to draw a rect with center [list $px $py] \
+                        width $pageW height $pageH color gray filled false thickness 2
+                    set dateStr "(no date)"
+                    if {$epoch > 0} {
+                        set dateStr [clock format $epoch -format "%b %e, %H:%M"]
+                    }
+                    Wish to draw text with center [list $px [expr {$py - 11}]] \
+                        text [epTruncate $subject 20] radians 0 scale 0.8 color black
+                    Wish to draw text with center [list $px [expr {$py + 13}]] \
+                        text $dateStr radians 0 scale 0.65 color black
+                }
+            }
+        }
+
+        # steady green: Gmail granted and healthy
+        Wish $this is outlined green
+        Wish $this is labelled "[llength $emails] recent emails\ntoday [llength $pile(0)] / this week [llength $pile(1)] / older [llength $pile(2)]"
+    }
+}

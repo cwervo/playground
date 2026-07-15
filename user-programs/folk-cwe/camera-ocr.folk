@@ -1,0 +1,188 @@
+# camera-ocr.folk
+#
+# "slice -> HTML", buildable right now: serves a browser page at
+# /frame-ocr that shows the table camera (/camera) contain-fit as the
+# page's background layer, OCRs everything in the frame with
+# Tesseract.js (in the browser -- nothing to install on the Folk
+# machine), overlays word boxes, and claims the recognized text back
+# onto the table so other programs can react to it.
+#
+# Usage: put this page on the table, then open
+#   http://<folk-host>:<web-port>/frame-ocr
+# on a laptop/phone. The browsing device needs internet once to fetch
+# Tesseract.js from a CDN; /camera itself is served by Folk.
+#
+# The recognized text arrives on the table as:
+#   the camera sees text /text/
+# and this page labels itself with the latest reading as a demo.
+
+Wish $this is titled "camera OCR web"
+Wish $this has text "Serves /frame-ocr: /camera as a contain background + in-browser OCR of everything in the frame"
+Wish $this is outlined gold
+
+When /someone/ claims the camera sees text /text/ {
+    Wish $this is labelled [string range $text 0 500]
+}
+
+Wish the web server handles route "/frame-ocr" with nav "<button>Frame OCR</button>" handler {
+    html {
+<!DOCTYPE html>
+<html>
+<head>
+<title>Folk Frame OCR</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #000; color: #eee;
+               font-family: sans-serif; overflow: hidden; }
+  /* /camera as the contain-fit background layer (two imgs = double
+     buffer, so re-fetched still frames swap without flicker) */
+  .cam { position: fixed; inset: 0; width: 100%; height: 100%;
+         object-fit: contain; }
+  #overlay { position: fixed; inset: 0; pointer-events: none; }
+  #bar { position: fixed; top: 10px; left: 10px; display: flex; gap: 12px;
+         align-items: center; background: rgba(0,0,0,0.65);
+         padding: 8px 12px; border-radius: 8px; }
+  #panel { position: fixed; left: 10px; bottom: 10px; max-width: 44vw;
+           max-height: 38vh; overflow: auto; background: rgba(0,0,0,0.65);
+           border: 1px solid #2e7d32; border-radius: 8px; padding: 10px;
+           font-size: 13px; white-space: pre-wrap; }
+</style>
+</head>
+<body>
+  <img class="cam" id="camA">
+  <img class="cam" id="camB" style="visibility: hidden;">
+  <canvas id="overlay"></canvas>
+  <div id="bar">
+    <span id="status">starting</span>
+    <label><input type="checkbox" id="refetch" checked> re-fetch frame</label>
+    <label><input type="checkbox" id="ocr" checked> OCR</label>
+  </div>
+  <div id="panel">waiting for first OCR pass</div>
+  <script src="/lib/folk.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+  <script>
+    var statusEl = document.getElementById('status');
+    var panel = document.getElementById('panel');
+    var overlay = document.getElementById('overlay');
+    var imgs = [document.getElementById('camA'), document.getElementById('camB')];
+    var front = 0;
+    var ws = null;
+    try { ws = new FolkWS(statusEl); }
+    catch (e) { statusEl.textContent = 'no FolkWS: ' + e; }
+
+    imgs[0].src = '/camera';
+
+    // If /camera serves still frames, this keeps them fresh. If it is
+    // already an MJPEG stream, untick "re-fetch frame" and the first
+    // <img> just plays it.
+    function refetch() {
+      if (!document.getElementById('refetch').checked) {
+        setTimeout(refetch, 1000);
+        return;
+      }
+      var back = 1 - front;
+      var img = imgs[back];
+      img.onload = function () {
+        imgs[back].style.visibility = 'visible';
+        imgs[front].style.visibility = 'hidden';
+        front = back;
+        setTimeout(refetch, 1500);
+      };
+      img.onerror = function () {
+        statusEl.textContent = 'could not load /camera';
+        setTimeout(refetch, 3000);
+      };
+      img.src = '/camera?nocache=' + Date.now();
+    }
+    setTimeout(refetch, 1500);
+
+    function containBox(iw, ih) {
+      var vw = window.innerWidth, vh = window.innerHeight;
+      var s = Math.min(vw / iw, vh / ih);
+      return { s: s, ox: (vw - iw * s) / 2, oy: (vh - ih * s) / 2 };
+    }
+
+    function collectWords(data) {
+      if (data.words && data.words.length) { return data.words; }
+      var words = [];
+      (data.blocks || []).forEach(function (bl) {
+        (bl.paragraphs || []).forEach(function (p) {
+          (p.lines || []).forEach(function (l) {
+            (l.words || []).forEach(function (w) { words.push(w); });
+          });
+        });
+      });
+      return words;
+    }
+
+    function drawWords(words, iw, ih) {
+      overlay.width = window.innerWidth;
+      overlay.height = window.innerHeight;
+      var ctx = overlay.getContext('2d');
+      ctx.clearRect(0, 0, overlay.width, overlay.height);
+      var m = containBox(iw, ih);
+      ctx.strokeStyle = 'rgba(0, 230, 118, 0.9)';
+      ctx.fillStyle = 'rgba(0, 230, 118, 0.9)';
+      ctx.lineWidth = 1.5;
+      ctx.font = '12px monospace';
+      words.forEach(function (w) {
+        if (!w.bbox || w.confidence < 40) { return; }
+        var x = m.ox + w.bbox.x0 * m.s;
+        var y = m.oy + w.bbox.y0 * m.s;
+        var ww = (w.bbox.x1 - w.bbox.x0) * m.s;
+        var wh = (w.bbox.y1 - w.bbox.y0) * m.s;
+        ctx.strokeRect(x, y, ww, wh);
+        ctx.fillText(w.text, x, y - 3);
+      });
+    }
+
+    function sendToFolk(text) {
+      if (!ws) { return; }
+      var trimmed = text.trim();
+      if (trimmed === '') { return; }
+      // base64 round-trip so arbitrary OCR text never breaks Tcl quoting
+      var bytes = new TextEncoder().encode(trimmed);
+      var bin = '';
+      bytes.forEach(function (b) { bin += String.fromCharCode(b); });
+      var b64 = btoa(bin);
+      ws.hold('camera-ocr-text',
+        'Claim the camera sees text [encoding convertfrom utf-8 [binary decode base64 ' + b64 + ']]');
+    }
+
+    var worker = null;
+    async function ocrLoop() {
+      if (!document.getElementById('ocr').checked) {
+        setTimeout(ocrLoop, 1000);
+        return;
+      }
+      try {
+        if (!worker) {
+          statusEl.textContent = 'loading tesseract (needs internet on this device)';
+          worker = await Tesseract.createWorker('eng');
+        }
+        var img = imgs[front];
+        if (!img.naturalWidth) {
+          setTimeout(ocrLoop, 1000);
+          return;
+        }
+        var c = document.createElement('canvas');
+        c.width = img.naturalWidth;
+        c.height = img.naturalHeight;
+        c.getContext('2d').drawImage(img, 0, 0);
+        statusEl.textContent = 'recognizing';
+        var res = await worker.recognize(c, {}, { text: true, blocks: true });
+        var words = collectWords(res.data);
+        drawWords(words, c.width, c.height);
+        panel.textContent = res.data.text.trim() || '(no text found in frame)';
+        sendToFolk(res.data.text);
+        statusEl.textContent = 'ok - ' + words.length + ' words';
+      } catch (e) {
+        statusEl.textContent = 'ocr error: ' + e;
+      }
+      setTimeout(ocrLoop, 4000);
+    }
+    ocrLoop();
+  </script>
+</body>
+</html>
+    }
+}
