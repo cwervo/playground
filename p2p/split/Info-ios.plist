@@ -66,5 +66,13 @@
 	</array>
 	<key>NSCameraUsageDescription</key>
 	<string>SplitCam shows a live CIELAB channel-split view of your camera.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>SplitCam saves your captures to the camera roll when you ask it to.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Full access lets SplitCam manage the captures it saves to your library.</string>
+	<key>UIFileSharingEnabled</key>
+	<true/>
+	<key>LSSupportsOpeningDocumentsInPlace</key>
+	<true/>
 </dict>
 </plist>

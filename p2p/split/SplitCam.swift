@@ -17,10 +17,11 @@ import CoreVideo
 import ImageIO
 import Vision
 import WebKit
+import Photos
 
 // MARK: - Camera capture + Lab processing
 
-let buildTag = "v12-click"
+let buildTag = "v13-gallery"
 
 final class CameraManager: NSObject, ObservableObject, AVCaptureVideoDataOutputSampleBufferDelegate,
                            AVCapturePhotoCaptureDelegate {
@@ -33,6 +34,8 @@ final class CameraManager: NSObject, ObservableObject, AVCaptureVideoDataOutputS
     @Published var stillNames: [String] = []
     @Published var selectedStill: String?
     @Published var captures: [Capture] = []
+    @Published var backdrop: CGImage?
+    @Published var backdropStamp = 0
 
     struct Capture: Identifiable {
         let id: String
@@ -62,6 +65,8 @@ final class CameraManager: NSObject, ObservableObject, AVCaptureVideoDataOutputS
     private var pendingOCR: Bool? // queue-confined; non-nil = capture requested
     private var photoPendingOCR: Bool? // queue-confined
     private let photoOutput = AVCapturePhotoOutput()
+    private var backdropActive = false // queue-confined
+    private var lastBackdropTime: TimeInterval = 0
 
     override init() {
         super.init()
@@ -497,6 +502,35 @@ final class CameraManager: NSObject, ObservableObject, AVCaptureVideoDataOutputS
                 Int(ink.b / Double(ink.n)))
     }
 
+    // MARK: Gallery backdrop (1fps blurred live feed)
+
+    func setBackdropActive(_ active: Bool) {
+        queue.async {
+            self.backdropActive = active
+            if active, self.activeStill, let still = self.stillImage {
+                self.publishBackdrop(from: still)
+            }
+        }
+    }
+
+    // Runs on `queue`. Downscale + heavy Gaussian blur; published inside an
+    // animation so successive frames crossfade (the 1fps "LERP").
+    private func publishBackdrop(from image: CIImage) {
+        let scale = 360.0 / max(image.extent.width, 1)
+        let small = image.transformed(by: CGAffineTransform(scaleX: scale, y: scale))
+        let blur = CIFilter.gaussianBlur()
+        blur.inputImage = small.clampedToExtent()
+        blur.radius = 30
+        guard let output = blur.outputImage?.cropped(to: small.extent),
+              let cgImage = ciContext.createCGImage(output, from: output.extent) else { return }
+        DispatchQueue.main.async {
+            withAnimation(.easeInOut(duration: 0.9)) {
+                self.backdrop = cgImage
+                self.backdropStamp += 1
+            }
+        }
+    }
+
     // Runs on `queue`. When the camera can't start, show a bundled still.
     private func fallbackToStill() {
         DispatchQueue.main.async {
@@ -591,6 +625,10 @@ final class CameraManager: NSObject, ObservableObject, AVCaptureVideoDataOutputS
         if let ocr = pendingOCR {
             pendingOCR = nil
             saveCapture(originalCI: CIImage(cvPixelBuffer: buffer), processedCG: cgImage, ocr: ocr)
+        }
+        if backdropActive, Date().timeIntervalSinceReferenceDate - lastBackdropTime > 1.0 {
+            lastBackdropTime = Date().timeIntervalSinceReferenceDate
+            publishBackdrop(from: CIImage(cvPixelBuffer: buffer))
         }
         DispatchQueue.main.async {
             self.frame = cgImage
@@ -815,7 +853,7 @@ struct ContentView: View {
             ocrCheckbox.padding(.leading, 16).padding(.bottom, controlsBottomPad)
         }
         .sheet(isPresented: $showGallery) {
-            GalleryView(captures: camera.captures)
+            GalleryView(camera: camera)
         }
         .onAppear {
             camera.setThresholds(l: lThreshold, a: aThreshold, b: bThreshold)
@@ -1049,6 +1087,112 @@ struct ContentView: View {
     }
 }
 
+// MARK: - Export formats
+
+enum Exporter {
+    struct Line {
+        let text: String
+        let leftPct: Double, topPct: Double, fontPx: Double
+        let rotation: Int
+        let r: Int, g: Int, b: Int
+    }
+
+    private static func loadImage(_ url: URL) -> CGImage? {
+        guard let source = CGImageSourceCreateWithURL(url as CFURL, nil) else { return nil }
+        return CGImageSourceCreateImageAtIndex(source, 0, nil)
+    }
+
+    static func convert(_ src: URL, type: CFString, ext: String) -> URL? {
+        guard let image = loadImage(src) else { return nil }
+        let out = src.deletingPathExtension().appendingPathExtension(ext)
+        guard let dest = CGImageDestinationCreateWithURL(out as CFURL, type, 1, nil)
+        else { return nil }
+        let options = [kCGImageDestinationLossyCompressionQuality: 0.95] as CFDictionary
+        CGImageDestinationAddImage(dest, image, options)
+        return CGImageDestinationFinalize(dest) ? out : nil
+    }
+
+    static func pdf(_ src: URL) -> URL? {
+        guard let image = loadImage(src) else { return nil }
+        var mediaBox = CGRect(x: 0, y: 0, width: image.width, height: image.height)
+        let out = src.deletingPathExtension().appendingPathExtension("pdf")
+        guard let ctx = CGContext(out as CFURL, mediaBox: &mediaBox, nil) else { return nil }
+        ctx.beginPDFPage(nil)
+        ctx.draw(image, in: mediaBox)
+        ctx.endPDFPage()
+        ctx.closePDF()
+        return out
+    }
+
+    // Parse the OCR lines back out of our own text.html format.
+    static func parseLines(in folder: URL) -> [Line] {
+        guard let html = try? String(
+            contentsOf: folder.appendingPathComponent("text.html"), encoding: .utf8)
+        else { return [] }
+        let pattern = #"left:([\d.]+)%;top:([\d.]+)%;font-size:(\d+)px;line-height:1;"#
+            + #"white-space:nowrap;color:rgb\((\d+),(\d+),(\d+)\);"#
+            + #"(?:transform:rotate\((-?\d+)deg\);transform-origin:left top;)?">(.*?)</div>"#
+        guard let regex = try? NSRegularExpression(pattern: pattern) else { return [] }
+        let range = NSRange(html.startIndex..., in: html)
+        return regex.matches(in: html, range: range).compactMap { match in
+            func group(_ i: Int) -> String {
+                guard let r = Range(match.range(at: i), in: html) else { return "" }
+                return String(html[r])
+            }
+            return Line(
+                text: group(8),
+                leftPct: Double(group(1)) ?? 0, topPct: Double(group(2)) ?? 0,
+                fontPx: Double(group(3)) ?? 12,
+                rotation: Int(group(7)) ?? 0,
+                r: Int(group(4)) ?? 0, g: Int(group(5)) ?? 0, b: Int(group(6)) ?? 0)
+        }
+    }
+
+    private static func unescape(_ s: String) -> String {
+        s.replacingOccurrences(of: "&lt;", with: "<")
+            .replacingOccurrences(of: "&gt;", with: ">")
+            .replacingOccurrences(of: "&amp;", with: "&")
+    }
+
+    static func csv(folder: URL) -> URL? {
+        let lines = parseLines(in: folder)
+        var out = "text,left_pct,top_pct,font_px,rotation_deg,r,g,b\n"
+        for line in lines {
+            let quoted = "\"" + unescape(line.text).replacingOccurrences(of: "\"", with: "\"\"") + "\""
+            out += "\(quoted),\(line.leftPct),\(line.topPct),\(Int(line.fontPx)),"
+                + "\(line.rotation),\(line.r),\(line.g),\(line.b)\n"
+        }
+        let url = folder.appendingPathComponent("text.csv")
+        return (try? out.write(to: url, atomically: true, encoding: .utf8)) != nil ? url : nil
+    }
+
+    // SVG: the image embedded as base64, with OCR lines as real <text>
+    // elements (selectable vectors), rotated where the source text was.
+    static func svg(_ src: URL, folder: URL) -> URL? {
+        guard let image = loadImage(src), let data = try? Data(contentsOf: src) else { return nil }
+        let width = Double(image.width), height = Double(image.height)
+        var texts = ""
+        for line in parseLines(in: folder) {
+            let x = line.leftPct / 100 * width
+            let top = line.topPct / 100 * height
+            let transform = line.rotation == 0
+                ? "" : " transform=\"rotate(\(line.rotation) \(x) \(top))\""
+            texts += "<text x=\"\(x)\" y=\"\(top + line.fontPx * 0.8)\" "
+                + "font-size=\"\(Int(line.fontPx))\" font-family=\"sans-serif\" "
+                + "fill=\"rgb(\(line.r),\(line.g),\(line.b))\"\(transform)>\(line.text)</text>\n"
+        }
+        let svg = """
+        <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" \
+        width="\(Int(width))" height="\(Int(height))" viewBox="0 0 \(Int(width)) \(Int(height))">
+        <image href="data:image/jpeg;base64,\(data.base64EncodedString())" \
+        width="\(Int(width))" height="\(Int(height))"/>
+        \(texts)</svg>
+        """
+        let url = src.deletingPathExtension().appendingPathExtension("svg")
+        return (try? svg.write(to: url, atomically: true, encoding: .utf8)) != nil ? url : nil
+    }
+}
+
 // MARK: - Gallery
 
 private func loadThumbnail(_ url: URL, maxDim: CGFloat = 700) -> CGImage? {
@@ -1062,45 +1206,108 @@ private func loadThumbnail(_ url: URL, maxDim: CGFloat = 700) -> CGImage? {
 }
 
 struct GalleryView: View {
-    let captures: [CameraManager.Capture]
+    @ObservedObject var camera: CameraManager
     @Environment(\.dismiss) private var dismiss
+    @AppStorage("photosBannerDismissed") private var bannerDismissed = false
+    @AppStorage("galleryBlurBackground") private var blurBackground = true
+    @State private var photosStatus = PHPhotoLibrary.authorizationStatus(for: .addOnly)
+    @State private var exportTarget: URL?
+    @State private var exportFolder: URL?
+    @State private var showExportDialog = false
+    @State private var toast: String?
+
+    private var showBanner: Bool {
+        !bannerDismissed && photosStatus != .authorized && photosStatus != .limited
+    }
 
     var body: some View {
         NavigationStack {
-            List(captures) { capture in
-                NavigationLink {
-                    CaptureDetailView(capture: capture)
-                } label: {
-                    HStack(spacing: 8) {
-                        thumb(capture.original)
-                        thumb(capture.lab)
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text(capture.id).font(.caption.monospaced())
-                            if capture.html != nil {
-                                Label("text.html", systemImage: "doc.richtext")
-                                    .font(.caption2)
-                                    .foregroundStyle(.secondary)
-                            }
-                        }
-                    }
+            VStack(spacing: 0) {
+                if showBanner { permissionBanner }
+                List(camera.captures) { capture in
+                    row(capture)
+                        .listRowBackground(
+                            Rectangle().fill(.ultraThinMaterial).opacity(0.75))
                 }
+                .scrollContentBackground(.hidden)
             }
+            .background { backdropView }
             .navigationTitle("Gallery")
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Done") { dismiss() }
                 }
+                ToolbarItem(placement: .primaryAction) {
+                    Menu {
+                        Toggle("Blurred live background", isOn: $blurBackground)
+                    } label: {
+                        Image(systemName: "gearshape")
+                    }
+                }
             }
             .overlay {
-                if captures.isEmpty {
+                if camera.captures.isEmpty {
                     Text("No captures yet — tap the camera button.")
                         .foregroundStyle(.secondary)
                 }
             }
+            .overlay(alignment: .bottom) {
+                if let toast {
+                    Text(toast)
+                        .font(.callout)
+                        .padding(.horizontal, 14).padding(.vertical, 8)
+                        .background(.black.opacity(0.75), in: Capsule())
+                        .foregroundStyle(.white)
+                        .padding(.bottom, 16)
+                }
+            }
         }
+        .onAppear {
+            camera.setBackdropActive(true)
+            photosStatus = PHPhotoLibrary.authorizationStatus(for: .addOnly)
+        }
+        .onDisappear { camera.setBackdropActive(false) }
+        .confirmationDialog(
+            "Save / export as…", isPresented: $showExportDialog, titleVisibility: .visible
+        ) { exportButtons }
         #if os(macOS)
         .frame(minWidth: 520, minHeight: 420)
         #endif
+    }
+
+    // MARK: rows + gestures
+
+    private func row(_ capture: CameraManager.Capture) -> some View {
+        HStack(spacing: 8) {
+            exportableThumb(capture.original, folder: capture.original.deletingLastPathComponent())
+            exportableThumb(capture.lab, folder: capture.lab.deletingLastPathComponent())
+            NavigationLink {
+                CaptureDetailView(capture: capture)
+            } label: {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(capture.id).font(.caption.monospaced())
+                    Text("2×tap: export · 3×tap: camera roll")
+                        .font(.caption2).foregroundStyle(.secondary)
+                    if capture.html != nil {
+                        Label("text.html", systemImage: "doc.richtext")
+                            .font(.caption2).foregroundStyle(.secondary)
+                    }
+                }
+            }
+        }
+    }
+
+    private func exportableThumb(_ url: URL, folder: URL) -> some View {
+        thumb(url)
+            .contentShape(Rectangle())
+            .gesture(
+                TapGesture(count: 3)
+                    .onEnded { saveToCameraRoll(url) }
+                    .exclusively(before: TapGesture(count: 2).onEnded {
+                        exportTarget = url
+                        exportFolder = folder
+                        showExportDialog = true
+                    }))
     }
 
     private func thumb(_ url: URL) -> some View {
@@ -1115,6 +1322,128 @@ struct GalleryView: View {
         }
         .frame(width: 56, height: 56)
         .clipShape(RoundedRectangle(cornerRadius: 8))
+    }
+
+    // MARK: blurred live backdrop
+
+    @ViewBuilder private var backdropView: some View {
+        if blurBackground, let image = camera.backdrop {
+            ZStack {
+                Image(decorative: image, scale: 1)
+                    .resizable()
+                    .scaledToFill()
+                    .id(camera.backdropStamp)
+                    .transition(.opacity.animation(.easeInOut(duration: 0.9)))
+            }
+            .overlay(Color.black.opacity(0.35))
+            .ignoresSafeArea()
+        }
+    }
+
+    // MARK: Photos permission banner
+
+    private var permissionBanner: some View {
+        HStack(spacing: 0) {
+            Rectangle()
+                .fill(Color(red: 1.0, green: 0.93, blue: 0.2)) // highlighter yellow
+                .containerRelativeFrame(.horizontal) { length, _ in length * 0.05 }
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Save captures to Photos?").font(.headline)
+                Text("“Allow Saving” is the minimum needed to add captures to your "
+                     + "camera roll. Grant either and this banner disappears forever.")
+                    .font(.caption).foregroundStyle(.secondary)
+                HStack {
+                    Button("Allow Saving") { requestPhotos(.addOnly) }
+                        .buttonStyle(.borderedProminent)
+                    Button("Full Access") { requestPhotos(.readWrite) }
+                        .buttonStyle(.bordered)
+                }
+            }
+            .padding(10)
+            Spacer(minLength: 24)
+        }
+        .background(.ultraThinMaterial)
+        .overlay(alignment: .bottomTrailing) {
+            Button {
+                bannerDismissed = true // permanent: stored in UserDefaults
+            } label: {
+                Image(systemName: "xmark")
+                    .font(.caption.weight(.bold))
+                    .padding(8)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .help("Dismiss forever")
+        }
+        .clipShape(RoundedRectangle(cornerRadius: 12))
+        .padding([.horizontal, .top], 10)
+    }
+
+    private func requestPhotos(_ level: PHAccessLevel) {
+        PHPhotoLibrary.requestAuthorization(for: level) { _ in
+            DispatchQueue.main.async {
+                photosStatus = PHPhotoLibrary.authorizationStatus(for: .addOnly)
+            }
+        }
+    }
+
+    // MARK: saving + exporting
+
+    private func saveToCameraRoll(_ url: URL) {
+        PHPhotoLibrary.requestAuthorization(for: .addOnly) { status in
+            DispatchQueue.main.async { photosStatus = status }
+            guard status == .authorized || status == .limited else {
+                showToast("Photos permission needed")
+                return
+            }
+            PHPhotoLibrary.shared().performChanges({
+                let request = PHAssetCreationRequest.forAsset()
+                request.addResource(with: .photo, fileURL: url, options: nil)
+            }) { ok, error in
+                showToast(ok ? "Saved to camera roll"
+                             : "Save failed: \(error?.localizedDescription ?? "?")")
+            }
+        }
+    }
+
+    @ViewBuilder private var exportButtons: some View {
+        Button("HEIC → Photos") { convertAndSave("public.heic" as CFString, "heic") }
+        Button("PNG → Photos") { convertAndSave("public.png" as CFString, "png") }
+        Button("JPEG → Photos") { convertAndSave("public.jpeg" as CFString, "jpeg") }
+        Button("SVG file") {
+            guard let target = exportTarget, let folder = exportFolder else { return }
+            showToast(Exporter.svg(target, folder: folder).map { "Wrote \($0.lastPathComponent)" }
+                      ?? "SVG export failed")
+        }
+        Button("PDF file") {
+            guard let target = exportTarget else { return }
+            showToast(Exporter.pdf(target).map { "Wrote \($0.lastPathComponent)" }
+                      ?? "PDF export failed")
+        }
+        Button("CSV (OCR lines)") {
+            guard let folder = exportFolder else { return }
+            showToast(Exporter.csv(folder: folder).map { "Wrote \($0.lastPathComponent)" }
+                      ?? "CSV export failed")
+        }
+        Button("Cancel", role: .cancel) {}
+    }
+
+    private func convertAndSave(_ type: CFString, _ ext: String) {
+        guard let target = exportTarget else { return }
+        guard let converted = Exporter.convert(target, type: type, ext: ext) else {
+            showToast("\(ext.uppercased()) conversion failed")
+            return
+        }
+        saveToCameraRoll(converted)
+    }
+
+    private func showToast(_ message: String) {
+        DispatchQueue.main.async {
+            withAnimation { toast = message }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2.2) {
+                withAnimation { toast = nil }
+            }
+        }
     }
 }
 
