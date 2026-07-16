@@ -7,6 +7,8 @@
 <style>
   @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&display=swap');
 
+  :root { --side: min(94vw, calc(100vh - 250px)); }
+
   html, body {
     margin: 0;
     height: 100%;
@@ -19,16 +21,36 @@
     position: fixed;
     inset: 0;
     display: flex;
+    flex-direction: column;
     align-items: center;
     justify-content: center;
+    gap: 10px;
   }
 
-  canvas {
-    width: min(100vw, 100vh);
-    height: min(100vw, 100vh);
+  #gl {
+    width: var(--side);
+    height: var(--side);
     background: #0a0a12;
     outline: 1px solid #1c1c2a;
   }
+
+  #memrow {
+    width: var(--side);
+    display: flex;
+    gap: 10px;
+  }
+
+  .memcol { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+
+  .memcol canvas {
+    width: 100%;
+    height: 140px;
+    image-rendering: pixelated;
+    background: #0a0a12;
+    outline: 1px solid #1c1c2a;
+  }
+
+  .memlabel { font-size: 11px; color: #8a8ba0; user-select: none; }
 
   #controls {
     position: fixed;
@@ -81,10 +103,39 @@
     z-index: 2;
     user-select: none;
   }
+
+  #nogl {
+    position: fixed;
+    inset: 0;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    color: #cfd0dd;
+    font-size: 14px;
+    text-align: center;
+    z-index: 9;
+    background: #07070c;
+  }
 </style>
 </head>
 <body>
-<div id="stage"><canvas id="gl" width="1000" height="1000"></canvas></div>
+<div id="stage">
+  <canvas id="gl" width="1000" height="1000"></canvas>
+  <div id="memrow">
+    <div class="memcol">
+      <canvas id="mem-eyes" width="9" height="46" title="live retina input, one row per agent: R=magenta seen, G=pellet seen, B=green seen"></canvas>
+      <div class="memlabel">eyes &mdash; R:magenta G:pellet B:green</div>
+    </div>
+    <div class="memcol">
+      <canvas id="mem-w" width="28" height="46" title="perceptron weights, one row per agent, one column per synapse: R=turn weight, G=thrust weight"></canvas>
+      <div class="memlabel">weights &mdash; R:turn G:thrust</div>
+    </div>
+    <div class="memcol">
+      <canvas id="mem-t" width="28" height="46" title="eligibility traces + reward flashes: R=turn trace, G=thrust trace, B=reward"></canvas>
+      <div class="memlabel">traces &mdash; B flashes on reward</div>
+    </div>
+  </div>
+</div>
 
 <div id="controls">
   <button id="btn-play"  title="play">&#9654;</button>
@@ -99,34 +150,50 @@
 </div>
 
 <div id="seed"></div>
+<div id="nogl">this gym needs WebGL2 with float render targets<br>(EXT_color_buffer_float) &mdash; try Chrome/Firefox/Safari 16.4+</div>
 
 <script>
 'use strict';
 
 /* ============================================================
-   perceptron gym
+   perceptron gym — GPU-resident memory edition
    ------------------------------------------------------------
-   - 1000x1000 world on a WebGL canvas (torus topology)
+   - 1000x1000 world on a WebGL2 canvas (torus topology)
    - agents are rotating wireframe Platonic solids
    - each agent's brain is a single perceptron layer:
        9 "pixel eyes" x 3 channels (pellet / green / magenta)
        = 27 inputs (+ bias)  ->  2 outputs (turn, thrust)
-   - RL: REINFORCE-style — gaussian exploration noise on the
-     outputs, eligibility traces of noise x input, weight update
-     on reward (+1 eat, -1 death), plus mutate-on-respawn
-     selection so good policies spread through the population
-   - magenta solids eat green solids; green solids eat pellets
+
+   ALL learnable memory lives in a pair of ping-pong RGBA float
+   textures (28 synapses wide x 46 agents tall), never on the CPU:
+       R = turn weight   G = thrust weight
+       B = turn trace    A = thrust trace
+   Each tick a fragment shader reads the front texture and writes
+   the back one (trace decay + noise*input accumulation, then the
+   REINFORCE weight update on reward), and the two swap. A second
+   shader does the forward pass w.s per agent; the CPU only reads
+   back those 2 numbers per agent to move the solids, plus the
+   memory texture once per frame to paint the monitor canvases
+   below the field.
+
+   RL: gaussian exploration noise on the outputs, eligibility
+   traces of noise x input, weight update on reward (+1 eat,
+   -1 death), plus mutate-on-respawn selection (a texture
+   row-copy with noise) so good policies spread.
+
+   magenta solids eat green solids; green solids eat pellets
    ============================================================ */
 
 const W = 1000, H = 1000;
-const N_GREEN = 36, N_MAGENTA = 10;
+const N_GREEN = 36, N_MAGENTA = 10, N_AGENTS = N_GREEN + N_MAGENTA;
 const N_EYES = 9, N_CH = 3, N_IN = N_EYES * N_CH, N_OUT = 2;
-const FOV = Math.PI * 0.85;          // ~153 degrees of forward vision
+const TEXW = N_IN + 1, TEXH = N_AGENTS;   // memory texture: synapses x agents
+const FOV = Math.PI * 0.85;               // ~153 degrees of forward vision
 const EYE_RANGE = 130;
 const MAX_PELLETS = 700;
 const PELLET_R = 5, GREEN_R = 11, MAGENTA_R = 15;
-const NOISE_SIGMA = 0.35, TRACE_DECAY = 0.92, LEARN_RATE = 0.12, W_CLIP = 4;
-const SNAP_EVERY = 3, SNAP_MAX = 1200; // ~60 s of rewind at 60 fps
+const NOISE_SIGMA = 0.35, TRACE_DECAY = 0.92, LEARN_RATE = 0.12, W_CLIP = 4.0;
+const SNAP_EVERY = 3, SNAP_MAX = 1200;    // ~60 s of rewind at 60 fps
 
 // ---- seeded rng ------------------------------------------------
 const SEED = Math.floor(Math.random() * 0x1000000); // 24-bit "color" seed
@@ -216,18 +283,173 @@ const SOLIDS = [
 const GREEN_SOLIDS = [0, 2, 4];   // tetra, octa, icosa
 const MAGENTA_SOLIDS = [1, 3];    // cube, dodeca
 
+// ---- webgl2 -----------------------------------------------------
+const canvas = document.getElementById('gl');
+const gl = canvas.getContext('webgl2', { antialias: true, alpha: false });
+const floatExt = gl && gl.getExtension('EXT_color_buffer_float');
+if (!gl || !floatExt) {
+  document.getElementById('nogl').style.display = 'flex';
+  throw new Error('WebGL2 + EXT_color_buffer_float required');
+}
+
+function compile(type, src) {
+  const sh = gl.createShader(type);
+  gl.shaderSource(sh, src); gl.compileShader(sh);
+  if (!gl.getShaderParameter(sh, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(sh));
+  return sh;
+}
+function program(vs, fs) {
+  const p = gl.createProgram();
+  gl.attachShader(p, compile(gl.VERTEX_SHADER, vs));
+  gl.attachShader(p, compile(gl.FRAGMENT_SHADER, fs));
+  gl.linkProgram(p);
+  if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(p));
+  return p;
+}
+
+// ---- GPU brain: all memory in ping-pong RGBA float textures ----
+// layout per texel (x = synapse 0..27 where 27 is bias, y = agent):
+//   R = turn weight, G = thrust weight, B = turn trace, A = thrust trace
+function makeTex(w, h, internal, format, type, data) {
+  const t = gl.createTexture();
+  gl.bindTexture(gl.TEXTURE_2D, t);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+  gl.texImage2D(gl.TEXTURE_2D, 0, internal, w, h, 0, format, type, data);
+  return t;
+}
+
+let memFront = makeTex(TEXW, TEXH, gl.RGBA32F, gl.RGBA, gl.FLOAT, null);
+let memBack  = makeTex(TEXW, TEXH, gl.RGBA32F, gl.RGBA, gl.FLOAT, null);
+const inputsTex = makeTex(TEXW, TEXH, gl.R32F, gl.RED, gl.FLOAT, null);
+const agentTex  = makeTex(1, TEXH, gl.RGBA32F, gl.RGBA, gl.FLOAT, null); // R=noise0 G=noise1 B=reward
+const outTex    = makeTex(1, TEXH, gl.RGBA32F, gl.RGBA, gl.FLOAT, null); // R=u_turn G=u_thrust
+
+const computeFbo = gl.createFramebuffer();
+
+const quadBuf = gl.createBuffer();
+gl.bindBuffer(gl.ARRAY_BUFFER, quadBuf);
+gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1, 1,-1, -1,1, 1,1]), gl.STATIC_DRAW);
+
+const computeVS = `#version 300 es
+in vec2 aP;
+void main() { gl_Position = vec4(aP, 0.0, 1.0); }`;
+
+// forward pass: u = W.s per agent (one texel per agent, x=0)
+const forwardProg = program(computeVS, `#version 300 es
+precision highp float;
+uniform sampler2D uMem;
+uniform sampler2D uIn;
+out vec4 o;
+void main() {
+  int y = int(gl_FragCoord.y);
+  float u0 = 0.0, u1 = 0.0;
+  for (int j = 0; j < ${TEXW}; j++) {
+    vec4 m = texelFetch(uMem, ivec2(j, y), 0);
+    float s = texelFetch(uIn, ivec2(j, y), 0).r;
+    u0 += m.r * s;
+    u1 += m.g * s;
+  }
+  o = vec4(u0, u1, 0.0, 0.0);
+}`);
+
+// learning pass: trace decay + accumulate, then REINFORCE update
+const updateProg = program(computeVS, `#version 300 es
+precision highp float;
+uniform sampler2D uMem;
+uniform sampler2D uIn;
+uniform sampler2D uAgent;
+out vec4 o;
+void main() {
+  ivec2 tc = ivec2(gl_FragCoord.xy);
+  vec4 m = texelFetch(uMem, tc, 0);
+  float s = texelFetch(uIn, tc, 0).r;
+  vec3 ag = texelFetch(uAgent, ivec2(0, tc.y), 0).rgb; // noise0, noise1, reward
+  float t0 = m.b * ${TRACE_DECAY} + ag.r * s;
+  float t1 = m.a * ${TRACE_DECAY} + ag.g * s;
+  float w0 = clamp(m.r + ${LEARN_RATE} * ag.b * t0, -${W_CLIP.toFixed(1)}, ${W_CLIP.toFixed(1)});
+  float w1 = clamp(m.g + ${LEARN_RATE} * ag.b * t1, -${W_CLIP.toFixed(1)}, ${W_CLIP.toFixed(1)});
+  o = vec4(w0, w1, t0, t1);
+}`);
+
+function bindCompute(prog, texs) { // texs: [[uniformName, texture], ...]
+  gl.useProgram(prog);
+  texs.forEach(([name, tex], i) => {
+    gl.activeTexture(gl.TEXTURE0 + i);
+    gl.bindTexture(gl.TEXTURE_2D, tex);
+    gl.uniform1i(gl.getUniformLocation(prog, name), i);
+  });
+  gl.bindBuffer(gl.ARRAY_BUFFER, quadBuf);
+  const loc = gl.getAttribLocation(prog, 'aP');
+  gl.enableVertexAttribArray(loc);
+  gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
+}
+
+const inputsData = new Float32Array(TEXW * TEXH);   // staging for eye samples
+const agentData  = new Float32Array(4 * TEXH);      // staging: noise0/noise1/reward
+const outBuf     = new Float32Array(4 * TEXH);      // forward-pass readback
+const memRead    = new Float32Array(4 * TEXW * TEXH); // memory readback for the monitors
+const rowBuf     = new Float32Array(4 * TEXW);      // one agent row for respawn copies
+
+function uploadInputs() {
+  gl.bindTexture(gl.TEXTURE_2D, inputsTex);
+  gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, TEXW, TEXH, gl.RED, gl.FLOAT, inputsData);
+}
+function uploadAgentData() {
+  gl.bindTexture(gl.TEXTURE_2D, agentTex);
+  gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, 1, TEXH, gl.RGBA, gl.FLOAT, agentData);
+}
+function writeMemRow(row, data) {
+  gl.bindTexture(gl.TEXTURE_2D, memFront);
+  gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, row, TEXW, 1, gl.RGBA, gl.FLOAT, data);
+}
+function freshBrainRow(buf) {
+  for (let j = 0; j < TEXW; j++) {
+    buf[j*4]   = gauss() * 0.3;
+    buf[j*4+1] = gauss() * 0.3;
+    buf[j*4+2] = 0;
+    buf[j*4+3] = 0;
+  }
+}
+
+function runForward() {
+  gl.disable(gl.BLEND);
+  gl.bindFramebuffer(gl.FRAMEBUFFER, computeFbo);
+  gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, outTex, 0);
+  gl.viewport(0, 0, 1, TEXH);
+  bindCompute(forwardProg, [['uMem', memFront], ['uIn', inputsTex]]);
+  gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+  gl.readPixels(0, 0, 1, TEXH, gl.RGBA, gl.FLOAT, outBuf);
+}
+
+function runUpdate() {
+  gl.disable(gl.BLEND);
+  gl.bindFramebuffer(gl.FRAMEBUFFER, computeFbo);
+  gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, memBack, 0);
+  gl.viewport(0, 0, TEXW, TEXH);
+  bindCompute(updateProg, [['uMem', memFront], ['uIn', inputsTex], ['uAgent', agentTex]]);
+  gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+  const t = memFront; memFront = memBack; memBack = t;
+  // fbo still points at the new front: read it back for the monitor canvases
+  gl.readPixels(0, 0, TEXW, TEXH, gl.RGBA, gl.FLOAT, memRead);
+}
+
+function readMemRow(row, buf) {
+  gl.bindFramebuffer(gl.FRAMEBUFFER, computeFbo);
+  gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, memFront, 0);
+  gl.readPixels(0, row, TEXW, 1, gl.RGBA, gl.FLOAT, buf);
+}
+
 // ---- world state -----------------------------------------------
-let agents = [];       // green then magenta
+let agents = [];       // green rows 0..35, magenta rows 36..45
 let pellets = [];      // {x, y}
 let spawnAcc = 0;
 let simFrame = 0;
-
-function newBrain() {
-  // weights[out][in+1], last column is bias
-  const w = new Float32Array(N_OUT * (N_IN + 1));
-  for (let i = 0; i < w.length; i++) w[i] = gauss() * 0.3;
-  return w;
-}
+const noise0 = new Float32Array(N_AGENTS), noise1 = new Float32Array(N_AGENTS);
+const rewards = new Float32Array(N_AGENTS);
+const rewardGlow = new Float32Array(N_AGENTS);
 
 function makeAgent(team) {
   const pool = team === 0 ? GREEN_SOLIDS : MAGENTA_SOLIDS;
@@ -237,10 +459,6 @@ function makeAgent(team) {
     heading: rand() * 2 * Math.PI,
     energy: 100,
     fitness: 0,
-    weights: newBrain(),
-    trace: new Float32Array(N_OUT * (N_IN + 1)),
-    inputs: new Float32Array(N_IN),
-    noise: new Float32Array(N_OUT),
     solid: pool[(rand() * pool.length) | 0],
     axis: (() => { // random unit spin axis
       const a = [gauss(), gauss(), gauss()];
@@ -257,6 +475,17 @@ function initWorld() {
   agents = [];
   for (let i = 0; i < N_GREEN; i++) agents.push(makeAgent(0));
   for (let i = 0; i < N_MAGENTA; i++) agents.push(makeAgent(1));
+  // fresh random brains straight into the GPU memory texture
+  const init = new Float32Array(4 * TEXW * TEXH);
+  for (let i = 0; i < N_AGENTS; i++) {
+    freshBrainRow(rowBuf);
+    init.set(rowBuf, i * TEXW * 4);
+  }
+  gl.bindTexture(gl.TEXTURE_2D, memFront);
+  gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, TEXW, TEXH, gl.RGBA, gl.FLOAT, init);
+  memRead.set(init);
+  inputsData.fill(0);
+  rewardGlow.fill(0);
   pellets = [];
   for (let i = 0; i < 220; i++) pellets.push({ x: rand() * W, y: rand() * H });
   spawnAcc = 0;
@@ -296,10 +525,11 @@ function forNear(grid, x, y, r, fn) {
     }
 }
 
-// ---- senses: 9 pixel eyes --------------------------------------
-function sense(a) {
-  const s = a.inputs;
-  s.fill(0);
+// ---- senses: 9 pixel eyes, staged into the inputs texture ------
+function sense(a, row) {
+  const base = row * TEXW;
+  inputsData.fill(0, base, base + N_IN);
+  inputsData[base + N_IN] = 1; // bias input
   const R2 = EYE_RANGE * EYE_RANGE;
   const see = (ex, ey, ch) => {
     const dx = dwrap(ex - a.x, W), dy = dwrap(ey - a.y, H);
@@ -311,8 +541,8 @@ function sense(a) {
     let eye = ((ang + FOV / 2) / FOV * N_EYES) | 0;
     if (eye >= N_EYES) eye = N_EYES - 1;
     const intensity = 1 - Math.sqrt(d2) / EYE_RANGE;
-    const k = eye * N_CH + ch;
-    if (intensity > s[k]) s[k] = intensity;
+    const k = base + eye * N_CH + ch;
+    if (intensity > inputsData[k]) inputsData[k] = intensity;
   };
   forNear(pelletGrid, a.x, a.y, EYE_RANGE, i => see(pellets[i].x, pellets[i].y, 0));
   forNear(agentGrid, a.x, a.y, EYE_RANGE, i => {
@@ -321,50 +551,29 @@ function sense(a) {
   });
 }
 
-// ---- perceptron + reinforce ------------------------------------
-function think(a, out) {
-  const w = a.weights, s = a.inputs;
-  for (let o = 0; o < N_OUT; o++) {
-    const base = o * (N_IN + 1);
-    let u = w[base + N_IN]; // bias
-    for (let i = 0; i < N_IN; i++) u += w[base + i] * s[i];
-    const n = gauss() * NOISE_SIGMA;
-    a.noise[o] = n;
-    out[o] = u + n;
-  }
-  // eligibility trace: which weights pushed the explored action
-  const tr = a.trace;
-  for (let o = 0; o < N_OUT; o++) {
-    const base = o * (N_IN + 1), n = a.noise[o];
-    for (let i = 0; i < N_IN; i++) tr[base + i] = tr[base + i] * TRACE_DECAY + n * s[i];
-    tr[base + N_IN] = tr[base + N_IN] * TRACE_DECAY + n;
-  }
-}
-function reinforce(a, r) {
-  const w = a.weights, tr = a.trace;
-  for (let k = 0; k < w.length; k++) {
-    let v = w[k] + LEARN_RATE * r * tr[k];
-    if (v > W_CLIP) v = W_CLIP; else if (v < -W_CLIP) v = -W_CLIP;
-    w[k] = v;
-  }
-  a.fitness += r;
-}
-
-function respawn(a) {
-  // tournament-select a living parent from the same team, clone + mutate
-  let parent = null;
+function respawn(i) {
+  const a = agents[i];
+  // tournament-select a living parent from the same team, clone its
+  // memory-texture row + mutation; traces reset to zero
+  let parent = -1, best = -Infinity;
   for (let t = 0; t < 3; t++) {
-    const o = agents[(rand() * agents.length) | 0];
-    if (o !== a && o.team === a.team && (!parent || o.fitness > parent.fitness)) parent = o;
+    const k = (rand() * agents.length) | 0;
+    if (k !== i && agents[k].team === a.team && agents[k].fitness > best) {
+      parent = k; best = agents[k].fitness;
+    }
   }
-  if (parent) {
-    a.weights.set(parent.weights);
-    for (let k = 0; k < a.weights.length; k++)
-      if (rand() < 0.15) a.weights[k] += gauss() * 0.25;
+  if (parent >= 0) {
+    readMemRow(parent, rowBuf);
+    for (let j = 0; j < TEXW; j++) {
+      if (rand() < 0.15) rowBuf[j*4]   += gauss() * 0.25;
+      if (rand() < 0.15) rowBuf[j*4+1] += gauss() * 0.25;
+      rowBuf[j*4+2] = 0;
+      rowBuf[j*4+3] = 0;
+    }
   } else {
-    a.weights = newBrain();
+    freshBrainRow(rowBuf);
   }
-  a.trace.fill(0);
+  writeMemRow(i, rowBuf);
   a.x = rand() * W; a.y = rand() * H;
   a.heading = rand() * 2 * Math.PI;
   a.energy = 100;
@@ -373,19 +582,29 @@ function respawn(a) {
 }
 
 // ---- simulation step -------------------------------------------
-const out2 = new Float32Array(N_OUT);
 const eatenPellets = new Set();
 
 function step(dt) {
   rebuildGrids();
-  eatenPellets.clear();
-  const dead = [];
 
-  for (const a of agents) {
-    sense(a);
-    think(a, out2);
-    const turn = Math.tanh(out2[0]);
-    const thrust = 0.5 * (1 + Math.tanh(out2[1]));
+  // 1. everyone looks (sampled from positions at frame start)
+  for (let i = 0; i < N_AGENTS; i++) sense(agents[i], i);
+  uploadInputs();
+
+  // 2. exploration noise, then the GPU forward pass
+  for (let i = 0; i < N_AGENTS; i++) {
+    noise0[i] = gauss() * NOISE_SIGMA;
+    noise1[i] = gauss() * NOISE_SIGMA;
+  }
+  runForward();
+
+  // 3. act on the readback: move, eat, starve
+  rewards.fill(0);
+  eatenPellets.clear();
+  for (let i = 0; i < N_AGENTS; i++) {
+    const a = agents[i];
+    const turn = Math.tanh(outBuf[i*4] + noise0[i]);
+    const thrust = 0.5 * (1 + Math.tanh(outBuf[i*4+1] + noise1[i]));
     const maxSpeed = a.team === 0 ? 120 : 150;
 
     a.heading += turn * 3.2 * dt;
@@ -397,40 +616,56 @@ function step(dt) {
     if (a.team === 0) {
       // green eats pellets
       const reach = GREEN_R + PELLET_R;
-      forNear(pelletGrid, a.x, a.y, reach, i => {
-        if (eatenPellets.has(i)) return;
-        const dx = dwrap(pellets[i].x - a.x, W), dy = dwrap(pellets[i].y - a.y, H);
+      forNear(pelletGrid, a.x, a.y, reach, p => {
+        if (eatenPellets.has(p)) return;
+        const dx = dwrap(pellets[p].x - a.x, W), dy = dwrap(pellets[p].y - a.y, H);
         if (dx * dx + dy * dy < reach * reach) {
-          eatenPellets.add(i);
+          eatenPellets.add(p);
           a.energy = Math.min(170, a.energy + 26);
-          reinforce(a, 1);
+          rewards[i] += 1;
         }
       });
     } else {
       // magenta eats greens
       const reach = MAGENTA_R + GREEN_R;
-      forNear(agentGrid, a.x, a.y, reach, i => {
-        const o = agents[i];
+      forNear(agentGrid, a.x, a.y, reach, k => {
+        const o = agents[k];
         if (o.team !== 0 || o.energy <= 0) return;
         const dx = dwrap(o.x - a.x, W), dy = dwrap(o.y - a.y, H);
         if (dx * dx + dy * dy < reach * reach) {
           o.energy = 0; // marked dead, collected below
           a.energy = Math.min(170, a.energy + 55);
-          reinforce(a, 1);
+          rewards[i] += 1;
         }
       });
     }
-    if (a.energy <= 0) dead.push(a);
   }
+
+  // 4. deaths get their -1 folded into this tick's reward
+  const dead = [];
+  for (let i = 0; i < N_AGENTS; i++) {
+    if (agents[i].energy <= 0) { rewards[i] -= 1; dead.push(i); }
+    agents[i].fitness += rewards[i];
+    if (rewards[i] !== 0) rewardGlow[i] = 1;
+  }
+
+  // 5. the learning pass: traces + weights update entirely on GPU
+  for (let i = 0; i < N_AGENTS; i++) {
+    agentData[i*4]   = noise0[i];
+    agentData[i*4+1] = noise1[i];
+    agentData[i*4+2] = rewards[i];
+    agentData[i*4+3] = 0;
+  }
+  uploadAgentData();
+  runUpdate();
+
+  // 6. respawns overwrite their rows in the fresh front texture
+  for (const i of dead) respawn(i);
 
   if (eatenPellets.size) {
     const keep = [];
     for (let i = 0; i < pellets.length; i++) if (!eatenPellets.has(i)) keep.push(pellets[i]);
     pellets = keep;
-  }
-  for (const a of dead) {
-    reinforce(a, -1); // dying is bad, remember what you were doing
-    respawn(a);
   }
 
   // pellet spawning
@@ -439,6 +674,7 @@ function step(dt) {
     spawnAcc -= 1;
     if (pellets.length < MAX_PELLETS) pellets.push({ x: rand() * W, y: rand() * H });
   }
+  for (let i = 0; i < N_AGENTS; i++) rewardGlow[i] *= 0.94;
   simFrame++;
 }
 
@@ -464,25 +700,7 @@ function restore(s) {
   for (let i = 0; i < s.P.length / 2; i++) pellets.push({ x: s.P[i*2], y: s.P[i*2+1] });
 }
 
-// ---- webgl -----------------------------------------------------
-const canvas = document.getElementById('gl');
-const gl = canvas.getContext('webgl', { antialias: true, alpha: false });
-
-function compile(type, src) {
-  const sh = gl.createShader(type);
-  gl.shaderSource(sh, src); gl.compileShader(sh);
-  if (!gl.getShaderParameter(sh, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(sh));
-  return sh;
-}
-function program(vs, fs) {
-  const p = gl.createProgram();
-  gl.attachShader(p, compile(gl.VERTEX_SHADER, vs));
-  gl.attachShader(p, compile(gl.FRAGMENT_SHADER, fs));
-  gl.linkProgram(p);
-  if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(p));
-  return p;
-}
-
+// ---- field rendering (unchanged, GLSL 100 still fine in WebGL2) --
 const lineProg = program(`
   attribute vec2 aPos; attribute vec4 aCol; varying vec4 vCol;
   void main() {
@@ -515,10 +733,6 @@ const aPosP = gl.getAttribLocation(pointProg, 'aPos');
 const uSize = gl.getUniformLocation(pointProg, 'uSize');
 const uCol = gl.getUniformLocation(pointProg, 'uCol');
 
-gl.enable(gl.BLEND);
-gl.blendFunc(gl.SRC_ALPHA, gl.ONE); // additive: neon glow on black
-gl.viewport(0, 0, W, H);
-
 let lineData = new Float32Array(1 << 16); // x,y,r,g,b,a per vertex
 
 function rodrigues(v, axis, ang, out) {
@@ -533,6 +747,10 @@ const tmpV = [0,0,0];
 const projected = new Float32Array(20 * 2); // max 20 verts per solid
 
 function render(t) {
+  gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+  gl.viewport(0, 0, W, H);
+  gl.enable(gl.BLEND);
+  gl.blendFunc(gl.SRC_ALPHA, gl.ONE); // additive: neon glow on black
   gl.clearColor(0.028, 0.028, 0.055, 1);
   gl.clear(gl.COLOR_BUFFER_BIT);
 
@@ -585,6 +803,44 @@ function render(t) {
   gl.drawArrays(gl.LINES, 0, n / 6);
 }
 
+// ---- memory monitors: paint the GPU state onto 2D canvases ------
+const eyesCtx = document.getElementById('mem-eyes').getContext('2d');
+const wCtx    = document.getElementById('mem-w').getContext('2d');
+const tCtx    = document.getElementById('mem-t').getContext('2d');
+const eyesImg = new ImageData(N_EYES, TEXH);
+const wImg    = new ImageData(TEXW, TEXH);
+const tImg    = new ImageData(TEXW, TEXH);
+for (const img of [eyesImg, wImg, tImg])
+  for (let i = 3; i < img.data.length; i += 4) img.data[i] = 255;
+
+function paintMemory() {
+  for (let i = 0; i < TEXH; i++) {
+    const inBase = i * TEXW, memBase = i * TEXW * 4;
+    // eyes: what each retina sees right now (one pixel per eye)
+    for (let e = 0; e < N_EYES; e++) {
+      const p = (i * N_EYES + e) * 4;
+      eyesImg.data[p]   = inputsData[inBase + e*3 + 2] * 255; // magenta seen
+      eyesImg.data[p+1] = inputsData[inBase + e*3]     * 255; // pellet seen
+      eyesImg.data[p+2] = inputsData[inBase + e*3 + 1] * 255; // green seen
+    }
+    const teamTint = i < N_GREEN ? 24 : 84;
+    for (let j = 0; j < TEXW; j++) {
+      const m = memBase + j * 4, p = (i * TEXW + j) * 4;
+      // weights, mapped from [-4,4] to [0,1]
+      wImg.data[p]   = (memRead[m]   / (2 * W_CLIP) + 0.5) * 255;
+      wImg.data[p+1] = (memRead[m+1] / (2 * W_CLIP) + 0.5) * 255;
+      wImg.data[p+2] = teamTint;
+      // eligibility traces + reward flash
+      tImg.data[p]   = Math.min(255, Math.abs(memRead[m+2]) * 220);
+      tImg.data[p+1] = Math.min(255, Math.abs(memRead[m+3]) * 220);
+      tImg.data[p+2] = rewardGlow[i] * 255;
+    }
+  }
+  eyesCtx.putImageData(eyesImg, 0, 0);
+  wCtx.putImageData(wImg, 0, 0);
+  tCtx.putImageData(tImg, 0, 0);
+}
+
 // ---- controls ---------------------------------------------------
 let mode = 'play'; // 'play' | 'pause' | 'rewind'
 let spawnRate = 14;
@@ -627,6 +883,7 @@ function frame(now) {
   }
 
   render(t);
+  paintMemory();
   requestAnimationFrame(frame);
 }
 
