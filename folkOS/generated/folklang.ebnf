@@ -1,0 +1,232 @@
+(* folklang EBNF — generated from folklang.bnf.tcl; do not edit *)
+(* upstream: https://github.com/folkcomputer/folk @ 33e89446f683 *)
+
+(* ===== Layer 0 ===== *)
+
+(* A folk program: a sequence of commands (this is a Tcl script) *)
+folk-script = (command | comment)* ;
+
+(* One command: words separated by whitespace, ended by newline or ; *)
+command = word (WS word)* COMMAND-END ;
+
+(* Comment: # at command position through end of line *)
+comment = '#' LINE-TEXT COMMAND-END ;
+
+(* A Tcl word; braces are raw, quotes and bare words substitute *)
+word = braced-word
+    | quoted-word
+    | bare-word ;
+
+(* Brace-quoted word: no substitution, braces must balance *)
+braced-word = '{' BRACE-TEXT '}' ;
+
+(* Double-quoted word: $var, [cmd], and backslash substitution apply *)
+quoted-word = '"' (QUOTE-CHAR | substitution)* '"' ;
+
+(* Unquoted word: ends at whitespace; substitutions apply *)
+bare-word = (BARE-CHAR | substitution)+ ;
+
+(* Runtime substitution inside quoted/bare words *)
+substitution = variable-sub
+    | command-sub
+    | backslash-sub ;
+
+(* Variable substitution *)
+variable-sub = '$' IDENT
+    | '$' '{' BRACE-TEXT '}' ;
+
+(* Command substitution: evaluates a nested script *)
+command-sub = '[' folk-script ']' ;
+
+(* Backslash escape (\n, \t, \\, \<newline> line-continuation, ...) *)
+backslash-sub = '\\' LINE-TEXT ;
+
+(* A code block argument: a braced word whose content is a folk-script. Lexical environment is captured around it (captureEnvStack) unless -noncapturing is given on the enclosing form *)
+body = braced-word ;
+
+(* ===== Layer 1 ===== *)
+
+(* Any folk reactive form (all are ordinary commands to the host) *)
+folk-form = claim-form
+    | wish-form
+    | when-form
+    | say-form
+    | hold-form
+    | on-unmatch-form
+    | subscribe-form
+    | notify-form
+    | query-form
+    | query-one-form
+    | expect-form
+    | foreach-form
+    | fn-form
+    | assert-form ;
+
+(* Assert a fact on behalf of $this: (this claims <clause>) *)
+claim-form = 'Claim' statement-modifier* clause ;
+
+(* Declare a desire on behalf of $this: (this wishes <clause>) *)
+wish-form = 'Wish' statement-modifier* clause ;
+
+(* Assert a raw statement (subject and verb explicit) *)
+say-form = 'Say' statement-modifier* clause ;
+
+(* Modifiers accepted by Say / Claim / Wish *)
+statement-modifier = '-keep' duration
+    | '-nonatomically'
+    | '-destructor' body ;
+
+(* React to matching statements; body reruns per match *)
+when-form = 'When' when-modifier* join-pattern body ;
+
+(* Modifiers accepted by When *)
+when-modifier = '-noncapturing'
+    | '-serially'
+    | '-atomically'
+    | '-atomicallyInherit'
+    | '-atomicallyWithKey' word
+    | '-nonatomically' ;
+
+(* Hold a statement (or a when-body) stably across program re-runs. Clause may use Claim/Wish sugar; a lone body holds a when-block *)
+hold-form = 'Hold!' hold-modifier* '--' clause
+    | 'Hold!' hold-modifier* body
+    | 'Hold!' hold-modifier* ('Claim' | 'Wish')? clause? ;
+
+(* Modifiers accepted by Hold! *)
+hold-modifier = '-on' word
+    | '-key' word
+    | '-keep' duration
+    | '-source' word
+    | '-destructor' body
+    | '-version' word
+    | '-noncapturing'
+    | '-save' ;
+
+(* Destructor: runs when the enclosing When's match is retracted *)
+on-unmatch-form = 'On' 'unmatch' body ;
+
+(* Subscribe to matches outside the reactive graph (advanced) *)
+subscribe-form = 'Subscribe:' pattern body ;
+
+(* Fire-and-forget notification statement (e.g. save requests) *)
+notify-form = 'Notify:' clause ;
+
+(* Synchronous sampling query; returns list of binding dicts *)
+query-form = 'Query!' '-atomically'? join-pattern ;
+
+(* Query expecting exactly one result (error otherwise) *)
+query-one-form = 'QueryOne!' ('-default' word)? pattern ;
+
+(* QueryOne! that binds results directly into caller scope *)
+expect-form = 'Expect!' pattern ;
+
+(* Iterate a query's results, binding each result dict in body *)
+foreach-form = 'ForEach!' join-pattern body ;
+
+(* Define/capture a lexically-scoped function shareable through statements *)
+fn-form = 'fn' IDENT arg-list body
+    | 'fn' IDENT ;
+
+(* Function argument names, as a Tcl list word *)
+arg-list = word ;
+
+(* Runtime assertion of a Tcl expr condition *)
+assert-form = 'assert' word ;
+
+(* Duration literal, e.g. 50ms (microseconds appear as N us in options) *)
+duration = INTEGER 'ms' ;
+
+(* ===== Layer 2 ===== *)
+
+(* One or more patterns joined with &; later ones see earlier bindings *)
+join-pattern = pattern ('&' pattern)* ;
+
+(* A statement pattern: a sequence of terms matched word-by-word *)
+pattern = pattern-term+ ;
+
+(* One term of a pattern *)
+pattern-term = match-variable
+    | bound-reference
+    | word ;
+
+(* Slash-delimited variable/wildcard/negation term *)
+match-variable = '/' variable-name '/' ;
+
+(* Capture name, rest-capture, wildcard, or negation word *)
+variable-name = '...' IDENT
+    | wildcard-name
+    | negation-name
+    | IDENT ;
+
+(* Matches any single term without binding it *)
+wildcard-name = 'any'
+    | 'anyone'
+    | 'someone'
+    | 'something'
+    | 'anything' ;
+
+(* Negates the whole pattern: match when nothing matches *)
+negation-name = 'nobody'
+    | 'nothing' ;
+
+(* Reference to a binding from an earlier joined pattern (or scope) *)
+bound-reference = '$' IDENT ;
+
+(* ===== Layer 3 ===== *)
+
+(* A normalized database statement *)
+statement = subject 'claims' clause
+    | subject 'wishes' clause
+    | clause ;
+
+(* Who is speaking: a program/page id (usually $this) or node *)
+subject = word ;
+
+(* The content of a claim/wish; conventional shapes below *)
+clause = has-clause
+    | is-clause
+    | does-clause
+    | pattern-term+ ;
+
+(* Attribute shape: <entity> has <attribute...> <value> ?with-options? *)
+has-clause = entity 'has' pattern-term+ with-options? ;
+
+(* Classification/decoration shape: <entity> is <description...> *)
+is-clause = entity 'is' pattern-term+ with-options? ;
+
+(* Action shape: <entity> <verb> <complement...> (draws, displays, points, runs...) *)
+does-clause = entity pattern-term+ with-options? ;
+
+(* The thing spoken about: page id, tag id, camera path, node, ... *)
+entity = pattern-term ;
+
+(* Keyword-options tail: with key value key value ... ; a rest variable /...options/ conventionally captures it as a dict *)
+with-options = 'with' (option-key option-value)+ ;
+
+(* Option name (color, scale, width, height, layer, font, filled, ...) *)
+option-key = IDENT ;
+
+(* Option value: any single word *)
+option-value = word ;
+
+(* ===== Lexical terminals (regex) ===== *)
+(* identifier (variable / fn name) *)
+IDENT = /[A-Za-z_][A-Za-z0-9_-]*/ ;
+(* integer literal *)
+INTEGER = /-?[0-9]+/ ;
+(* integer or float literal *)
+NUMBER = /-?[0-9]+(\.[0-9]+)?([eE][+-]?[0-9]+)?/ ;
+(* any char legal in a bare Tcl word *)
+BARE-CHAR = /[^\s;"\{\}\[\]\$\\]/ ;
+(* any char inside double quotes except " \ $ [ *)
+QUOTE-CHAR = /[^"\\\$\[]/ ;
+(* brace-balanced text (raw; no substitution) *)
+BRACE-TEXT = /(?:[^{}]|\{(?R)\})*/ ;
+(* rest of line *)
+LINE-TEXT = /[^\n]*/ ;
+(* intra-command whitespace *)
+WS = /[ \t]+(?:\\\n[ \t]*)?/ ;
+(* command separator *)
+COMMAND-END = /[\n;]/ ;
+(* color name or #rrggbb (Tk-style color words) *)
+COLOR = /[a-zA-Z]+|#[0-9a-fA-F]{6}/ ;
