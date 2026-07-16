@@ -21,7 +21,7 @@ import Photos
 
 // MARK: - Camera capture + Lab processing
 
-let buildTag = "v15-bg"
+let buildTag = "v16-fps2"
 
 final class CameraManager: NSObject, ObservableObject, AVCaptureVideoDataOutputSampleBufferDelegate,
                            AVCapturePhotoCaptureDelegate {
@@ -38,6 +38,7 @@ final class CameraManager: NSObject, ObservableObject, AVCaptureVideoDataOutputS
     @Published var backdropStamp = 0
     @Published var currentFPS: Double = 0
     @Published var fpsHistory: [Double] = [] // one sample per second, last 60
+    @Published var stageStats = "" // per-frame stage timing, updated 1/sec
 
     struct Capture: Identifiable {
         let id: String
@@ -71,6 +72,9 @@ final class CameraManager: NSObject, ObservableObject, AVCaptureVideoDataOutputS
     private var lastBackdropTime: TimeInterval = 0
     private var fpsWindowStart: TimeInterval = 0 // queue-confined
     private var fpsFrameCount = 0
+    private var accGraphMs = 0.0 // queue-confined stage accumulators
+    private var accRenderMs = 0.0
+    private var mainLagEMA = 0.0 // main-thread only
 
     override init() {
         super.init()
@@ -617,11 +621,16 @@ final class CameraManager: NSObject, ObservableObject, AVCaptureVideoDataOutputS
         from connection: AVCaptureConnection
     ) {
         guard !activeStill, let buffer = CMSampleBufferGetImageBuffer(sampleBuffer) else { return }
+        let tStart = Date().timeIntervalSinceReferenceDate
         let processed = process(CIImage(cvPixelBuffer: buffer))
+        let tGraph = Date().timeIntervalSinceReferenceDate
         guard let cgImage = ciContext.createCGImage(processed, from: processed.extent) else {
             if !loggedFirstFrame { dbg("createCGImage failed") }
             return
         }
+        let tRender = Date().timeIntervalSinceReferenceDate
+        accGraphMs += (tGraph - tStart) * 1000
+        accRenderMs += (tRender - tGraph) * 1000
         if !loggedFirstFrame {
             loggedFirstFrame = true
             dbg("first frame: \(cgImage.width)x\(cgImage.height)")
@@ -638,7 +647,12 @@ final class CameraManager: NSObject, ObservableObject, AVCaptureVideoDataOutputS
         let now = Date().timeIntervalSinceReferenceDate
         if fpsWindowStart == 0 { fpsWindowStart = now }
         if now - fpsWindowStart >= 1.0 {
+            let frames = Double(max(fpsFrameCount, 1))
             let fps = Double(fpsFrameCount) / (now - fpsWindowStart)
+            let graphAvg = accGraphMs / frames
+            let renderAvg = accRenderMs / frames
+            accGraphMs = 0
+            accRenderMs = 0
             fpsWindowStart = now
             fpsFrameCount = 0
             DispatchQueue.main.async {
@@ -647,9 +661,15 @@ final class CameraManager: NSObject, ObservableObject, AVCaptureVideoDataOutputS
                 if self.fpsHistory.count > 60 {
                     self.fpsHistory.removeFirst(self.fpsHistory.count - 60)
                 }
+                self.stageStats = String(
+                    format: "ci %.1f · render %.1f · main %.1f ms",
+                    graphAvg, renderAvg, self.mainLagEMA)
             }
         }
+        let sentAt = Date().timeIntervalSinceReferenceDate
         DispatchQueue.main.async {
+            let lagMs = (Date().timeIntervalSinceReferenceDate - sentAt) * 1000
+            self.mainLagEMA = self.mainLagEMA * 0.9 + lagMs * 0.1
             self.frame = cgImage
             self.frameCount += 1
         }
@@ -731,6 +751,11 @@ struct FPSMonitor: View {
             if let minimum = camera.fpsHistory.min(), !camera.fpsHistory.isEmpty {
                 let average = camera.fpsHistory.reduce(0, +) / Double(camera.fpsHistory.count)
                 Text(String(format: "min %.0f · avg %.0f · 60s", minimum, average))
+                    .font(.system(size: 9, design: .monospaced))
+                    .foregroundStyle(.white.opacity(0.7))
+            }
+            if !camera.stageStats.isEmpty {
+                Text(camera.stageStats)
                     .font(.system(size: 9, design: .monospaced))
                     .foregroundStyle(.white.opacity(0.7))
             }
@@ -929,10 +954,14 @@ struct ContentView: View {
         .overlay(alignment: .bottomLeading) {
             ocrCheckbox.padding(.leading, 16).padding(.bottom, controlsBottomPad)
         }
+        // Always-visible perf stamp: pinned to the screen's bottom-left
+        // corner, above every other layer (drawer included), so any
+        // screenshot or recording captures the perf state. Minimizable to
+        // a sparkline by tapping — never removable.
         .overlay(alignment: .bottomLeading) {
             FPSMonitor(camera: camera)
-                .padding(.leading, 16)
-                .padding(.bottom, controlsBottomPad + 56)
+                .padding(.leading, 4)
+                .padding(.bottom, 4)
         }
         .sheet(isPresented: $showGallery) {
             GalleryView(camera: camera)
