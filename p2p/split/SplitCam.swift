@@ -21,7 +21,7 @@ import Photos
 
 // MARK: - Camera capture + Lab processing
 
-let buildTag = "v13-gallery"
+let buildTag = "v15-bg"
 
 final class CameraManager: NSObject, ObservableObject, AVCaptureVideoDataOutputSampleBufferDelegate,
                            AVCapturePhotoCaptureDelegate {
@@ -36,6 +36,8 @@ final class CameraManager: NSObject, ObservableObject, AVCaptureVideoDataOutputS
     @Published var captures: [Capture] = []
     @Published var backdrop: CGImage?
     @Published var backdropStamp = 0
+    @Published var currentFPS: Double = 0
+    @Published var fpsHistory: [Double] = [] // one sample per second, last 60
 
     struct Capture: Identifiable {
         let id: String
@@ -67,6 +69,8 @@ final class CameraManager: NSObject, ObservableObject, AVCaptureVideoDataOutputS
     private let photoOutput = AVCapturePhotoOutput()
     private var backdropActive = false // queue-confined
     private var lastBackdropTime: TimeInterval = 0
+    private var fpsWindowStart: TimeInterval = 0 // queue-confined
+    private var fpsFrameCount = 0
 
     override init() {
         super.init()
@@ -513,14 +517,14 @@ final class CameraManager: NSObject, ObservableObject, AVCaptureVideoDataOutputS
         }
     }
 
-    // Runs on `queue`. Downscale + heavy Gaussian blur; published inside an
-    // animation so successive frames crossfade (the 1fps "LERP").
+    // Runs on `queue`. Downsample to 420p first, then a 30% blur; published
+    // inside an animation so successive frames crossfade (the 1fps "LERP").
     private func publishBackdrop(from image: CIImage) {
-        let scale = 360.0 / max(image.extent.width, 1)
+        let scale = 420.0 / max(image.extent.height, 1)
         let small = image.transformed(by: CGAffineTransform(scaleX: scale, y: scale))
         let blur = CIFilter.gaussianBlur()
         blur.inputImage = small.clampedToExtent()
-        blur.radius = 30
+        blur.radius = 12 // ≈30% strength (was 80%-strength radius 30 pre-downsample)
         guard let output = blur.outputImage?.cropped(to: small.extent),
               let cgImage = ciContext.createCGImage(output, from: output.extent) else { return }
         DispatchQueue.main.async {
@@ -630,6 +634,21 @@ final class CameraManager: NSObject, ObservableObject, AVCaptureVideoDataOutputS
             lastBackdropTime = Date().timeIntervalSinceReferenceDate
             publishBackdrop(from: CIImage(cvPixelBuffer: buffer))
         }
+        fpsFrameCount += 1
+        let now = Date().timeIntervalSinceReferenceDate
+        if fpsWindowStart == 0 { fpsWindowStart = now }
+        if now - fpsWindowStart >= 1.0 {
+            let fps = Double(fpsFrameCount) / (now - fpsWindowStart)
+            fpsWindowStart = now
+            fpsFrameCount = 0
+            DispatchQueue.main.async {
+                self.currentFPS = fps
+                self.fpsHistory.append(fps)
+                if self.fpsHistory.count > 60 {
+                    self.fpsHistory.removeFirst(self.fpsHistory.count - 60)
+                }
+            }
+        }
         DispatchQueue.main.async {
             self.frame = cgImage
             self.frameCount += 1
@@ -676,6 +695,64 @@ final class CameraManager: NSObject, ObservableObject, AVCaptureVideoDataOutputS
         toRGB.inputImage = remap.outputImage
         toRGB.normalize = true
         return toRGB.outputImage ?? image
+    }
+}
+
+// MARK: - FPS monitor (tap to toggle sparkline ↔ expanded)
+
+struct FPSMonitor: View {
+    @ObservedObject var camera: CameraManager
+    @AppStorage("fpsMonitorExpanded") private var expanded = true
+
+    private var fpsColor: Color {
+        camera.currentFPS >= 24 ? .green : camera.currentFPS >= 15 ? .orange : .red
+    }
+
+    var body: some View {
+        Group {
+            if expanded { expandedCard } else { sparkline(width: 64, height: 20).padding(8) }
+        }
+        .background(.black.opacity(0.55), in: RoundedRectangle(cornerRadius: 10))
+        .contentShape(Rectangle())
+        .onTapGesture {
+            withAnimation(.spring(duration: 0.25)) { expanded.toggle() }
+        }
+    }
+
+    private var expandedCard: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(alignment: .firstTextBaseline, spacing: 4) {
+                Text(String(format: "%.1f", camera.currentFPS))
+                    .font(.system(size: 26, weight: .bold, design: .monospaced))
+                    .foregroundStyle(fpsColor)
+                Text("fps").font(.caption).foregroundStyle(.white.opacity(0.7))
+            }
+            sparkline(width: 132, height: 30)
+            if let minimum = camera.fpsHistory.min(), !camera.fpsHistory.isEmpty {
+                let average = camera.fpsHistory.reduce(0, +) / Double(camera.fpsHistory.count)
+                Text(String(format: "min %.0f · avg %.0f · 60s", minimum, average))
+                    .font(.system(size: 9, design: .monospaced))
+                    .foregroundStyle(.white.opacity(0.7))
+            }
+        }
+        .padding(10)
+    }
+
+    private func sparkline(width: CGFloat, height: CGFloat) -> some View {
+        Canvas { context, size in
+            let samples = camera.fpsHistory
+            guard samples.count > 1 else { return }
+            let top = max(samples.max() ?? 30, 30)
+            var path = Path()
+            for (i, sample) in samples.enumerated() {
+                let x = size.width * CGFloat(i) / CGFloat(samples.count - 1)
+                let y = size.height * (1 - CGFloat(sample / top))
+                i == 0 ? path.move(to: CGPoint(x: x, y: y))
+                       : path.addLine(to: CGPoint(x: x, y: y))
+            }
+            context.stroke(path, with: .color(fpsColor), lineWidth: 1.5)
+        }
+        .frame(width: width, height: height)
     }
 }
 
@@ -852,6 +929,11 @@ struct ContentView: View {
         .overlay(alignment: .bottomLeading) {
             ocrCheckbox.padding(.leading, 16).padding(.bottom, controlsBottomPad)
         }
+        .overlay(alignment: .bottomLeading) {
+            FPSMonitor(camera: camera)
+                .padding(.leading, 16)
+                .padding(.bottom, controlsBottomPad + 56)
+        }
         .sheet(isPresented: $showGallery) {
             GalleryView(camera: camera)
         }
@@ -956,8 +1038,19 @@ struct ContentView: View {
             }
         }
         return "screens: \(UIScreen.screens.count) · scenes: [\(states.joined(separator: ","))]"
+            + " · heat: \(Self.thermalName)"
     }
     #endif
+
+    static var thermalName: String {
+        switch ProcessInfo.processInfo.thermalState {
+        case .nominal: return "nominal"
+        case .fair: return "fair"
+        case .serious: return "serious"
+        case .critical: return "critical"
+        @unknown default: return "?"
+        }
+    }
 
     // Debug HUD over the camera view. The ticking clock is a main-thread
     // heartbeat: if it freezes, the main thread is blocked; if it ticks but
