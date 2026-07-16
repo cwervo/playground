@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Webcam Unicode Grid</title>
+<style>
+  html, body {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    height: 100%;
+    background: #000;
+    overflow: hidden;
+    touch-action: none;
+    overscroll-behavior: none;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+  #video, #grid {
+    position: fixed;
+    inset: 0;
+    width: 100vw;
+    height: 100vh;
+  }
+  #video {
+    object-fit: cover;
+    transform: scaleX(-1); /* mirror front camera */
+  }
+  #grid {
+    display: none;
+  }
+  body.grid-mode #video { visibility: hidden; }
+  body.grid-mode #grid  { display: block; }
+  #hud {
+    position: fixed;
+    top: max(16px, env(safe-area-inset-top));
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 8px 16px;
+    border-radius: 999px;
+    background: rgba(0, 0, 0, 0.6);
+    color: #fff;
+    font: 600 15px/1.2 -apple-system, system-ui, sans-serif;
+    letter-spacing: 0.03em;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.25s;
+    white-space: nowrap;
+    z-index: 10;
+  }
+  #hud.show { opacity: 1; }
+  #hint {
+    position: fixed;
+    bottom: max(24px, env(safe-area-inset-bottom));
+    left: 50%;
+    transform: translateX(-50%);
+    color: rgba(255, 255, 255, 0.85);
+    background: rgba(0, 0, 0, 0.5);
+    padding: 10px 18px;
+    border-radius: 999px;
+    font: 500 14px/1.3 -apple-system, system-ui, sans-serif;
+    pointer-events: none;
+    transition: opacity 0.6s;
+    white-space: nowrap;
+    z-index: 10;
+  }
+  #err {
+    position: fixed;
+    inset: 0;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 24px;
+    color: #fff;
+    font: 500 16px/1.5 -apple-system, system-ui, sans-serif;
+  }
+</style>
+</head>
+<body>
+<video id="video" autoplay playsinline muted></video>
+<canvas id="grid"></canvas>
+<div id="hud"></div>
+<div id="hint">tap: RGB / 🟦 grid &nbsp;·&nbsp; drag ↑↓: grid size</div>
+<div id="err"></div>
+
+<script>
+(() => {
+  const video = document.getElementById('video');
+  const canvas = document.getElementById('grid');
+  const ctx = canvas.getContext('2d', { alpha: false });
+  const hud = document.getElementById('hud');
+  const hint = document.getElementById('hint');
+
+  // Unicode color squares and their approximate emoji-render colors.
+  const SQUARES = [
+    ['⬛', [35, 35, 35]],
+    ['⬜', [233, 233, 233]],
+    ['🟥', [217, 55, 45]],
+    ['🟧', [242, 145, 56]],
+    ['🟨', [249, 205, 80]],
+    ['🟩', [98, 174, 94]],
+    ['🟦', [83, 141, 226]],
+    ['🟪', [162, 112, 202]],
+    ['🟫', [137, 94, 68]],
+  ];
+
+  const MIN_CELLS = 10, MAX_COLS = 800, MAX_ROWS = 1000;
+
+  let gridMode = true;      // start on the fun mode
+  let cols = 48;            // driving value; rows derived from screen aspect
+  let rows = 10;
+
+  // Offscreen canvas the video frame gets downsampled into (one pixel per cell).
+  const sampler = document.createElement('canvas');
+  const sctx = sampler.getContext('2d', { alpha: false, willReadFrequently: true });
+
+  const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
+
+  function computeRows() {
+    const aspect = innerHeight / innerWidth;
+    cols = Math.round(clamp(cols, MIN_CELLS, MAX_COLS));
+    rows = Math.round(clamp(cols * aspect, MIN_CELLS, MAX_ROWS));
+  }
+
+  function resizeCanvas() {
+    const dpr = Math.min(devicePixelRatio || 1, 2);
+    canvas.width = Math.round(innerWidth * dpr);
+    canvas.height = Math.round(innerHeight * dpr);
+    computeRows();
+  }
+  addEventListener('resize', resizeCanvas);
+  resizeCanvas();
+
+  // --- Nearest-square lookup, precomputed on a 32x32x32 RGB lattice ---
+  const LEVELS = 32, STEP = 256 / LEVELS;
+  const lut = new Uint8Array(LEVELS * LEVELS * LEVELS);
+  {
+    let i = 0;
+    for (let r = 0; r < LEVELS; r++)
+      for (let g = 0; g < LEVELS; g++)
+        for (let b = 0; b < LEVELS; b++, i++) {
+          const rr = r * STEP + STEP / 2, gg = g * STEP + STEP / 2, bb = b * STEP + STEP / 2;
+          let best = 0, bestD = Infinity;
+          for (let s = 0; s < SQUARES.length; s++) {
+            const c = SQUARES[s][1];
+            const dr = rr - c[0], dg = gg - c[1], db = bb - c[2];
+            // Perceptual-ish weighting so skin/sky don't all collapse to one square.
+            const d = 3 * dr * dr + 4 * dg * dg + 2 * db * db;
+            if (d < bestD) { bestD = d; best = s; }
+          }
+          lut[i] = best;
+        }
+  }
+  const GLYPHS = SQUARES.map(s => s[0]);
+
+  // --- Render loop ---
+  let running = false;
+
+  function drawGrid() {
+    if (video.videoWidth === 0) return;
+
+    if (sampler.width !== cols || sampler.height !== rows) {
+      sampler.width = cols;
+      sampler.height = rows;
+    }
+
+    // Crop the video like object-fit: cover, mirrored to match the RGB view.
+    const vw = video.videoWidth, vh = video.videoHeight;
+    const screenAspect = canvas.width / canvas.height;
+    let sw = vw, sh = vh;
+    if (vw / vh > screenAspect) sw = vh * screenAspect;
+    else sh = vw / screenAspect;
+    const sx = (vw - sw) / 2, sy = (vh - sh) / 2;
+
+    sctx.save();
+    sctx.scale(-1, 1);
+    sctx.drawImage(video, sx, sy, sw, sh, -cols, 0, cols, rows);
+    sctx.restore();
+
+    const px = sctx.getImageData(0, 0, cols, rows).data;
+
+    const cellW = canvas.width / cols;
+    const cellH = canvas.height / rows;
+
+    ctx.fillStyle = '#000';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    // Emoji squares share one advance width, so each row renders as a single
+    // string, horizontally scaled to fill the screen exactly.
+    const fontSize = Math.max(1, cellH);
+    ctx.font = fontSize + 'px "Apple Color Emoji", "Noto Color Emoji", "Segoe UI Emoji", sans-serif';
+    ctx.textBaseline = 'middle';
+    const advance = ctx.measureText(GLYPHS[0]).width || fontSize;
+    const scaleX = cellW / advance;
+
+    const line = new Array(cols);
+    ctx.save();
+    ctx.scale(scaleX, 1);
+    for (let y = 0; y < rows; y++) {
+      let i = y * cols * 4;
+      for (let x = 0; x < cols; x++, i += 4) {
+        const key = ((px[i] >> 3) * LEVELS + (px[i + 1] >> 3)) * LEVELS + (px[i + 2] >> 3);
+        line[x] = GLYPHS[lut[key]];
+      }
+      ctx.fillText(line.join(''), 0, (y + 0.5) * cellH);
+    }
+    ctx.restore();
+  }
+
+  function loop() {
+    if (!running) return;
+    if (gridMode) drawGrid();
+    requestAnimationFrame(loop);
+  }
+
+  // --- HUD ---
+  let hudTimer;
+  function showHud(text) {
+    hud.textContent = text;
+    hud.classList.add('show');
+    clearTimeout(hudTimer);
+    hudTimer = setTimeout(() => hud.classList.remove('show'), 900);
+  }
+
+  // --- Gestures: tap toggles mode, vertical drag resizes the grid ---
+  const TAP_SLOP = 12, TAP_MS = 350;
+  let pointerId = null, startX = 0, startY = 0, startCols = 0, startT = 0, dragged = false;
+
+  addEventListener('pointerdown', e => {
+    if (pointerId !== null) return;
+    pointerId = e.pointerId;
+    startX = e.clientX;
+    startY = e.clientY;
+    startCols = cols;
+    startT = performance.now();
+    dragged = false;
+  });
+
+  addEventListener('pointermove', e => {
+    if (e.pointerId !== pointerId) return;
+    const dy = e.clientY - startY;
+    if (!dragged && Math.hypot(e.clientX - startX, dy) < TAP_SLOP) return;
+    dragged = true;
+    // Exponential feel: dragging up a screen-height multiplies cells ~8x.
+    cols = startCols * Math.pow(8, -dy / innerHeight);
+    computeRows();
+    showHud(cols + ' × ' + rows);
+    hint.style.opacity = 0;
+  });
+
+  function endPointer(e) {
+    if (e.pointerId !== pointerId) return;
+    pointerId = null;
+    if (!dragged && performance.now() - startT < TAP_MS) {
+      gridMode = !gridMode;
+      document.body.classList.toggle('grid-mode', gridMode);
+      showHud(gridMode ? cols + ' × ' + rows : 'RGB');
+      hint.style.opacity = 0;
+    }
+  }
+  addEventListener('pointerup', endPointer);
+  addEventListener('pointercancel', endPointer);
+
+  // --- Camera ---
+  async function start() {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 720 } },
+        audio: false,
+      });
+      video.srcObject = stream;
+      await video.play();
+      document.body.classList.toggle('grid-mode', gridMode);
+      running = true;
+      loop();
+      setTimeout(() => { hint.style.opacity = 0; }, 5000);
+    } catch (err) {
+      const box = document.getElementById('err');
+      box.style.display = 'flex';
+      box.textContent = 'Camera unavailable: ' + err.message +
+        ' — this page needs HTTPS (or localhost) and camera permission.';
+    }
+  }
+  start();
+})();
+</script>
+</body>
+</html>
