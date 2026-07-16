@@ -45,7 +45,6 @@
   .memcol canvas {
     width: 100%;
     height: 140px;
-    image-rendering: pixelated;
     background: #0a0a12;
     outline: 1px solid #1c1c2a;
   }
@@ -120,18 +119,18 @@
 </head>
 <body>
 <div id="stage">
-  <canvas id="gl" width="1000" height="1000"></canvas>
+  <canvas id="gl" width="600" height="600"></canvas>
   <div id="memrow">
     <div class="memcol">
-      <canvas id="mem-eyes" width="9" height="46" title="live retina input, one row per agent: R=magenta seen, G=pellet seen, B=green seen"></canvas>
+      <canvas id="mem-eyes" width="63" height="322" title="live retina input, one row per agent: R=magenta seen, G=pellet seen, B=green seen"></canvas>
       <div class="memlabel">eyes &mdash; R:magenta G:pellet B:green</div>
     </div>
     <div class="memcol">
-      <canvas id="mem-w" width="28" height="46" title="perceptron weights, one row per agent, one column per synapse: R=turn weight, G=thrust weight"></canvas>
+      <canvas id="mem-w" width="196" height="322" title="perceptron weights, one row per agent, one column per synapse: R=turn weight, G=thrust weight"></canvas>
       <div class="memlabel">weights &mdash; R:turn G:thrust</div>
     </div>
     <div class="memcol">
-      <canvas id="mem-t" width="28" height="46" title="eligibility traces + reward flashes: R=turn trace, G=thrust trace, B=reward"></canvas>
+      <canvas id="mem-t" width="196" height="322" title="eligibility traces + reward flashes: R=turn trace, G=thrust trace, B=reward"></canvas>
       <div class="memlabel">traces &mdash; B flashes on reward</div>
     </div>
   </div>
@@ -156,10 +155,22 @@
 'use strict';
 
 /* ============================================================
-   perceptron gym — GPU-resident memory edition
+   perceptron gym — reaction-diffusion food edition
    ------------------------------------------------------------
-   - 1000x1000 world on a WebGL2 canvas (torus topology)
-   - agents are rotating wireframe Platonic solids
+   - default 600x600 grid (override with ?size=NNN); every pixel
+     quantity — creature size, speed, eye range, pellet size,
+     birth radii — scales with the grid via K = SIDE / 1000
+   - lifecycle per run:
+       1. "diffuse" (4 s): a seeded Gray-Scott reaction-diffusion
+          field boils on the canvas, drawn as rounded-rect pixels
+       2. "settle": food pellets condense out of the pattern and
+          decay via damped spring mechanics to stable positions
+       3. "live": creatures spawn via birth rules keyed to food —
+          greens are born where >= 2 pellets sit nearby, magentas
+          are born in the vicinity of greens (their food); deaths
+          respawn by the same rules
+   - agents are rotating wireframe Platonic solids; every round
+     mark (pellets, RD cells, monitor texels) is a rounded rect
    - each agent's brain is a single perceptron layer:
        9 "pixel eyes" x 3 channels (pellet / green / magenta)
        = 27 inputs (+ bias)  ->  2 outputs (turn, thrust)
@@ -168,32 +179,41 @@
    textures (28 synapses wide x 46 agents tall), never on the CPU:
        R = turn weight   G = thrust weight
        B = turn trace    A = thrust trace
-   Each tick a fragment shader reads the front texture and writes
-   the back one (trace decay + noise*input accumulation, then the
-   REINFORCE weight update on reward), and the two swap. A second
-   shader does the forward pass w.s per agent; the CPU only reads
-   back those 2 numbers per agent to move the solids, plus the
-   memory texture once per frame to paint the monitor canvases
-   below the field.
+   One fragment shader does trace decay + the REINFORCE update
+   (ping-pong swap each tick), another does the forward pass; the
+   CPU only reads back 2 numbers per agent to move the solids.
 
-   RL: gaussian exploration noise on the outputs, eligibility
-   traces of noise x input, weight update on reward (+1 eat,
-   -1 death), plus mutate-on-respawn selection (a texture
-   row-copy with noise) so good policies spread.
+   RL: gaussian exploration noise, eligibility traces, weight
+   update on reward (+1 eat, -1 death), mutate-on-respawn
+   selection (a texture row-copy with noise).
 
    magenta solids eat green solids; green solids eat pellets
    ============================================================ */
 
-const W = 1000, H = 1000;
+const SIDE = Math.max(200, +(new URLSearchParams(location.search).get('size')) || 600);
+const W = SIDE, H = SIDE;
+const K = SIDE / 1000;                    // global pixel scale for creatures & co.
+
 const N_GREEN = 36, N_MAGENTA = 10, N_AGENTS = N_GREEN + N_MAGENTA;
 const N_EYES = 9, N_CH = 3, N_IN = N_EYES * N_CH, N_OUT = 2;
 const TEXW = N_IN + 1, TEXH = N_AGENTS;   // memory texture: synapses x agents
 const FOV = Math.PI * 0.85;               // ~153 degrees of forward vision
-const EYE_RANGE = 130;
-const MAX_PELLETS = 700;
-const PELLET_R = 5, GREEN_R = 11, MAGENTA_R = 15;
+const EYE_RANGE = 130 * K;
+const PELLET_R = 5 * K, GREEN_R = 11 * K, MAGENTA_R = 15 * K;
+const SPEED_GREEN = 120 * K, SPEED_MAGENTA = 150 * K;
+const MAX_PELLETS = Math.round(700 * K * K);
+const INIT_PELLETS = Math.round(444 * K * K);
 const NOISE_SIGMA = 0.35, TRACE_DECAY = 0.92, LEARN_RATE = 0.12, W_CLIP = 4.0;
 const SNAP_EVERY = 3, SNAP_MAX = 1200;    // ~60 s of rewind at 60 fps
+
+// reaction-diffusion food field (Gray-Scott, "mitosis" regime)
+const RD_SECONDS = 4, SETTLE_SECONDS = 1.8;
+const RD_CELL = 5, RDN = Math.round(SIDE / RD_CELL);
+const RD_ITERS = 14;                       // iterations per sim tick
+const RD_DU = 0.2097, RD_DV = 0.105, RD_F = 0.0367, RD_KR = 0.0649; // mitosis/spots regime
+
+// pellet spring mechanics
+const SPR_K = 45, SPR_C = 5.5;
 
 // ---- seeded rng ------------------------------------------------
 const SEED = Math.floor(Math.random() * 0x1000000); // 24-bit "color" seed
@@ -285,6 +305,7 @@ const MAGENTA_SOLIDS = [1, 3];    // cube, dodeca
 
 // ---- webgl2 -----------------------------------------------------
 const canvas = document.getElementById('gl');
+canvas.width = SIDE; canvas.height = SIDE;
 const gl = canvas.getContext('webgl2', { antialias: true, alpha: false });
 const floatExt = gl && gl.getExtension('EXT_color_buffer_float');
 if (!gl || !floatExt) {
@@ -442,14 +463,131 @@ function readMemRow(row, buf) {
   gl.readPixels(0, row, TEXW, 1, gl.RGBA, gl.FLOAT, buf);
 }
 
+// ---- reaction-diffusion food field ------------------------------
+let rdU = new Float32Array(RDN * RDN), rdV = new Float32Array(RDN * RDN);
+let rdU2 = new Float32Array(RDN * RDN), rdV2 = new Float32Array(RDN * RDN);
+
+function rdSeedField() {
+  rdU.fill(1); rdV.fill(0);
+  const nSeeds = 18 + ((rand() * 10) | 0);
+  for (let s = 0; s < nSeeds; s++) {
+    const cx = (rand() * RDN) | 0, cy = (rand() * RDN) | 0, r = 2 + ((rand() * 3) | 0);
+    for (let dy = -r; dy <= r; dy++)
+      for (let dx = -r; dx <= r; dx++) {
+        const i = (((cx + dx) % RDN + RDN) % RDN) + (((cy + dy) % RDN + RDN) % RDN) * RDN;
+        rdV[i] = 1; rdU[i] = 0.5;
+      }
+  }
+}
+
+function rdIterate(iters) {
+  for (let it = 0; it < iters; it++) {
+    for (let y = 0; y < RDN; y++) {
+      const ym = ((y - 1 + RDN) % RDN) * RDN, yp = ((y + 1) % RDN) * RDN, y0 = y * RDN;
+      for (let x = 0; x < RDN; x++) {
+        const xm = (x - 1 + RDN) % RDN, xp = (x + 1) % RDN;
+        const i = y0 + x;
+        const u = rdU[i], v = rdV[i];
+        // 9-point laplacian: ortho 0.2, diag 0.05, center -1
+        const lapU = 0.2 * (rdU[y0+xm] + rdU[y0+xp] + rdU[ym+x] + rdU[yp+x])
+                   + 0.05 * (rdU[ym+xm] + rdU[ym+xp] + rdU[yp+xm] + rdU[yp+xp]) - u;
+        const lapV = 0.2 * (rdV[y0+xm] + rdV[y0+xp] + rdV[ym+x] + rdV[yp+x])
+                   + 0.05 * (rdV[ym+xm] + rdV[ym+xp] + rdV[yp+xm] + rdV[yp+xp]) - v;
+        const uvv = u * v * v;
+        rdU2[i] = u + (RD_DU * lapU - uvv + RD_F * (1 - u));
+        rdV2[i] = v + (RD_DV * lapV + uvv - (RD_F + RD_KR) * v);
+      }
+    }
+    let t = rdU; rdU = rdU2; rdU2 = t;
+    t = rdV; rdV = rdV2; rdV2 = t;
+  }
+}
+
+// cells the pattern condensed into; food keeps spawning from these
+let foodCells = [];
+
+function extractFood() {
+  foodCells = [];
+  for (let i = 0; i < RDN * RDN; i++) if (rdV[i] > 0.25) foodCells.push(i);
+  const count = Math.min(INIT_PELLETS, Math.max(24, foodCells.length));
+  for (let n = 0; n < count; n++) spawnPellet();
+}
+
+function foodTarget() {
+  if (foodCells.length) {
+    const c = foodCells[(rand() * foodCells.length) | 0];
+    return [
+      wrap((c % RDN + rand()) * RD_CELL, W),
+      wrap((((c / RDN) | 0) + rand()) * RD_CELL, H),
+    ];
+  }
+  return [rand() * W, rand() * H];
+}
+
 // ---- world state -----------------------------------------------
-let agents = [];       // green rows 0..35, magenta rows 36..45
-let pellets = [];      // {x, y}
+let phase = 'diffuse';   // 'diffuse' -> 'settle' -> 'live'
+let phaseTime = 0;
+let agents = [];         // green rows 0..35, magenta rows 36..45
+let pellets = [];        // spring-loaded: {x,y,vx,vy,tx,ty,settled}
 let spawnAcc = 0;
 let simFrame = 0;
 const noise0 = new Float32Array(N_AGENTS), noise1 = new Float32Array(N_AGENTS);
 const rewards = new Float32Array(N_AGENTS);
 const rewardGlow = new Float32Array(N_AGENTS);
+
+function spawnPellet() {
+  if (pellets.length >= MAX_PELLETS) return;
+  const [tx, ty] = foodTarget();
+  const ang = rand() * 2 * Math.PI, d = (35 + rand() * 65) * K;
+  pellets.push({
+    x: wrap(tx + Math.cos(ang) * d, W),
+    y: wrap(ty + Math.sin(ang) * d, H),
+    vx: 0, vy: 0, tx, ty, settled: false,
+  });
+}
+
+function updateSprings(dt) {
+  for (const p of pellets) {
+    if (p.settled) continue;
+    const dx = dwrap(p.tx - p.x, W), dy = dwrap(p.ty - p.y, H);
+    p.vx += (SPR_K * dx - SPR_C * p.vx) * dt;
+    p.vy += (SPR_K * dy - SPR_C * p.vy) * dt;
+    p.x = wrap(p.x + p.vx * dt, W);
+    p.y = wrap(p.y + p.vy * dt, H);
+    if (dx * dx + dy * dy < 0.4 && p.vx * p.vx + p.vy * p.vy < 4) {
+      p.x = p.tx; p.y = p.ty; p.vx = p.vy = 0; p.settled = true;
+    }
+  }
+}
+
+// ---- birth rules ------------------------------------------------
+// greens are born where food is: a spot near a pellet qualifies once
+// at least 2 pellets sit within the birth radius
+function birthGreenPos() {
+  const birthR = 100 * K;
+  for (let t = 0; t < 30 && pellets.length; t++) {
+    const p = pellets[(rand() * pellets.length) | 0];
+    const ang = rand() * 2 * Math.PI, d = (30 + rand() * 80) * K;
+    const x = wrap(p.tx + Math.cos(ang) * d, W), y = wrap(p.ty + Math.sin(ang) * d, H);
+    let near = 0;
+    for (const q of pellets) {
+      const dx = dwrap(q.tx - x, W), dy = dwrap(q.ty - y, H);
+      if (dx * dx + dy * dy < birthR * birthR && ++near >= 2) return [x, y];
+    }
+  }
+  return [rand() * W, rand() * H];
+}
+// magentas are born in the vicinity of their own food: the greens
+function birthMagentaPos() {
+  const greens = agents.filter(a => a.team === 0);
+  if (greens.length) {
+    const g = greens[(rand() * greens.length) | 0];
+    const ang = rand() * 2 * Math.PI, d = (180 + rand() * 220) * K;
+    return [wrap(g.x + Math.cos(ang) * d, W), wrap(g.y + Math.sin(ang) * d, H)];
+  }
+  return [rand() * W, rand() * H];
+}
+function birthPos(team) { return team === 0 ? birthGreenPos() : birthMagentaPos(); }
 
 function makeAgent(team) {
   const pool = team === 0 ? GREEN_SOLIDS : MAGENTA_SOLIDS;
@@ -470,6 +608,17 @@ function makeAgent(team) {
   };
 }
 
+function birthCreatures() {
+  for (let i = 0; i < N_AGENTS; i++) {
+    const a = agents[i];
+    const [x, y] = birthPos(a.team);
+    a.x = x; a.y = y;
+    a.heading = rand() * 2 * Math.PI;
+    a.energy = 100;
+    a.fitness = 0;
+  }
+}
+
 function initWorld() {
   rand = mulberry32(SEED);
   agents = [];
@@ -487,7 +636,10 @@ function initWorld() {
   inputsData.fill(0);
   rewardGlow.fill(0);
   pellets = [];
-  for (let i = 0; i < 220; i++) pellets.push({ x: rand() * W, y: rand() * H });
+  foodCells = [];
+  rdSeedField();
+  phase = 'diffuse';
+  phaseTime = 0;
   spawnAcc = 0;
   simFrame = 0;
   snaps.length = 0;
@@ -502,7 +654,7 @@ function dwrap(d, span) {
 function wrap(v, span) { return ((v % span) + span) % span; }
 
 // ---- spatial hash ----------------------------------------------
-const CELL = 64, GW = Math.ceil(W / CELL), GH = Math.ceil(H / CELL);
+const CELL = 64 * K, GW = Math.ceil(W / CELL), GH = Math.ceil(H / CELL);
 const pelletGrid = new Array(GW * GH), agentGrid = new Array(GW * GH);
 function rebuildGrids() {
   for (let i = 0; i < GW * GH; i++) { pelletGrid[i] = null; agentGrid[i] = null; }
@@ -574,7 +726,8 @@ function respawn(i) {
     freshBrainRow(rowBuf);
   }
   writeMemRow(i, rowBuf);
-  a.x = rand() * W; a.y = rand() * H;
+  const [x, y] = birthPos(a.team); // rebirth follows the food too
+  a.x = x; a.y = y;
   a.heading = rand() * 2 * Math.PI;
   a.energy = 100;
   a.fitness = 0;
@@ -585,6 +738,20 @@ function respawn(i) {
 const eatenPellets = new Set();
 
 function step(dt) {
+  updateSprings(dt);
+
+  if (phase === 'diffuse') {
+    rdIterate(RD_ITERS);
+    phaseTime += dt;
+    if (phaseTime >= RD_SECONDS) { extractFood(); phase = 'settle'; phaseTime = 0; }
+    return;
+  }
+  if (phase === 'settle') {
+    phaseTime += dt;
+    if (phaseTime >= SETTLE_SECONDS) { birthCreatures(); phase = 'live'; phaseTime = 0; }
+    return;
+  }
+
   rebuildGrids();
 
   // 1. everyone looks (sampled from positions at frame start)
@@ -605,7 +772,7 @@ function step(dt) {
     const a = agents[i];
     const turn = Math.tanh(outBuf[i*4] + noise0[i]);
     const thrust = 0.5 * (1 + Math.tanh(outBuf[i*4+1] + noise1[i]));
-    const maxSpeed = a.team === 0 ? 120 : 150;
+    const maxSpeed = a.team === 0 ? SPEED_GREEN : SPEED_MAGENTA;
 
     a.heading += turn * 3.2 * dt;
     const v = thrust * maxSpeed;
@@ -668,11 +835,11 @@ function step(dt) {
     pellets = keep;
   }
 
-  // pellet spawning
+  // new food keeps budding from the reaction-diffusion pattern
   spawnAcc += spawnRate * dt;
   while (spawnAcc >= 1) {
     spawnAcc -= 1;
-    if (pellets.length < MAX_PELLETS) pellets.push({ x: rand() * W, y: rand() * H });
+    spawnPellet();
   }
   for (let i = 0; i < N_AGENTS; i++) rewardGlow[i] *= 0.94;
   simFrame++;
@@ -697,10 +864,13 @@ function restore(s) {
     agents[i].heading = s.A[i*4+2]; agents[i].energy = Math.max(1, s.A[i*4+3]);
   }
   pellets = [];
-  for (let i = 0; i < s.P.length / 2; i++) pellets.push({ x: s.P[i*2], y: s.P[i*2+1] });
+  for (let i = 0; i < s.P.length / 2; i++) {
+    const x = s.P[i*2], y = s.P[i*2+1];
+    pellets.push({ x, y, vx: 0, vy: 0, tx: x, ty: y, settled: true });
+  }
 }
 
-// ---- field rendering (unchanged, GLSL 100 still fine in WebGL2) --
+// ---- field rendering --------------------------------------------
 const lineProg = program(`
   attribute vec2 aPos; attribute vec4 aCol; varying vec4 vCol;
   void main() {
@@ -711,29 +881,49 @@ const lineProg = program(`
   precision mediump float; varying vec4 vCol;
   void main() { gl_FragColor = vCol; }`);
 
+// rounded-rect "pixel" sprite, shared look for pellets + RD cells
+const roundedFrag = `
+  precision mediump float; uniform vec4 uCol; varying float vA;
+  void main() {
+    vec2 p = gl_PointCoord - vec2(0.5);
+    vec2 b = vec2(0.32);
+    float r = 0.17;
+    float d = length(max(abs(p) - b, 0.0)) - r;
+    float a = smoothstep(0.03, -0.03, d);
+    gl_FragColor = vec4(uCol.rgb, uCol.a * a * vA);
+  }`;
+
 const pointProg = program(`
-  attribute vec2 aPos; uniform float uSize;
+  attribute vec2 aPos; uniform float uSize; varying float vA;
   void main() {
     vec2 clip = aPos / vec2(${W}.0, ${H}.0) * 2.0 - 1.0;
     gl_Position = vec4(clip.x, -clip.y, 0.0, 1.0);
     gl_PointSize = uSize;
-  }`, `
-  precision mediump float; uniform vec4 uCol;
-  void main() {
-    vec2 d = gl_PointCoord - vec2(0.5);
-    float r = length(d) * 2.0;
-    float a = smoothstep(1.0, 0.55, r);
-    gl_FragColor = vec4(uCol.rgb, uCol.a * a);
-  }`);
+    vA = 1.0;
+  }`, roundedFrag);
 
-const lineBuf = gl.createBuffer(), pointBuf = gl.createBuffer();
+const rdProg = program(`
+  attribute vec2 aPos; attribute float aV; uniform float uCell; varying float vA;
+  void main() {
+    vec2 clip = aPos / vec2(${W}.0, ${H}.0) * 2.0 - 1.0;
+    gl_Position = vec4(clip.x, -clip.y, 0.0, 1.0);
+    gl_PointSize = uCell * (0.35 + 0.85 * min(1.0, aV * 1.7));
+    vA = min(1.0, aV * 2.2);
+  }`, roundedFrag);
+
+const lineBuf = gl.createBuffer(), pointBuf = gl.createBuffer(), rdBuf = gl.createBuffer();
 const aPosL = gl.getAttribLocation(lineProg, 'aPos');
 const aColL = gl.getAttribLocation(lineProg, 'aCol');
 const aPosP = gl.getAttribLocation(pointProg, 'aPos');
 const uSize = gl.getUniformLocation(pointProg, 'uSize');
-const uCol = gl.getUniformLocation(pointProg, 'uCol');
+const uColP = gl.getUniformLocation(pointProg, 'uCol');
+const aPosR = gl.getAttribLocation(rdProg, 'aPos');
+const aVR   = gl.getAttribLocation(rdProg, 'aV');
+const uCell = gl.getUniformLocation(rdProg, 'uCell');
+const uColR = gl.getUniformLocation(rdProg, 'uCol');
 
 let lineData = new Float32Array(1 << 16); // x,y,r,g,b,a per vertex
+let rdDraw = new Float32Array(RDN * RDN * 3);
 
 function rodrigues(v, axis, ang, out) {
   const [ax, ay, az] = axis, c = Math.cos(ang), s = Math.sin(ang);
@@ -754,8 +944,32 @@ function render(t) {
   gl.clearColor(0.028, 0.028, 0.055, 1);
   gl.clear(gl.COLOR_BUFFER_BIT);
 
-  // pellets
-  if (pellets.length) {
+  // reaction-diffusion food field, as rounded-rect pixels
+  if (phase === 'diffuse') {
+    let n = 0;
+    for (let i = 0; i < RDN * RDN; i++) {
+      const v = rdV[i];
+      if (v < 0.08) continue;
+      rdDraw[n++] = ((i % RDN) + 0.5) * RD_CELL;
+      rdDraw[n++] = (((i / RDN) | 0) + 0.5) * RD_CELL;
+      rdDraw[n++] = v;
+    }
+    if (n) {
+      gl.useProgram(rdProg);
+      gl.bindBuffer(gl.ARRAY_BUFFER, rdBuf);
+      gl.bufferData(gl.ARRAY_BUFFER, rdDraw.subarray(0, n), gl.DYNAMIC_DRAW);
+      gl.enableVertexAttribArray(aPosR);
+      gl.vertexAttribPointer(aPosR, 2, gl.FLOAT, false, 12, 0);
+      gl.enableVertexAttribArray(aVR);
+      gl.vertexAttribPointer(aVR, 1, gl.FLOAT, false, 12, 8);
+      gl.uniform1f(uCell, RD_CELL * 1.9);
+      gl.uniform4f(uColR, COL_PELLET[0], COL_PELLET[1], COL_PELLET[2], 0.75);
+      gl.drawArrays(gl.POINTS, 0, n / 3);
+    }
+  }
+
+  // pellets (rounded-rect pixels, spring-wobbling until settled)
+  if (pellets.length && phase !== 'diffuse') {
     const pd = new Float32Array(pellets.length * 2);
     for (let i = 0; i < pellets.length; i++) { pd[i*2] = pellets[i].x; pd[i*2+1] = pellets[i].y; }
     gl.useProgram(pointProg);
@@ -763,82 +977,92 @@ function render(t) {
     gl.bufferData(gl.ARRAY_BUFFER, pd, gl.DYNAMIC_DRAW);
     gl.enableVertexAttribArray(aPosP);
     gl.vertexAttribPointer(aPosP, 2, gl.FLOAT, false, 0, 0);
-    gl.uniform1f(uSize, PELLET_R * 2.4);
-    gl.uniform4f(uCol, COL_PELLET[0], COL_PELLET[1], COL_PELLET[2], 0.9);
+    gl.uniform1f(uSize, PELLET_R * 2.6);
+    gl.uniform4f(uColP, COL_PELLET[0], COL_PELLET[1], COL_PELLET[2], 0.9);
     gl.drawArrays(gl.POINTS, 0, pellets.length);
   }
 
-  // agents: wireframe platonic solids
-  let n = 0;
-  for (const a of agents) {
-    const S = SOLIDS[a.solid];
-    const size = a.team === 0 ? GREEN_R * 1.5 : MAGENTA_R * 1.5;
-    const spin = a.spinPhase + t * a.spinRate;
-    const ch = Math.cos(a.heading), sh = Math.sin(a.heading);
-    for (let i = 0; i < S.verts.length; i++) {
-      rodrigues(S.verts[i], a.axis, spin, tmpV);
-      // orient the projection with the agent's heading
-      projected[i*2]   = a.x + (tmpV[0] * ch - tmpV[1] * sh) * size;
-      projected[i*2+1] = a.y + (tmpV[0] * sh + tmpV[1] * ch) * size;
+  // agents: wireframe platonic solids (only once they're born)
+  if (phase === 'live') {
+    let n = 0;
+    for (const a of agents) {
+      const S = SOLIDS[a.solid];
+      const size = a.team === 0 ? GREEN_R * 1.5 : MAGENTA_R * 1.5;
+      const spin = a.spinPhase + t * a.spinRate;
+      const ch = Math.cos(a.heading), sh = Math.sin(a.heading);
+      for (let i = 0; i < S.verts.length; i++) {
+        rodrigues(S.verts[i], a.axis, spin, tmpV);
+        // orient the projection with the agent's heading
+        projected[i*2]   = a.x + (tmpV[0] * ch - tmpV[1] * sh) * size;
+        projected[i*2+1] = a.y + (tmpV[0] * sh + tmpV[1] * ch) * size;
+      }
+      const col = a.team === 0 ? COL_GREEN : COL_MAGENTA;
+      const bright = 0.35 + 0.65 * Math.min(1, a.energy / 100);
+      const r = col[0] * bright, g = col[1] * bright, b = col[2] * bright;
+      if ((n + S.edges.length * 12) > lineData.length)
+        { const bigger = new Float32Array(lineData.length * 2); bigger.set(lineData); lineData = bigger; }
+      for (const [i, j] of S.edges) {
+        lineData[n++] = projected[i*2]; lineData[n++] = projected[i*2+1];
+        lineData[n++] = r; lineData[n++] = g; lineData[n++] = b; lineData[n++] = 0.85;
+        lineData[n++] = projected[j*2]; lineData[n++] = projected[j*2+1];
+        lineData[n++] = r; lineData[n++] = g; lineData[n++] = b; lineData[n++] = 0.85;
+      }
     }
-    const col = a.team === 0 ? COL_GREEN : COL_MAGENTA;
-    const bright = 0.35 + 0.65 * Math.min(1, a.energy / 100);
-    const r = col[0] * bright, g = col[1] * bright, b = col[2] * bright;
-    if ((n + S.edges.length * 12) > lineData.length)
-      { const bigger = new Float32Array(lineData.length * 2); bigger.set(lineData); lineData = bigger; }
-    for (const [i, j] of S.edges) {
-      lineData[n++] = projected[i*2]; lineData[n++] = projected[i*2+1];
-      lineData[n++] = r; lineData[n++] = g; lineData[n++] = b; lineData[n++] = 0.85;
-      lineData[n++] = projected[j*2]; lineData[n++] = projected[j*2+1];
-      lineData[n++] = r; lineData[n++] = g; lineData[n++] = b; lineData[n++] = 0.85;
-    }
+    gl.useProgram(lineProg);
+    gl.bindBuffer(gl.ARRAY_BUFFER, lineBuf);
+    gl.bufferData(gl.ARRAY_BUFFER, lineData.subarray(0, n), gl.DYNAMIC_DRAW);
+    gl.enableVertexAttribArray(aPosL);
+    gl.vertexAttribPointer(aPosL, 2, gl.FLOAT, false, 24, 0);
+    gl.enableVertexAttribArray(aColL);
+    gl.vertexAttribPointer(aColL, 4, gl.FLOAT, false, 24, 8);
+    gl.drawArrays(gl.LINES, 0, n / 6);
   }
-  gl.useProgram(lineProg);
-  gl.bindBuffer(gl.ARRAY_BUFFER, lineBuf);
-  gl.bufferData(gl.ARRAY_BUFFER, lineData.subarray(0, n), gl.DYNAMIC_DRAW);
-  gl.enableVertexAttribArray(aPosL);
-  gl.vertexAttribPointer(aPosL, 2, gl.FLOAT, false, 24, 0);
-  gl.enableVertexAttribArray(aColL);
-  gl.vertexAttribPointer(aColL, 4, gl.FLOAT, false, 24, 8);
-  gl.drawArrays(gl.LINES, 0, n / 6);
 }
 
-// ---- memory monitors: paint the GPU state onto 2D canvases ------
+// ---- memory monitors: rounded-rect texels on 2D canvases --------
+const CPX = 7; // canvas pixels per texel (buffer size, CSS scales it)
 const eyesCtx = document.getElementById('mem-eyes').getContext('2d');
 const wCtx    = document.getElementById('mem-w').getContext('2d');
 const tCtx    = document.getElementById('mem-t').getContext('2d');
-const eyesImg = new ImageData(N_EYES, TEXH);
-const wImg    = new ImageData(TEXW, TEXH);
-const tImg    = new ImageData(TEXW, TEXH);
-for (const img of [eyesImg, wImg, tImg])
-  for (let i = 3; i < img.data.length; i += 4) img.data[i] = 255;
 
-function paintMemory() {
+function paintCells(ctx, cols, pick) {
+  ctx.fillStyle = '#0a0a12';
+  ctx.fillRect(0, 0, cols * CPX, TEXH * CPX);
+  const rr = ctx.roundRect ? 'roundRect' : 'rect';
   for (let i = 0; i < TEXH; i++) {
-    const inBase = i * TEXW, memBase = i * TEXW * 4;
-    // eyes: what each retina sees right now (one pixel per eye)
-    for (let e = 0; e < N_EYES; e++) {
-      const p = (i * N_EYES + e) * 4;
-      eyesImg.data[p]   = inputsData[inBase + e*3 + 2] * 255; // magenta seen
-      eyesImg.data[p+1] = inputsData[inBase + e*3]     * 255; // pellet seen
-      eyesImg.data[p+2] = inputsData[inBase + e*3 + 1] * 255; // green seen
-    }
-    const teamTint = i < N_GREEN ? 24 : 84;
-    for (let j = 0; j < TEXW; j++) {
-      const m = memBase + j * 4, p = (i * TEXW + j) * 4;
-      // weights, mapped from [-4,4] to [0,1]
-      wImg.data[p]   = (memRead[m]   / (2 * W_CLIP) + 0.5) * 255;
-      wImg.data[p+1] = (memRead[m+1] / (2 * W_CLIP) + 0.5) * 255;
-      wImg.data[p+2] = teamTint;
-      // eligibility traces + reward flash
-      tImg.data[p]   = Math.min(255, Math.abs(memRead[m+2]) * 220);
-      tImg.data[p+1] = Math.min(255, Math.abs(memRead[m+3]) * 220);
-      tImg.data[p+2] = rewardGlow[i] * 255;
+    for (let j = 0; j < cols; j++) {
+      const c = pick(i, j);
+      if (!c) continue; // dark texel: leave background showing
+      ctx.fillStyle = c;
+      ctx.beginPath();
+      ctx[rr](j * CPX + 0.5, i * CPX + 0.5, CPX - 1, CPX - 1, 2);
+      ctx.fill();
     }
   }
-  eyesCtx.putImageData(eyesImg, 0, 0);
-  wCtx.putImageData(wImg, 0, 0);
-  tCtx.putImageData(tImg, 0, 0);
+}
+
+function paintMemory() {
+  paintCells(eyesCtx, N_EYES, (i, e) => {
+    const base = i * TEXW + e * 3;
+    const r = inputsData[base + 2] * 255, g = inputsData[base] * 255, b = inputsData[base + 1] * 255;
+    if (r + g + b < 18) return null;
+    return `rgb(${r|0},${g|0},${b|0})`;
+  });
+  paintCells(wCtx, TEXW, (i, j) => {
+    const m = (i * TEXW + j) * 4;
+    const r = (memRead[m]   / (2 * W_CLIP) + 0.5) * 255;
+    const g = (memRead[m+1] / (2 * W_CLIP) + 0.5) * 255;
+    const b = i < N_GREEN ? 24 : 84;
+    return `rgb(${r|0},${g|0},${b})`;
+  });
+  paintCells(tCtx, TEXW, (i, j) => {
+    const m = (i * TEXW + j) * 4;
+    const r = Math.min(255, Math.abs(memRead[m+2]) * 220);
+    const g = Math.min(255, Math.abs(memRead[m+3]) * 220);
+    const b = rewardGlow[i] * 255;
+    if (r + g + b < 18) return null;
+    return `rgb(${r|0},${g|0},${b|0})`;
+  });
 }
 
 // ---- controls ---------------------------------------------------
@@ -876,7 +1100,7 @@ function frame(now) {
 
   if (mode === 'play') {
     while (elapsed > 0) { step(DT); elapsed -= DT; }
-    if (simFrame % SNAP_EVERY === 0) snapshot();
+    if (phase === 'live' && simFrame % SNAP_EVERY === 0) snapshot();
   } else if (mode === 'rewind') {
     if (snaps.length > 0) restore(snaps.pop());
     else setMode('pause');
