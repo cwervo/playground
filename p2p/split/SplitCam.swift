@@ -22,7 +22,7 @@ import MetalKit
 
 // MARK: - Camera capture + Lab processing
 
-let buildTag = "v19"
+let buildTag = "v20"
 
 final class CameraManager: NSObject, ObservableObject, AVCaptureVideoDataOutputSampleBufferDelegate,
                            AVCapturePhotoCaptureDelegate {
@@ -35,8 +35,6 @@ final class CameraManager: NSObject, ObservableObject, AVCaptureVideoDataOutputS
     @Published var stillNames: [String] = []
     @Published var selectedStill: String?
     @Published var captures: [Capture] = []
-    @Published var backdrop: CGImage?
-    @Published var backdropStamp = 0
     @Published var currentFPS: Double = 0
     @Published var fpsHistory: [Double] = [] // one sample per second, last 60
     @Published var stageStats = "" // per-frame stage timing, updated 1/sec
@@ -65,25 +63,31 @@ final class CameraManager: NSObject, ObservableObject, AVCaptureVideoDataOutputS
     private lazy var ciContext: CIContext =
         metalDevice.map { CIContext(mtlDevice: $0) } ?? CIContext()
     var renderContext: CIContext { ciContext }
-    // The backdrop "worker": its own low-priority queue and its own
-    // CIContext, so its GPU work is scheduled behind the live pipeline
-    // instead of serializing in front of it.
-    private let backdropQueue = DispatchQueue(label: "splitcam.backdrop", qos: .utility)
+    // Separate CIContext for the gallery backdrop's Metal view so its GPU
+    // work never serializes with the live pipeline's context.
     private lazy var backdropContext: CIContext =
         metalDevice.map { CIContext(mtlDevice: $0) } ?? CIContext()
+    var backdropRenderContext: CIContext { backdropContext }
 
-    // Latest processed frame, handed GPU-side to the Metal view. The lock is
-    // the only cross-thread touchpoint between capture and display.
+    // Latest frames, handed GPU-side to the Metal views. The lock is the
+    // only cross-thread touchpoint between capture and display.
     private let imageLock = NSLock()
     private var _latestProcessed: CIImage?
+    private var _latestRaw: CIImage?
     var latestProcessed: CIImage? {
         imageLock.lock()
         defer { imageLock.unlock() }
         return _latestProcessed
     }
-    private func setProcessed(_ image: CIImage) {
+    var latestRaw: CIImage? {
+        imageLock.lock()
+        defer { imageLock.unlock() }
+        return _latestRaw
+    }
+    private func setProcessed(_ image: CIImage, raw: CIImage) {
         imageLock.lock()
         _latestProcessed = image
+        _latestRaw = raw
         imageLock.unlock()
     }
     var drawMsEMA = 0.0 // main-thread only (written by the Metal draw loop)
@@ -94,8 +98,6 @@ final class CameraManager: NSObject, ObservableObject, AVCaptureVideoDataOutputS
     private var pendingOCR: Bool? // queue-confined; non-nil = capture requested
     private var photoPendingOCR: Bool? // queue-confined
     private let photoOutput = AVCapturePhotoOutput()
-    private var backdropActive = false // queue-confined
-    private var lastBackdropTime: TimeInterval = 0
     private var fpsWindowStart: TimeInterval = 0 // queue-confined
     private var fpsFrameCount = 0
     private var accGraphMs = 0.0 // queue-confined stage accumulator
@@ -220,7 +222,7 @@ final class CameraManager: NSObject, ObservableObject, AVCaptureVideoDataOutputS
     // Runs on `queue`.
     private func renderStill() {
         guard let stillImage else { return }
-        setProcessed(process(stillImage))
+        setProcessed(process(stillImage), raw: stillImage)
         DispatchQueue.main.async {
             self.hasVideo = true
             self.frameCount += 1
@@ -531,37 +533,6 @@ final class CameraManager: NSObject, ObservableObject, AVCaptureVideoDataOutputS
                 Int(ink.b / Double(ink.n)))
     }
 
-    // MARK: Gallery backdrop (1fps blurred live feed)
-
-    func setBackdropActive(_ active: Bool) {
-        queue.async {
-            self.backdropActive = active
-            if active, self.activeStill, let still = self.stillImage {
-                self.backdropQueue.async { self.publishBackdrop(from: still) }
-            }
-        }
-    }
-
-    // Runs on `backdropQueue` (.utility QoS — the "worker" cap) with its own
-    // CIContext so it never contends with the live pipeline. Downsample to
-    // 420p first, then a 30% blur; published inside an animation so
-    // successive frames crossfade (the 1fps "LERP").
-    private func publishBackdrop(from image: CIImage) {
-        let scale = 420.0 / max(image.extent.height, 1)
-        let small = image.transformed(by: CGAffineTransform(scaleX: scale, y: scale))
-        let blur = CIFilter.gaussianBlur()
-        blur.inputImage = small.clampedToExtent()
-        blur.radius = 12 // ≈30% strength (was 80%-strength radius 30 pre-downsample)
-        guard let output = blur.outputImage?.cropped(to: small.extent),
-              let cgImage = backdropContext.createCGImage(output, from: output.extent) else { return }
-        DispatchQueue.main.async {
-            withAnimation(.easeInOut(duration: 0.9)) {
-                self.backdrop = cgImage
-                self.backdropStamp += 1
-            }
-        }
-    }
-
     // Runs on `queue`. When the camera can't start, show a bundled still.
     private func fallbackToStill() {
         DispatchQueue.main.async {
@@ -645,12 +616,13 @@ final class CameraManager: NSObject, ObservableObject, AVCaptureVideoDataOutputS
     ) {
         guard !activeStill, let buffer = CMSampleBufferGetImageBuffer(sampleBuffer) else { return }
         let tStart = Date().timeIntervalSinceReferenceDate
-        let processed = process(CIImage(cvPixelBuffer: buffer))
+        let rawImage = CIImage(cvPixelBuffer: buffer)
+        let processed = process(rawImage)
         let tGraph = Date().timeIntervalSinceReferenceDate
         accGraphMs += (tGraph - tStart) * 1000
-        // GPU-direct: hand the (unevaluated) CI graph to the Metal view.
+        // GPU-direct: hand the (unevaluated) CI graphs to the Metal views.
         // No createCGImage, no GPU→CPU copy, no per-frame main-thread work.
-        setProcessed(processed)
+        setProcessed(processed, raw: rawImage)
         if !loggedFirstFrame {
             loggedFirstFrame = true
             dbg("first frame: \(Int(processed.extent.width))x\(Int(processed.extent.height)) (gpu-direct)")
@@ -662,11 +634,6 @@ final class CameraManager: NSObject, ObservableObject, AVCaptureVideoDataOutputS
                 saveCapture(
                     originalCI: CIImage(cvPixelBuffer: buffer), processedCG: processedCG, ocr: ocr)
             }
-        }
-        if backdropActive, Date().timeIntervalSinceReferenceDate - lastBackdropTime > 1.0 {
-            lastBackdropTime = Date().timeIntervalSinceReferenceDate
-            let source = CIImage(cvPixelBuffer: buffer)
-            backdropQueue.async { self.publishBackdrop(from: source) }
         }
         fpsFrameCount += 1
         let now = Date().timeIntervalSinceReferenceDate
@@ -799,6 +766,82 @@ extension MetalCameraView: UIViewRepresentable {
 }
 #else
 extension MetalCameraView: NSViewRepresentable {
+    func makeCoordinator() -> Coordinator { Coordinator(camera: camera) }
+    func makeNSView(context: Context) -> MTKView { makeView(coordinator: context.coordinator) }
+    func updateNSView(_ view: MTKView, context: Context) {}
+}
+#endif
+
+// MARK: - Metal-backed gallery backdrop (continuous 28fps blur, GPU-only)
+
+// Smooth frosted-glass background: blur the live feed at 28fps entirely on
+// the GPU. Replaces the 1fps snapshot + crossfade ("LERP") approach, which
+// read as a slow strobe and caused motion sickness.
+struct MetalBackdropView {
+    let camera: CameraManager
+
+    final class Coordinator: NSObject, MTKViewDelegate {
+        let camera: CameraManager
+        let commandQueue: MTLCommandQueue?
+
+        init(camera: CameraManager) {
+            self.camera = camera
+            commandQueue = camera.metalDevice?.makeCommandQueue()
+        }
+
+        func mtkView(_ view: MTKView, drawableSizeWillChange size: CGSize) {}
+
+        func draw(in view: MTKView) {
+            guard let base = camera.latestRaw,
+                  let drawable = view.currentDrawable,
+                  let commandBuffer = commandQueue?.makeCommandBuffer() else { return }
+            let drawableW = Double(drawable.texture.width)
+            let drawableH = Double(drawable.texture.height)
+            // Blur at 420p, then scale up to cover the drawable.
+            let down = 420.0 / max(base.extent.height, 1)
+            let small = base.transformed(by: CGAffineTransform(scaleX: down, y: down))
+            let blur = CIFilter.gaussianBlur()
+            blur.inputImage = small.clampedToExtent()
+            blur.radius = 12
+            guard let blurred = blur.outputImage?.cropped(to: small.extent) else { return }
+            let cover = max(drawableW / blurred.extent.width, drawableH / blurred.extent.height)
+            let scaled = blurred.transformed(by: CGAffineTransform(scaleX: cover, y: cover))
+            let centered = scaled
+                .transformed(by: CGAffineTransform(
+                    translationX: (drawableW - scaled.extent.width) / 2 - scaled.extent.minX,
+                    y: (drawableH - scaled.extent.height) / 2 - scaled.extent.minY))
+                .composited(over: CIImage(color: CIColor(red: 0, green: 0, blue: 0)))
+            camera.backdropRenderContext.render(
+                centered, to: drawable.texture, commandBuffer: commandBuffer,
+                bounds: CGRect(x: 0, y: 0, width: drawableW, height: drawableH),
+                colorSpace: CGColorSpaceCreateDeviceRGB())
+            commandBuffer.present(drawable)
+            commandBuffer.commit()
+        }
+    }
+
+    func makeView(coordinator: Coordinator) -> MTKView {
+        let view = MTKView(frame: .zero, device: camera.metalDevice)
+        view.framebufferOnly = false
+        view.preferredFramesPerSecond = 28
+        view.colorPixelFormat = .bgra8Unorm
+        view.delegate = coordinator
+        return view
+    }
+}
+
+#if os(iOS)
+extension MetalBackdropView: UIViewRepresentable {
+    func makeCoordinator() -> Coordinator { Coordinator(camera: camera) }
+    func makeUIView(context: Context) -> MTKView {
+        let view = makeView(coordinator: context.coordinator)
+        view.backgroundColor = .black
+        return view
+    }
+    func updateUIView(_ view: MTKView, context: Context) {}
+}
+#else
+extension MetalBackdropView: NSViewRepresentable {
     func makeCoordinator() -> Coordinator { Coordinator(camera: camera) }
     func makeNSView(context: Context) -> MTKView { makeView(coordinator: context.coordinator) }
     func updateNSView(_ view: MTKView, context: Context) {}
@@ -1482,10 +1525,8 @@ struct GalleryView: View {
                 .padding(.bottom, 4)
         }
         .onAppear {
-            camera.setBackdropActive(true)
             photosStatus = PHPhotoLibrary.authorizationStatus(for: .addOnly)
         }
-        .onDisappear { camera.setBackdropActive(false) }
         .confirmationDialog(
             "Save / export as…", isPresented: $showExportDialog, titleVisibility: .visible
         ) { exportButtons }
@@ -1558,16 +1599,10 @@ struct GalleryView: View {
     // MARK: blurred live backdrop
 
     @ViewBuilder private var backdropView: some View {
-        if blurBackground, let image = camera.backdrop {
-            ZStack {
-                Image(decorative: image, scale: 1)
-                    .resizable()
-                    .scaledToFill()
-                    .id(camera.backdropStamp)
-                    .transition(.opacity.animation(.easeInOut(duration: 0.9)))
-            }
-            .overlay(Color.black.opacity(0.35))
-            .ignoresSafeArea()
+        if blurBackground {
+            MetalBackdropView(camera: camera)
+                .overlay(Color.black.opacity(0.35))
+                .ignoresSafeArea()
         }
     }
 
