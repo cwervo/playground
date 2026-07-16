@@ -20,7 +20,7 @@ import WebKit
 
 // MARK: - Camera capture + Lab processing
 
-let buildTag = "v11-ocr2"
+let buildTag = "v12-click"
 
 final class CameraManager: NSObject, ObservableObject, AVCaptureVideoDataOutputSampleBufferDelegate,
                            AVCapturePhotoCaptureDelegate {
@@ -783,6 +783,7 @@ struct ContentView: View {
     @State private var hudCollapsed = false
     @State private var ocrEnabled = false
     @State private var showGallery = false
+    @State private var captureFlash = false
 
     var body: some View {
         ZStack {
@@ -859,16 +860,34 @@ struct ContentView: View {
             .help("Gallery")
 
             Button {
+                clickFeedback()
                 camera.capturePhoto(ocr: ocrEnabled)
             } label: {
                 Image(systemName: "camera.fill")
                     .font(.title2)
                     .frame(width: 64, height: 64)
                     .background(.ultraThinMaterial, in: Circle())
-                    .overlay(Circle().strokeBorder(.white.opacity(0.9), lineWidth: 2.5))
+                    .overlay(Circle().strokeBorder(
+                        captureFlash ? Color(red: 1, green: 0.1, blue: 0.15) : .white.opacity(0.9),
+                        lineWidth: 2.5))
+                    .shadow(color: captureFlash ? .red : .clear, radius: 10)
+                    .shadow(color: captureFlash ? .red.opacity(0.6) : .clear, radius: 22)
             }
             .buttonStyle(.plain)
             .help("Take picture")
+        }
+    }
+
+    // Shutter "click": haptic tap + a 0.1s red neon glow on the button.
+    private func clickFeedback() {
+        #if os(iOS)
+        UIImpactFeedbackGenerator(style: .rigid).impactOccurred()
+        #else
+        NSHapticFeedbackManager.defaultPerformer.perform(.generic, performanceTime: .now)
+        #endif
+        withAnimation(.easeIn(duration: 0.04)) { captureFlash = true }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            withAnimation(.easeOut(duration: 0.12)) { captureFlash = false }
         }
     }
 
