@@ -21,7 +21,7 @@ import Photos
 
 // MARK: - Camera capture + Lab processing
 
-let buildTag = "v17"
+let buildTag = "v18"
 
 final class CameraManager: NSObject, ObservableObject, AVCaptureVideoDataOutputSampleBufferDelegate,
                            AVCapturePhotoCaptureDelegate {
@@ -1383,6 +1383,13 @@ struct GalleryView: View {
                         .padding(.bottom, 16)
                 }
             }
+        }
+        // Same perf stamp as the main view — the sheet would otherwise
+        // cover it, and gallery perf is exactly what's under investigation.
+        .overlay(alignment: .bottomLeading) {
+            FPSMonitor(camera: camera)
+                .padding(.leading, 4)
+                .padding(.bottom, 4)
         }
         .onAppear {
             camera.setBackdropActive(true)
