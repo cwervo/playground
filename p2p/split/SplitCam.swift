@@ -20,9 +20,10 @@ import WebKit
 
 // MARK: - Camera capture + Lab processing
 
-let buildTag = "v10-ocr"
+let buildTag = "v11-ocr2"
 
-final class CameraManager: NSObject, ObservableObject, AVCaptureVideoDataOutputSampleBufferDelegate {
+final class CameraManager: NSObject, ObservableObject, AVCaptureVideoDataOutputSampleBufferDelegate,
+                           AVCapturePhotoCaptureDelegate {
     @Published var frame: CGImage?
     @Published var devices: [AVCaptureDevice] = []
     @Published var selectedDeviceID: String?
@@ -59,6 +60,8 @@ final class CameraManager: NSObject, ObservableObject, AVCaptureVideoDataOutputS
     private var stillImage: CIImage?
     private var activeStill = false
     private var pendingOCR: Bool? // queue-confined; non-nil = capture requested
+    private var photoPendingOCR: Bool? // queue-confined
+    private let photoOutput = AVCapturePhotoOutput()
 
     override init() {
         super.init()
@@ -203,9 +206,41 @@ final class CameraManager: NSObject, ObservableObject, AVCaptureVideoDataOutputS
                 guard let processedCG = self.ciContext.createCGImage(
                     processed, from: processed.extent) else { return }
                 self.saveCapture(originalCI: still, processedCG: processedCG, ocr: ocr)
+            } else if self.session.isRunning, self.session.outputs.contains(self.photoOutput) {
+                // Full-resolution still — far more pixels for OCR than a
+                // video frame.
+                self.photoPendingOCR = ocr
+                self.photoOutput.capturePhoto(with: AVCapturePhotoSettings(), delegate: self)
             } else {
                 self.pendingOCR = ocr // fulfilled by the next camera frame
             }
+        }
+    }
+
+    func photoOutput(
+        _ output: AVCapturePhotoOutput,
+        didFinishProcessingPhoto photo: AVCapturePhoto,
+        error: Error?
+    ) {
+        queue.async {
+            let ocr = self.photoPendingOCR ?? false
+            self.photoPendingOCR = nil
+            guard error == nil, let cgImage = photo.cgImageRepresentation() else {
+                self.dbg("photo capture failed (\(error?.localizedDescription ?? "?")) — using video frame")
+                self.pendingOCR = ocr
+                return
+            }
+            var image = CIImage(cgImage: cgImage)
+            #if os(iOS)
+            if let raw = photo.metadata[kCGImagePropertyOrientation as String] as? UInt32,
+               let orientation = CGImagePropertyOrientation(rawValue: raw) {
+                image = image.oriented(orientation)
+            }
+            #endif
+            let processed = self.process(image)
+            guard let processedCG = self.ciContext.createCGImage(
+                processed, from: processed.extent) else { return }
+            self.saveCapture(originalCI: image, processedCG: processedCG, ocr: ocr)
         }
     }
 
@@ -251,14 +286,26 @@ final class CameraManager: NSObject, ObservableObject, AVCaptureVideoDataOutputS
         }
         Self.writeJPEG(originalCG, to: folder.appendingPathComponent("original.jpg"))
         Self.writeJPEG(processedCG, to: folder.appendingPathComponent("lab.jpg"))
-        var foundText = 0
-        if ocr, let html = Self.ocrHTML(from: originalCG, linesFound: &foundText) {
-            try? html.write(
-                to: folder.appendingPathComponent("text.html"),
-                atomically: true, encoding: .utf8)
+        if ocr {
+            // Off the capture queue — three accurate-mode passes take a
+            // couple of seconds and must not stall the live preview.
+            DispatchQueue.global(qos: .userInitiated).async {
+                var found = 0
+                var ocrError: String?
+                let html = Self.ocrHTML(from: originalCG, linesFound: &found, error: &ocrError)
+                if let html {
+                    try? html.write(
+                        to: folder.appendingPathComponent("text.html"),
+                        atomically: true, encoding: .utf8)
+                }
+                if let ocrError { self.dbg("ocr error: \(ocrError)") }
+                self.dbg("saved \(stamp) · ocr: \(found) lines")
+                DispatchQueue.main.async { self.loadCaptures() }
+            }
+        } else {
+            dbg("saved \(stamp)")
+            DispatchQueue.main.async { self.loadCaptures() }
         }
-        dbg("saved \(stamp)" + (ocr ? " · ocr: \(foundText) lines" : ""))
-        DispatchQueue.main.async { self.loadCaptures() }
     }
 
     private static func writeJPEG(_ image: CGImage, to url: URL) {
@@ -269,42 +316,131 @@ final class CameraManager: NSObject, ObservableObject, AVCaptureVideoDataOutputS
         CGImageDestinationFinalize(dest)
     }
 
+    private struct OCRLine {
+        let text: String
+        let anchorX: Double // px, original image space
+        let anchorY: Double
+        let fontPx: Double
+        let rotation: Int // CSS degrees: 0, -90 (bottom-to-top), 90 (top-to-bottom)
+        let sampleRect: CGRect // original-space box, for ink color + dedup
+    }
+
     // On-device OCR via the Vision framework (no network). Each recognized
     // line becomes an absolutely-positioned <div> whose inline style
-    // preserves the estimated position, size, and ink color of the original.
-    private static func ocrHTML(from cgImage: CGImage, linesFound: inout Int) -> String? {
-        let request = VNRecognizeTextRequest()
-        request.recognitionLevel = .accurate
-        request.usesLanguageCorrection = true
-        let handler = VNImageRequestHandler(cgImage: cgImage, options: [:])
-        guard (try? handler.perform([request])) != nil,
-              let results = request.results, !results.isEmpty else { return nil }
-
+    // preserves the estimated position, size, rotation, and ink color of
+    // the original. Three passes — upright plus both 90° orientations —
+    // so vertical text (book spines, posters) is recognized too.
+    private static func ocrHTML(
+        from cgImage: CGImage, linesFound: inout Int, error errorOut: inout String?
+    ) -> String? {
         let width = Double(cgImage.width)
         let height = Double(cgImage.height)
+        var lines: [OCRLine] = []
+
+        let passes: [(CGImagePropertyOrientation, Int)] = [(.up, 0), (.right, -90), (.left, 90)]
+        for (orientation, cssRotation) in passes {
+            let request = VNRecognizeTextRequest()
+            request.recognitionLevel = .accurate
+            request.usesLanguageCorrection = true
+            // Vision's default skips text shorter than ~1/32 of the image
+            // height; distant/small text needs a much lower floor.
+            request.minimumTextHeight = 0.008
+            let handler = VNImageRequestHandler(cgImage: cgImage, orientation: orientation)
+            do {
+                try handler.perform([request])
+            } catch {
+                errorOut = error.localizedDescription
+                continue
+            }
+            // Rotated passes hallucinate more, so hold them to a higher bar.
+            let minConfidence: Float = orientation == .up ? 0.2 : 0.55
+            let orientedW = orientation == .up ? width : height
+            let orientedH = orientation == .up ? height : width
+
+            for observation in request.results ?? [] {
+                guard let candidate = observation.topCandidates(1).first,
+                      candidate.confidence >= minConfidence else { continue }
+                let text = candidate.string.trimmingCharacters(in: .whitespaces)
+                guard text.count >= (orientation == .up ? 1 : 2) else { continue }
+
+                let box = observation.boundingBox // normalized, origin bottom-left
+                let px = box.minX * orientedW // oriented-space top-left, pixels
+                let py = (1 - box.maxY) * orientedH
+                let boxW = box.width * orientedW
+                let boxH = box.height * orientedH
+
+                let anchorX: Double, anchorY: Double
+                let sampleRect: CGRect
+                switch orientation {
+                case .right: // image was rotated 90° CW for this pass
+                    anchorX = py
+                    anchorY = height - px
+                    sampleRect = CGRect(x: py, y: height - px - boxW, width: boxH, height: boxW)
+                case .left: // rotated 90° CCW
+                    anchorX = width - py
+                    anchorY = px
+                    sampleRect = CGRect(x: width - py - boxH, y: px, width: boxH, height: boxW)
+                default:
+                    anchorX = px
+                    anchorY = py
+                    sampleRect = CGRect(x: px, y: py, width: boxW, height: boxH)
+                }
+
+                // In the upright pass, trust the observation's quad: Vision
+                // reads rotated text natively and reports a rotated quad,
+                // which yields the true angle, glyph height, and anchor.
+                if orientation == .up {
+                    let tl = CGPoint(
+                        x: observation.topLeft.x * width,
+                        y: (1 - observation.topLeft.y) * height)
+                    let tr = CGPoint(
+                        x: observation.topRight.x * width,
+                        y: (1 - observation.topRight.y) * height)
+                    let bl = CGPoint(
+                        x: observation.bottomLeft.x * width,
+                        y: (1 - observation.bottomLeft.y) * height)
+                    let angle = atan2(tr.y - tl.y, tr.x - tl.x) * 180 / .pi
+                    let glyphHeight = hypot(bl.x - tl.x, bl.y - tl.y)
+                    let rotation = abs(angle) < 5 ? 0 : Int(angle.rounded())
+                    lines.append(OCRLine(
+                        text: text, anchorX: tl.x, anchorY: tl.y,
+                        fontPx: max(6.0, glyphHeight * 0.8), rotation: rotation,
+                        sampleRect: sampleRect))
+                    continue
+                }
+
+                // Skip rotated hits that overlap text already found upright.
+                if cssRotation != 0,
+                   lines.contains(where: {
+                       let overlap = $0.sampleRect.intersection(sampleRect)
+                       return overlap.width * overlap.height > 0.3 * boxW * boxH
+                   }) { continue }
+
+                lines.append(OCRLine(
+                    text: text, anchorX: anchorX, anchorY: anchorY,
+                    fontPx: max(6.0, boxH * 0.8), rotation: cssRotation,
+                    sampleRect: sampleRect))
+            }
+        }
+        guard !lines.isEmpty else { return nil }
+        linesFound = lines.count
+
         var divs = ""
-        for observation in results {
-            guard let candidate = observation.topCandidates(1).first else { continue }
-            let box = observation.boundingBox // normalized, origin bottom-left
-            let leftPct = box.minX * 100
-            let topPct = (1 - box.maxY) * 100
-            let heightPx = box.height * height
-            let fontPx = max(6.0, heightPx * 0.8)
-            let pixelRect = CGRect(
-                x: box.minX * width, y: (1 - box.maxY) * height,
-                width: box.width * width, height: heightPx)
-            let (r, g, b) = inkColor(of: cgImage, in: pixelRect)
-            let text = candidate.string
+        for line in lines {
+            let (r, g, b) = inkColor(of: cgImage, in: line.sampleRect)
+            let escaped = line.text
                 .replacingOccurrences(of: "&", with: "&amp;")
                 .replacingOccurrences(of: "<", with: "&lt;")
                 .replacingOccurrences(of: ">", with: "&gt;")
+            let transform = line.rotation == 0
+                ? "" : "transform:rotate(\(line.rotation)deg);transform-origin:left top;"
             divs += String(
                 format: "<div style=\"position:absolute;left:%.2f%%;top:%.2f%%;"
                     + "font-size:%.0fpx;line-height:1;white-space:nowrap;"
-                    + "color:rgb(%d,%d,%d);\">%@</div>\n",
-                leftPct, topPct, fontPx, r, g, b, text)
+                    + "color:rgb(%d,%d,%d);%@\">%@</div>\n",
+                line.anchorX / width * 100, line.anchorY / height * 100,
+                line.fontPx, r, g, b, transform, escaped)
         }
-        linesFound = results.count
         return """
         <!doctype html>
         <meta charset="utf-8">
@@ -404,6 +540,7 @@ final class CameraManager: NSObject, ObservableObject, AVCaptureVideoDataOutputS
             output.alwaysDiscardsLateVideoFrames = true
             output.setSampleBufferDelegate(self, queue: queue)
             if session.canAddOutput(output) { session.addOutput(output) }
+            if session.canAddOutput(photoOutput) { session.addOutput(photoOutput) }
         }
         do {
             let input = try AVCaptureDeviceInput(device: device)
