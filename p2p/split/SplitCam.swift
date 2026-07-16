@@ -14,10 +14,13 @@ import AVFoundation
 import CoreImage
 import CoreImage.CIFilterBuiltins
 import CoreVideo
+import ImageIO
+import Vision
+import WebKit
 
 // MARK: - Camera capture + Lab processing
 
-let buildTag = "v9"
+let buildTag = "v10-ocr"
 
 final class CameraManager: NSObject, ObservableObject, AVCaptureVideoDataOutputSampleBufferDelegate {
     @Published var frame: CGImage?
@@ -28,6 +31,14 @@ final class CameraManager: NSObject, ObservableObject, AVCaptureVideoDataOutputS
     @Published var debugLines: [String] = []
     @Published var stillNames: [String] = []
     @Published var selectedStill: String?
+    @Published var captures: [Capture] = []
+
+    struct Capture: Identifiable {
+        let id: String
+        let original: URL
+        let lab: URL
+        let html: URL?
+    }
 
     // On-screen + syslog debug trace.
     func dbg(_ line: String) {
@@ -47,6 +58,7 @@ final class CameraManager: NSObject, ObservableObject, AVCaptureVideoDataOutputS
     private var thresholds: (l: Double, a: Double, b: Double) = (0.5, 0.5, 0.5)
     private var stillImage: CIImage?
     private var activeStill = false
+    private var pendingOCR: Bool? // queue-confined; non-nil = capture requested
 
     override init() {
         super.init()
@@ -178,6 +190,177 @@ final class CameraManager: NSObject, ObservableObject, AVCaptureVideoDataOutputS
         }
     }
 
+    // MARK: Capture, offline OCR, and local gallery
+
+    // Capture the current frame: saves the original, its Lab-binned version,
+    // and (optionally) an HTML rendition of on-device-OCR'd text into
+    // Documents/Gallery/<timestamp>/.
+    func capturePhoto(ocr: Bool) {
+        queue.async {
+            if self.activeStill {
+                guard let still = self.stillImage else { return }
+                let processed = self.process(still)
+                guard let processedCG = self.ciContext.createCGImage(
+                    processed, from: processed.extent) else { return }
+                self.saveCapture(originalCI: still, processedCG: processedCG, ocr: ocr)
+            } else {
+                self.pendingOCR = ocr // fulfilled by the next camera frame
+            }
+        }
+    }
+
+    static func galleryDir() -> URL {
+        let dir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("Gallery", isDirectory: true)
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        return dir
+    }
+
+    func loadCaptures() {
+        let folders = (try? FileManager.default.contentsOfDirectory(
+            at: Self.galleryDir(), includingPropertiesForKeys: nil)) ?? []
+        captures = folders
+            .filter(\.hasDirectoryPath)
+            .sorted { $0.lastPathComponent > $1.lastPathComponent }
+            .map { folder in
+                let html = folder.appendingPathComponent("text.html")
+                return Capture(
+                    id: folder.lastPathComponent,
+                    original: folder.appendingPathComponent("original.jpg"),
+                    lab: folder.appendingPathComponent("lab.jpg"),
+                    html: FileManager.default.fileExists(atPath: html.path) ? html : nil)
+            }
+    }
+
+    // Runs on `queue`.
+    private func saveCapture(originalCI: CIImage, processedCG: CGImage, ocr: Bool) {
+        guard let originalCG = ciContext.createCGImage(originalCI, from: originalCI.extent)
+        else {
+            dbg("capture failed: could not render original")
+            return
+        }
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyyMMdd-HHmmss"
+        let stamp = formatter.string(from: Date())
+        let folder = Self.galleryDir().appendingPathComponent(stamp, isDirectory: true)
+        do {
+            try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        } catch {
+            dbg("capture failed: \(error.localizedDescription)")
+            return
+        }
+        Self.writeJPEG(originalCG, to: folder.appendingPathComponent("original.jpg"))
+        Self.writeJPEG(processedCG, to: folder.appendingPathComponent("lab.jpg"))
+        var foundText = 0
+        if ocr, let html = Self.ocrHTML(from: originalCG, linesFound: &foundText) {
+            try? html.write(
+                to: folder.appendingPathComponent("text.html"),
+                atomically: true, encoding: .utf8)
+        }
+        dbg("saved \(stamp)" + (ocr ? " · ocr: \(foundText) lines" : ""))
+        DispatchQueue.main.async { self.loadCaptures() }
+    }
+
+    private static func writeJPEG(_ image: CGImage, to url: URL) {
+        guard let dest = CGImageDestinationCreateWithURL(
+            url as CFURL, "public.jpeg" as CFString, 1, nil) else { return }
+        let options = [kCGImageDestinationLossyCompressionQuality: 0.9] as CFDictionary
+        CGImageDestinationAddImage(dest, image, options)
+        CGImageDestinationFinalize(dest)
+    }
+
+    // On-device OCR via the Vision framework (no network). Each recognized
+    // line becomes an absolutely-positioned <div> whose inline style
+    // preserves the estimated position, size, and ink color of the original.
+    private static func ocrHTML(from cgImage: CGImage, linesFound: inout Int) -> String? {
+        let request = VNRecognizeTextRequest()
+        request.recognitionLevel = .accurate
+        request.usesLanguageCorrection = true
+        let handler = VNImageRequestHandler(cgImage: cgImage, options: [:])
+        guard (try? handler.perform([request])) != nil,
+              let results = request.results, !results.isEmpty else { return nil }
+
+        let width = Double(cgImage.width)
+        let height = Double(cgImage.height)
+        var divs = ""
+        for observation in results {
+            guard let candidate = observation.topCandidates(1).first else { continue }
+            let box = observation.boundingBox // normalized, origin bottom-left
+            let leftPct = box.minX * 100
+            let topPct = (1 - box.maxY) * 100
+            let heightPx = box.height * height
+            let fontPx = max(6.0, heightPx * 0.8)
+            let pixelRect = CGRect(
+                x: box.minX * width, y: (1 - box.maxY) * height,
+                width: box.width * width, height: heightPx)
+            let (r, g, b) = inkColor(of: cgImage, in: pixelRect)
+            let text = candidate.string
+                .replacingOccurrences(of: "&", with: "&amp;")
+                .replacingOccurrences(of: "<", with: "&lt;")
+                .replacingOccurrences(of: ">", with: "&gt;")
+            divs += String(
+                format: "<div style=\"position:absolute;left:%.2f%%;top:%.2f%%;"
+                    + "font-size:%.0fpx;line-height:1;white-space:nowrap;"
+                    + "color:rgb(%d,%d,%d);\">%@</div>\n",
+                leftPct, topPct, fontPx, r, g, b, text)
+        }
+        linesFound = results.count
+        return """
+        <!doctype html>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <div style="position:relative;width:100%;aspect-ratio:\(Int(width))/\(Int(height));\
+        background:#f8f8f6;overflow:hidden;font-family:-apple-system,sans-serif;">
+        \(divs)</div>
+        """
+    }
+
+    // Estimate the text ("ink") color inside a box: split its pixels into
+    // darker/lighter-than-mean clusters and take the minority cluster's mean
+    // color — text usually covers less area than its background.
+    private static func inkColor(of cgImage: CGImage, in rect: CGRect) -> (Int, Int, Int) {
+        guard let crop = cgImage.cropping(to: rect.integral) else { return (0, 0, 0) }
+        let w = max(1, min(crop.width, 48))
+        let h = max(1, min(crop.height, 48))
+        var pixels = [UInt8](repeating: 0, count: w * h * 4)
+        let drawn = pixels.withUnsafeMutableBytes { buffer -> Bool in
+            guard let ctx = CGContext(
+                data: buffer.baseAddress, width: w, height: h,
+                bitsPerComponent: 8, bytesPerRow: w * 4,
+                space: CGColorSpaceCreateDeviceRGB(),
+                bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else { return false }
+            ctx.interpolationQuality = .low
+            ctx.draw(crop, in: CGRect(x: 0, y: 0, width: w, height: h))
+            return true
+        }
+        guard drawn else { return (0, 0, 0) }
+
+        var lumas = [Double]()
+        lumas.reserveCapacity(w * h)
+        for i in stride(from: 0, to: pixels.count, by: 4) {
+            lumas.append(0.299 * Double(pixels[i]) + 0.587 * Double(pixels[i + 1])
+                         + 0.114 * Double(pixels[i + 2]))
+        }
+        let mean = lumas.reduce(0, +) / Double(lumas.count)
+        var dark = (r: 0.0, g: 0.0, b: 0.0, n: 0)
+        var light = (r: 0.0, g: 0.0, b: 0.0, n: 0)
+        var index = 0
+        for i in stride(from: 0, to: pixels.count, by: 4) {
+            if lumas[index] < mean {
+                dark.r += Double(pixels[i]); dark.g += Double(pixels[i + 1])
+                dark.b += Double(pixels[i + 2]); dark.n += 1
+            } else {
+                light.r += Double(pixels[i]); light.g += Double(pixels[i + 1])
+                light.b += Double(pixels[i + 2]); light.n += 1
+            }
+            index += 1
+        }
+        let ink = (dark.n > 0 && (light.n == 0 || dark.n <= light.n)) ? dark : light
+        guard ink.n > 0 else { return (0, 0, 0) }
+        return (Int(ink.r / Double(ink.n)), Int(ink.g / Double(ink.n)),
+                Int(ink.b / Double(ink.n)))
+    }
+
     // Runs on `queue`. When the camera can't start, show a bundled still.
     private func fallbackToStill() {
         DispatchQueue.main.async {
@@ -267,6 +450,10 @@ final class CameraManager: NSObject, ObservableObject, AVCaptureVideoDataOutputS
         if !loggedFirstFrame {
             loggedFirstFrame = true
             dbg("first frame: \(cgImage.width)x\(cgImage.height)")
+        }
+        if let ocr = pendingOCR {
+            pendingOCR = nil
+            saveCapture(originalCI: CIImage(cvPixelBuffer: buffer), processedCG: cgImage, ocr: ocr)
         }
         DispatchQueue.main.async {
             self.frame = cgImage
@@ -457,6 +644,8 @@ struct ContentView: View {
     @State private var drawerOpen = true
     @State private var showSeparation = false
     @State private var hudCollapsed = false
+    @State private var ocrEnabled = false
+    @State private var showGallery = false
 
     var body: some View {
         ZStack {
@@ -481,9 +670,19 @@ struct ContentView: View {
             if showSeparation { SeparationExplorer() }
         }
         .overlay(alignment: .bottom) { drawer }
+        .overlay(alignment: .bottomTrailing) {
+            captureControls.padding(.trailing, 16).padding(.bottom, controlsBottomPad)
+        }
+        .overlay(alignment: .bottomLeading) {
+            ocrCheckbox.padding(.leading, 16).padding(.bottom, controlsBottomPad)
+        }
+        .sheet(isPresented: $showGallery) {
+            GalleryView(captures: camera.captures)
+        }
         .onAppear {
             camera.setThresholds(l: lThreshold, a: aThreshold, b: bThreshold)
             camera.loadStills()
+            camera.loadCaptures()
             camera.start()
         }
         .onChange(of: scenePhase) {
@@ -504,6 +703,51 @@ struct ContentView: View {
     private var currentCameraName: String {
         camera.devices.first { $0.uniqueID == camera.selectedDeviceID }?.localizedName
             ?? "Camera"
+    }
+
+    private var controlsBottomPad: CGFloat { drawerOpen ? 296 : 64 }
+
+    // Circular "take picture" button (bottom right) + gallery access.
+    private var captureControls: some View {
+        VStack(spacing: 12) {
+            Button {
+                showGallery = true
+            } label: {
+                Image(systemName: "photo.stack")
+                    .font(.body)
+                    .padding(10)
+                    .background(.ultraThinMaterial, in: Circle())
+            }
+            .buttonStyle(.plain)
+            .help("Gallery")
+
+            Button {
+                camera.capturePhoto(ocr: ocrEnabled)
+            } label: {
+                Image(systemName: "camera.fill")
+                    .font(.title2)
+                    .frame(width: 64, height: 64)
+                    .background(.ultraThinMaterial, in: Circle())
+                    .overlay(Circle().strokeBorder(.white.opacity(0.9), lineWidth: 2.5))
+            }
+            .buttonStyle(.plain)
+            .help("Take picture")
+        }
+    }
+
+    // Checkbox (bottom left): OCR the capture and save a positioned,
+    // color/size-preserving HTML rendition alongside the images.
+    private var ocrCheckbox: some View {
+        Button {
+            ocrEnabled.toggle()
+        } label: {
+            Label("OCR", systemImage: ocrEnabled ? "checkmark.square.fill" : "square")
+                .padding(.horizontal, 12)
+                .padding(.vertical, 10)
+                .background(.ultraThinMaterial, in: Capsule())
+        }
+        .buttonStyle(.plain)
+        .help("Recognize text on capture (on-device)")
     }
 
     #if os(iOS)
@@ -648,6 +892,129 @@ struct ContentView: View {
         .background(.ultraThinMaterial)
     }
 }
+
+// MARK: - Gallery
+
+private func loadThumbnail(_ url: URL, maxDim: CGFloat = 700) -> CGImage? {
+    guard let source = CGImageSourceCreateWithURL(url as CFURL, nil) else { return nil }
+    let options: [CFString: Any] = [
+        kCGImageSourceCreateThumbnailFromImageAlways: true,
+        kCGImageSourceThumbnailMaxPixelSize: maxDim,
+        kCGImageSourceCreateThumbnailWithTransform: true,
+    ]
+    return CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary)
+}
+
+struct GalleryView: View {
+    let captures: [CameraManager.Capture]
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            List(captures) { capture in
+                NavigationLink {
+                    CaptureDetailView(capture: capture)
+                } label: {
+                    HStack(spacing: 8) {
+                        thumb(capture.original)
+                        thumb(capture.lab)
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(capture.id).font(.caption.monospaced())
+                            if capture.html != nil {
+                                Label("text.html", systemImage: "doc.richtext")
+                                    .font(.caption2)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                    }
+                }
+            }
+            .navigationTitle("Gallery")
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Done") { dismiss() }
+                }
+            }
+            .overlay {
+                if captures.isEmpty {
+                    Text("No captures yet — tap the camera button.")
+                        .foregroundStyle(.secondary)
+                }
+            }
+        }
+        #if os(macOS)
+        .frame(minWidth: 520, minHeight: 420)
+        #endif
+    }
+
+    private func thumb(_ url: URL) -> some View {
+        Group {
+            if let cgImage = loadThumbnail(url, maxDim: 160) {
+                Image(decorative: cgImage, scale: 1)
+                    .resizable()
+                    .aspectRatio(contentMode: .fill)
+            } else {
+                Color.gray.opacity(0.3)
+            }
+        }
+        .frame(width: 56, height: 56)
+        .clipShape(RoundedRectangle(cornerRadius: 8))
+    }
+}
+
+struct CaptureDetailView: View {
+    let capture: CameraManager.Capture
+
+    var body: some View {
+        ScrollView {
+            VStack(spacing: 14) {
+                pane("Original", url: capture.original)
+                pane("Lab", url: capture.lab)
+                if let html = capture.html {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("OCR text (positioned HTML)")
+                            .font(.caption).foregroundStyle(.secondary)
+                        WebView(url: html)
+                            .frame(height: 320)
+                            .clipShape(RoundedRectangle(cornerRadius: 10))
+                    }
+                }
+            }
+            .padding()
+        }
+        .navigationTitle(capture.id)
+    }
+
+    private func pane(_ title: String, url: URL) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(title).font(.caption).foregroundStyle(.secondary)
+            if let cgImage = loadThumbnail(url, maxDim: 1200) {
+                Image(decorative: cgImage, scale: 1)
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+                    .clipShape(RoundedRectangle(cornerRadius: 10))
+            }
+        }
+    }
+}
+
+#if os(iOS)
+struct WebView: UIViewRepresentable {
+    let url: URL
+    func makeUIView(context: Context) -> WKWebView { WKWebView() }
+    func updateUIView(_ view: WKWebView, context: Context) {
+        view.loadFileURL(url, allowingReadAccessTo: url.deletingLastPathComponent())
+    }
+}
+#else
+struct WebView: NSViewRepresentable {
+    let url: URL
+    func makeNSView(context: Context) -> WKWebView { WKWebView() }
+    func updateNSView(_ view: WKWebView, context: Context) {
+        view.loadFileURL(url, allowingReadAccessTo: url.deletingLastPathComponent())
+    }
+}
+#endif
 
 @main
 struct SplitCamApp: App {
