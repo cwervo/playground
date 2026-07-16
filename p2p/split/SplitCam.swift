@@ -18,14 +18,15 @@ import ImageIO
 import Vision
 import WebKit
 import Photos
+import MetalKit
 
 // MARK: - Camera capture + Lab processing
 
-let buildTag = "v18"
+let buildTag = "v19"
 
 final class CameraManager: NSObject, ObservableObject, AVCaptureVideoDataOutputSampleBufferDelegate,
                            AVCapturePhotoCaptureDelegate {
-    @Published var frame: CGImage?
+    @Published var hasVideo = false
     @Published var devices: [AVCaptureDevice] = []
     @Published var selectedDeviceID: String?
     @Published var denied = false
@@ -40,7 +41,7 @@ final class CameraManager: NSObject, ObservableObject, AVCaptureVideoDataOutputS
     @Published var fpsHistory: [Double] = [] // one sample per second, last 60
     @Published var stageStats = "" // per-frame stage timing, updated 1/sec
 
-    struct Capture: Identifiable {
+    struct Capture: Identifiable, Hashable {
         let id: String
         let original: URL
         let lab: URL
@@ -60,7 +61,32 @@ final class CameraManager: NSObject, ObservableObject, AVCaptureVideoDataOutputS
 
     private let session = AVCaptureSession()
     private let queue = DispatchQueue(label: "splitcam.capture")
-    private let ciContext = CIContext()
+    let metalDevice = MTLCreateSystemDefaultDevice()
+    private lazy var ciContext: CIContext =
+        metalDevice.map { CIContext(mtlDevice: $0) } ?? CIContext()
+    var renderContext: CIContext { ciContext }
+    // The backdrop "worker": its own low-priority queue and its own
+    // CIContext, so its GPU work is scheduled behind the live pipeline
+    // instead of serializing in front of it.
+    private let backdropQueue = DispatchQueue(label: "splitcam.backdrop", qos: .utility)
+    private lazy var backdropContext: CIContext =
+        metalDevice.map { CIContext(mtlDevice: $0) } ?? CIContext()
+
+    // Latest processed frame, handed GPU-side to the Metal view. The lock is
+    // the only cross-thread touchpoint between capture and display.
+    private let imageLock = NSLock()
+    private var _latestProcessed: CIImage?
+    var latestProcessed: CIImage? {
+        imageLock.lock()
+        defer { imageLock.unlock() }
+        return _latestProcessed
+    }
+    private func setProcessed(_ image: CIImage) {
+        imageLock.lock()
+        _latestProcessed = image
+        imageLock.unlock()
+    }
+    var drawMsEMA = 0.0 // main-thread only (written by the Metal draw loop)
     // Only read/written on `queue` (the capture callback queue).
     private var thresholds: (l: Double, a: Double, b: Double) = (0.5, 0.5, 0.5)
     private var stillImage: CIImage?
@@ -72,9 +98,7 @@ final class CameraManager: NSObject, ObservableObject, AVCaptureVideoDataOutputS
     private var lastBackdropTime: TimeInterval = 0
     private var fpsWindowStart: TimeInterval = 0 // queue-confined
     private var fpsFrameCount = 0
-    private var accGraphMs = 0.0 // queue-confined stage accumulators
-    private var accRenderMs = 0.0
-    private var mainLagEMA = 0.0 // main-thread only
+    private var accGraphMs = 0.0 // queue-confined stage accumulator
 
     override init() {
         super.init()
@@ -196,12 +220,9 @@ final class CameraManager: NSObject, ObservableObject, AVCaptureVideoDataOutputS
     // Runs on `queue`.
     private func renderStill() {
         guard let stillImage else { return }
-        let processed = process(stillImage)
-        guard let cgImage = ciContext.createCGImage(processed, from: processed.extent) else {
-            return
-        }
+        setProcessed(process(stillImage))
         DispatchQueue.main.async {
-            self.frame = cgImage
+            self.hasVideo = true
             self.frameCount += 1
         }
     }
@@ -516,13 +537,15 @@ final class CameraManager: NSObject, ObservableObject, AVCaptureVideoDataOutputS
         queue.async {
             self.backdropActive = active
             if active, self.activeStill, let still = self.stillImage {
-                self.publishBackdrop(from: still)
+                self.backdropQueue.async { self.publishBackdrop(from: still) }
             }
         }
     }
 
-    // Runs on `queue`. Downsample to 420p first, then a 30% blur; published
-    // inside an animation so successive frames crossfade (the 1fps "LERP").
+    // Runs on `backdropQueue` (.utility QoS — the "worker" cap) with its own
+    // CIContext so it never contends with the live pipeline. Downsample to
+    // 420p first, then a 30% blur; published inside an animation so
+    // successive frames crossfade (the 1fps "LERP").
     private func publishBackdrop(from image: CIImage) {
         let scale = 420.0 / max(image.extent.height, 1)
         let small = image.transformed(by: CGAffineTransform(scaleX: scale, y: scale))
@@ -530,7 +553,7 @@ final class CameraManager: NSObject, ObservableObject, AVCaptureVideoDataOutputS
         blur.inputImage = small.clampedToExtent()
         blur.radius = 12 // ≈30% strength (was 80%-strength radius 30 pre-downsample)
         guard let output = blur.outputImage?.cropped(to: small.extent),
-              let cgImage = ciContext.createCGImage(output, from: output.extent) else { return }
+              let cgImage = backdropContext.createCGImage(output, from: output.extent) else { return }
         DispatchQueue.main.async {
             withAnimation(.easeInOut(duration: 0.9)) {
                 self.backdrop = cgImage
@@ -624,24 +647,26 @@ final class CameraManager: NSObject, ObservableObject, AVCaptureVideoDataOutputS
         let tStart = Date().timeIntervalSinceReferenceDate
         let processed = process(CIImage(cvPixelBuffer: buffer))
         let tGraph = Date().timeIntervalSinceReferenceDate
-        guard let cgImage = ciContext.createCGImage(processed, from: processed.extent) else {
-            if !loggedFirstFrame { dbg("createCGImage failed") }
-            return
-        }
-        let tRender = Date().timeIntervalSinceReferenceDate
         accGraphMs += (tGraph - tStart) * 1000
-        accRenderMs += (tRender - tGraph) * 1000
+        // GPU-direct: hand the (unevaluated) CI graph to the Metal view.
+        // No createCGImage, no GPU→CPU copy, no per-frame main-thread work.
+        setProcessed(processed)
         if !loggedFirstFrame {
             loggedFirstFrame = true
-            dbg("first frame: \(cgImage.width)x\(cgImage.height)")
+            dbg("first frame: \(Int(processed.extent.width))x\(Int(processed.extent.height)) (gpu-direct)")
+            DispatchQueue.main.async { self.hasVideo = true }
         }
         if let ocr = pendingOCR {
             pendingOCR = nil
-            saveCapture(originalCI: CIImage(cvPixelBuffer: buffer), processedCG: cgImage, ocr: ocr)
+            if let processedCG = ciContext.createCGImage(processed, from: processed.extent) {
+                saveCapture(
+                    originalCI: CIImage(cvPixelBuffer: buffer), processedCG: processedCG, ocr: ocr)
+            }
         }
         if backdropActive, Date().timeIntervalSinceReferenceDate - lastBackdropTime > 1.0 {
             lastBackdropTime = Date().timeIntervalSinceReferenceDate
-            publishBackdrop(from: CIImage(cvPixelBuffer: buffer))
+            let source = CIImage(cvPixelBuffer: buffer)
+            backdropQueue.async { self.publishBackdrop(from: source) }
         }
         fpsFrameCount += 1
         let now = Date().timeIntervalSinceReferenceDate
@@ -650,9 +675,8 @@ final class CameraManager: NSObject, ObservableObject, AVCaptureVideoDataOutputS
             let frames = Double(max(fpsFrameCount, 1))
             let fps = Double(fpsFrameCount) / (now - fpsWindowStart)
             let graphAvg = accGraphMs / frames
-            let renderAvg = accRenderMs / frames
+            let batch = fpsFrameCount
             accGraphMs = 0
-            accRenderMs = 0
             fpsWindowStart = now
             fpsFrameCount = 0
             DispatchQueue.main.async {
@@ -661,17 +685,11 @@ final class CameraManager: NSObject, ObservableObject, AVCaptureVideoDataOutputS
                 if self.fpsHistory.count > 60 {
                     self.fpsHistory.removeFirst(self.fpsHistory.count - 60)
                 }
+                self.frameCount += batch
                 self.stageStats = String(
-                    format: "ci %.1f · render %.1f · main %.1f ms",
-                    graphAvg, renderAvg, self.mainLagEMA)
+                    format: "ci %.1f · draw %.1f ms · gpu-direct",
+                    graphAvg, self.drawMsEMA)
             }
-        }
-        let sentAt = Date().timeIntervalSinceReferenceDate
-        DispatchQueue.main.async {
-            let lagMs = (Date().timeIntervalSinceReferenceDate - sentAt) * 1000
-            self.mainLagEMA = self.mainLagEMA * 0.9 + lagMs * 0.1
-            self.frame = cgImage
-            self.frameCount += 1
         }
     }
 
@@ -717,6 +735,75 @@ final class CameraManager: NSObject, ObservableObject, AVCaptureVideoDataOutputS
         return toRGB.outputImage ?? image
     }
 }
+
+// MARK: - Metal-backed video view (GPU-direct, no per-frame CPU copies)
+
+struct MetalCameraView {
+    let camera: CameraManager
+
+    final class Coordinator: NSObject, MTKViewDelegate {
+        let camera: CameraManager
+        let commandQueue: MTLCommandQueue?
+
+        init(camera: CameraManager) {
+            self.camera = camera
+            commandQueue = camera.metalDevice?.makeCommandQueue()
+        }
+
+        func mtkView(_ view: MTKView, drawableSizeWillChange size: CGSize) {}
+
+        func draw(in view: MTKView) {
+            guard let image = camera.latestProcessed,
+                  let drawable = view.currentDrawable,
+                  let commandBuffer = commandQueue?.makeCommandBuffer() else { return }
+            let tStart = Date().timeIntervalSinceReferenceDate
+            let drawableW = Double(drawable.texture.width)
+            let drawableH = Double(drawable.texture.height)
+            let scale = min(drawableW / image.extent.width, drawableH / image.extent.height)
+            let scaled = image.transformed(by: CGAffineTransform(scaleX: scale, y: scale))
+            let centered = scaled
+                .transformed(by: CGAffineTransform(
+                    translationX: (drawableW - scaled.extent.width) / 2 - scaled.extent.minX,
+                    y: (drawableH - scaled.extent.height) / 2 - scaled.extent.minY))
+                .composited(over: CIImage(color: CIColor(red: 0, green: 0, blue: 0)))
+            camera.renderContext.render(
+                centered, to: drawable.texture, commandBuffer: commandBuffer,
+                bounds: CGRect(x: 0, y: 0, width: drawableW, height: drawableH),
+                colorSpace: CGColorSpaceCreateDeviceRGB())
+            commandBuffer.present(drawable)
+            commandBuffer.commit()
+            let ms = (Date().timeIntervalSinceReferenceDate - tStart) * 1000
+            camera.drawMsEMA = camera.drawMsEMA * 0.9 + ms * 0.1
+        }
+    }
+
+    func makeView(coordinator: Coordinator) -> MTKView {
+        let view = MTKView(frame: .zero, device: camera.metalDevice)
+        view.framebufferOnly = false // CIContext renders into the drawable
+        view.preferredFramesPerSecond = 30
+        view.colorPixelFormat = .bgra8Unorm
+        view.delegate = coordinator
+        return view
+    }
+}
+
+#if os(iOS)
+extension MetalCameraView: UIViewRepresentable {
+    func makeCoordinator() -> Coordinator { Coordinator(camera: camera) }
+    func makeUIView(context: Context) -> MTKView {
+        let view = makeView(coordinator: context.coordinator)
+        view.backgroundColor = .black
+        return view
+    }
+    func updateUIView(_ view: MTKView, context: Context) {}
+}
+#else
+extension MetalCameraView: NSViewRepresentable {
+    func makeCoordinator() -> Coordinator { Coordinator(camera: camera) }
+    func makeNSView(context: Context) -> MTKView { makeView(coordinator: context.coordinator) }
+    func updateNSView(_ view: MTKView, context: Context) {}
+}
+#endif
 
 // MARK: - FPS monitor (tap to toggle sparkline ↔ expanded)
 
@@ -928,17 +1015,16 @@ struct ContentView: View {
     var body: some View {
         ZStack {
             Color.black.ignoresSafeArea()
-            if let frame = camera.frame {
-                Image(decorative: frame, scale: 1)
-                    .resizable()
-                    .aspectRatio(contentMode: .fit)
-            } else if camera.denied {
-                Text("Camera access is off. Enable it in Settings ▸ Privacy & Security ▸ Camera, then relaunch.")
-                    .multilineTextAlignment(.center)
-                    .foregroundStyle(.white)
-                    .padding(40)
-            } else {
-                ProgressView().tint(.white)
+            MetalCameraView(camera: camera)
+            if !camera.hasVideo {
+                if camera.denied {
+                    Text("Camera access is off. Enable it in Settings ▸ Privacy & Security ▸ Camera, then relaunch.")
+                        .multilineTextAlignment(.center)
+                        .foregroundStyle(.white)
+                        .padding(40)
+                } else {
+                    ProgressView().tint(.white)
+                }
             }
         }
         .overlay(alignment: .topLeading) { cameraPicker.padding(12) }
@@ -1337,6 +1423,7 @@ struct GalleryView: View {
     @State private var exportFolder: URL?
     @State private var showExportDialog = false
     @State private var toast: String?
+    @State private var detailCapture: CameraManager.Capture?
 
     private var showBanner: Bool {
         !bannerDismissed && photosStatus != .authorized && photosStatus != .limited
@@ -1355,6 +1442,9 @@ struct GalleryView: View {
             }
             .background { backdropView }
             .navigationTitle("Gallery")
+            .navigationDestination(item: $detailCapture) { capture in
+                CaptureDetailView(capture: capture)
+            }
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Done") { dismiss() }
@@ -1406,30 +1496,42 @@ struct GalleryView: View {
 
     // MARK: rows + gestures
 
+    // No NavigationLink on the row: List row selection fires on first
+    // touch-up and would swallow multi-tap gestures on the thumbnails.
+    // Navigation is an explicit chevron button; thumbnail gestures run at
+    // high priority so nothing else in the row can claim them.
     private func row(_ capture: CameraManager.Capture) -> some View {
         HStack(spacing: 8) {
             exportableThumb(capture.original, folder: capture.original.deletingLastPathComponent())
             exportableThumb(capture.lab, folder: capture.lab.deletingLastPathComponent())
-            NavigationLink {
-                CaptureDetailView(capture: capture)
+            Button {
+                detailCapture = capture
             } label: {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(capture.id).font(.caption.monospaced())
-                    Text("2×tap: export · 3×tap: camera roll")
-                        .font(.caption2).foregroundStyle(.secondary)
-                    if capture.html != nil {
-                        Label("text.html", systemImage: "doc.richtext")
+                HStack {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(capture.id).font(.caption.monospaced())
+                        Text("2×tap: export · 3×tap: camera roll")
                             .font(.caption2).foregroundStyle(.secondary)
+                        if capture.html != nil {
+                            Label("text.html", systemImage: "doc.richtext")
+                                .font(.caption2).foregroundStyle(.secondary)
+                        }
                     }
+                    Spacer()
+                    Image(systemName: "chevron.right")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.secondary)
                 }
+                .contentShape(Rectangle())
             }
+            .buttonStyle(.plain)
         }
     }
 
     private func exportableThumb(_ url: URL, folder: URL) -> some View {
         thumb(url)
             .contentShape(Rectangle())
-            .gesture(
+            .highPriorityGesture(
                 TapGesture(count: 3)
                     .onEnded { saveToCameraRoll(url) }
                     .exclusively(before: TapGesture(count: 2).onEnded {
