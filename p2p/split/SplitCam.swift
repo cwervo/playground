@@ -21,7 +21,7 @@ import Photos
 
 // MARK: - Camera capture + Lab processing
 
-let buildTag = "v16-fps2"
+let buildTag = "v17"
 
 final class CameraManager: NSObject, ObservableObject, AVCaptureVideoDataOutputSampleBufferDelegate,
                            AVCapturePhotoCaptureDelegate {
