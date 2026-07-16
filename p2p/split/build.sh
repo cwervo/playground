@@ -38,6 +38,8 @@ if [[ "${1:-macos}" == "ios" ]]; then
   sips -z 120 120 build/icon.png --out "$OUT/AppIcon60x60@2x.png" >/dev/null
   sips -z 180 180 build/icon.png --out "$OUT/AppIcon60x60@3x.png" >/dev/null
   if [ -d media ]; then mkdir -p "$OUT/Media" && cp media/* "$OUT/Media/"; fi
+  xcrun -sdk iphoneos metal -c Shaders.metal -o build/Shaders-ios.air
+  xcrun -sdk iphoneos metallib build/Shaders-ios.air -o "$OUT/default.metallib"
   SDKROOT="$SDK" xcrun --sdk iphoneos swiftc -O -parse-as-library \
     -target arm64-apple-ios17.0 -sdk "$SDK" \
     SplitCam.swift -o "$OUT/$APP"
@@ -85,6 +87,8 @@ else
   sips -s format icns build/icon512.png --out "$OUT/Contents/Resources/AppIcon.icns" \
     >/dev/null 2>&1 || echo "icns conversion failed (non-fatal)"
   if [ -d media ]; then mkdir -p "$OUT/Contents/Resources/Media" && cp media/* "$OUT/Contents/Resources/Media/"; fi
+  xcrun -sdk macosx metal -c Shaders.metal -o build/Shaders-macos.air
+  xcrun -sdk macosx metallib build/Shaders-macos.air -o "$OUT/Contents/Resources/default.metallib"
   swiftc -O -parse-as-library \
     -target arm64-apple-macos14.0 \
     SplitCam.swift -o "$OUT/Contents/MacOS/$APP"

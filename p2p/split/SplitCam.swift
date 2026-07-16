@@ -22,7 +22,7 @@ import MetalKit
 
 // MARK: - Camera capture + Lab processing
 
-let buildTag = "v20"
+let buildTag = "v21"
 
 final class CameraManager: NSObject, ObservableObject, AVCaptureVideoDataOutputSampleBufferDelegate,
                            AVCapturePhotoCaptureDelegate {
@@ -1444,6 +1444,45 @@ enum Exporter {
     }
 }
 
+// MARK: - Gold orbit tap feedback (Metal shader in Shaders.metal)
+
+struct GoldOrbitOverlay: View {
+    let start: Date
+
+    var body: some View {
+        TimelineView(.animation) { context in
+            let elapsed = context.date.timeIntervalSince(start)
+            if elapsed < 0.9 {
+                Rectangle()
+                    .fill(Color.white.opacity(0.02))
+                    .visualEffect { content, proxy in
+                        content.colorEffect(ShaderLibrary.goldOrbit(
+                            .float2(proxy.size),
+                            .float(Float(elapsed))))
+                    }
+            }
+        }
+        .allowsHitTesting(false)
+    }
+}
+
+// MARK: - Share sheet
+
+struct ShareBundle: Identifiable {
+    let id = UUID()
+    let items: [URL]
+}
+
+#if os(iOS)
+struct ShareSheet: UIViewControllerRepresentable {
+    let items: [URL]
+    func makeUIViewController(context: Context) -> UIActivityViewController {
+        UIActivityViewController(activityItems: items, applicationActivities: nil)
+    }
+    func updateUIViewController(_ controller: UIActivityViewController, context: Context) {}
+}
+#endif
+
 // MARK: - Gallery
 
 private func loadThumbnail(_ url: URL, maxDim: CGFloat = 700) -> CGImage? {
@@ -1467,6 +1506,9 @@ struct GalleryView: View {
     @State private var showExportDialog = false
     @State private var toast: String?
     @State private var detailCapture: CameraManager.Capture?
+    @State private var goldTap: (id: String, start: Date)?
+    @State private var tapCounts: [String: Int] = [:]
+    @State private var shareBundle: ShareBundle?
 
     private var showBanner: Bool {
         !bannerDismissed && photosStatus != .authorized && photosStatus != .limited
@@ -1530,6 +1572,9 @@ struct GalleryView: View {
         .confirmationDialog(
             "Save / export as…", isPresented: $showExportDialog, titleVisibility: .visible
         ) { exportButtons }
+        #if os(iOS)
+        .sheet(item: $shareBundle) { bundle in ShareSheet(items: bundle.items) }
+        #endif
         #if os(macOS)
         .frame(minWidth: 520, minHeight: 420)
         #endif
@@ -1537,49 +1582,68 @@ struct GalleryView: View {
 
     // MARK: rows + gestures
 
-    // No NavigationLink on the row: List row selection fires on first
-    // touch-up and would swallow multi-tap gestures on the thumbnails.
-    // Navigation is an explicit chevron button; thumbnail gestures run at
-    // high priority so nothing else in the row can claim them.
+    // The whole row is one "chip" with a manual tap counter — SwiftUI's
+    // own multi-tap disambiguation kept losing races inside List, so each
+    // tap bumps a count and arms a 0.2s timer; whatever count survives the
+    // window dispatches: 1 = expand, 2 = export menu, 3 = share.
     private func row(_ capture: CameraManager.Capture) -> some View {
         HStack(spacing: 8) {
-            exportableThumb(capture.original, folder: capture.original.deletingLastPathComponent())
-            exportableThumb(capture.lab, folder: capture.lab.deletingLastPathComponent())
-            Button {
-                detailCapture = capture
-            } label: {
-                HStack {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(capture.id).font(.caption.monospaced())
-                        Text("2×tap: export · 3×tap: camera roll")
-                            .font(.caption2).foregroundStyle(.secondary)
-                        if capture.html != nil {
-                            Label("text.html", systemImage: "doc.richtext")
-                                .font(.caption2).foregroundStyle(.secondary)
-                        }
-                    }
-                    Spacer()
-                    Image(systemName: "chevron.right")
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(.secondary)
+            thumb(capture.original)
+            thumb(capture.lab)
+            VStack(alignment: .leading, spacing: 4) {
+                Text(capture.id).font(.caption.monospaced())
+                Text("1×: open · 2×: export · 3×: share")
+                    .font(.caption2).foregroundStyle(.secondary)
+                if capture.html != nil {
+                    Label("text.html", systemImage: "doc.richtext")
+                        .font(.caption2).foregroundStyle(.secondary)
                 }
-                .contentShape(Rectangle())
             }
-            .buttonStyle(.plain)
+            Spacer()
+            Image(systemName: "chevron.right")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.secondary)
+        }
+        .contentShape(Rectangle())
+        .overlay {
+            if let gold = goldTap, gold.id == capture.id {
+                GoldOrbitOverlay(start: gold.start)
+            }
+        }
+        .highPriorityGesture(TapGesture().onEnded { chipTapped(capture) })
+    }
+
+    private func chipTapped(_ capture: CameraManager.Capture) {
+        goldTap = (capture.id, Date())
+        let count = (tapCounts[capture.id] ?? 0) + 1
+        tapCounts[capture.id] = count
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+            guard tapCounts[capture.id] == count else { return } // superseded
+            tapCounts[capture.id] = 0
+            switch count {
+            case 1:
+                detailCapture = capture
+            case 2:
+                exportTarget = capture.original
+                exportFolder = capture.original.deletingLastPathComponent()
+                showExportDialog = true
+            default:
+                shareCapture(capture)
+            }
         }
     }
 
-    private func exportableThumb(_ url: URL, folder: URL) -> some View {
-        thumb(url)
-            .contentShape(Rectangle())
-            .highPriorityGesture(
-                TapGesture(count: 3)
-                    .onEnded { saveToCameraRoll(url) }
-                    .exclusively(before: TapGesture(count: 2).onEnded {
-                        exportTarget = url
-                        exportFolder = folder
-                        showExportDialog = true
-                    }))
+    // Share sheet is the kinder path for 3×tap: "Save to Files" lives
+    // inside it, alongside AirDrop/Messages — user picks, gets confirmation.
+    private func shareCapture(_ capture: CameraManager.Capture) {
+        var items: [URL] = []
+        if let html = capture.html { items.append(html) }
+        if items.isEmpty { items = [capture.original, capture.lab] }
+        #if os(iOS)
+        shareBundle = ShareBundle(items: items)
+        #else
+        NSWorkspace.shared.activateFileViewerSelecting(items)
+        #endif
     }
 
     private func thumb(_ url: URL) -> some View {
