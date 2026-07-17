@@ -59,3 +59,23 @@ Requires a real device (camera). iOS 17+.
 
 A decode is only reported after the same value is seen on several
 consecutive frames — the classic wand-scanner debounce.
+
+## V2: the app icon is a Metal shader
+
+`GenerateIcon.swift` is a single-file, reproducible icon generator —
+`swift GenerateIcon.swift` on macOS and you get the 1024×1024
+`icon-1024.png` dropped straight into
+`LabScan/Assets.xcassets/AppIcon.appiconset/`. The PNG is committed,
+and `build-and-run.sh` regenerates it automatically if it's ever
+missing.
+
+The pipeline is the fun part, and it's meant to be stolen:
+
+1. **CoreText** typesets a dense "page" — alternating lines of Times
+   New Roman and IBM Plex Mono (Menlo fallback) set with excerpts from
+   Richard Hamming's *"You and Your Research"* — into a bitmap.
+2. **Metal** uploads the page as a texture and a ~15-line compute
+   kernel composites LabScan's red scan-stripe over it: 100% opacity
+   at 50% of the icon height, smoothstep-fading to 0% at 30% and 90%.
+3. **ImageIO** writes the readback to PNG. No windows, no Xcode, no
+   asset pipeline: shader → image.
