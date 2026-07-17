@@ -1,0 +1,9 @@
+# lilguys herd file — one lilguy per line.
+# kinds: fuzzball, grass, dandelion
+# options: x=<0..1 fraction of screen width>  size=<points>
+
+fuzzball
+grass x=0.18
+grass x=0.42
+grass x=0.47
+dandelion x=0.72
