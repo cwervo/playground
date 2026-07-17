@@ -18,6 +18,12 @@ cd "$(dirname "$0")"
 QUERY="${1:-🍰}"
 BUNDLE_ID="com.cwervo.LabScan"
 
+# 0. Generate the V2 app icon if it isn't there yet (Metal shader → PNG).
+if [[ ! -f LabScan/Assets.xcassets/AppIcon.appiconset/AppIcon.png ]]; then
+  echo "==> Generating app icon (MakeAppIcon.swift)"
+  swift MakeAppIcon.swift
+fi
+
 # 1. Generate the Xcode project.
 if ! command -v xcodegen >/dev/null 2>&1; then
   if command -v brew >/dev/null 2>&1; then
