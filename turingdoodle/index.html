@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover, user-scalable=no">
+<title>TuringDoodle</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <video id="camera" playsinline muted autoplay></video>
+  <canvas id="stage"></canvas>
+
+  <div class="ui-layer">
+
+    <!-- top bar -->
+    <header class="topbar">
+      <div class="brand">
+        <span class="brand-mark">⌁</span>
+        <span class="brand-name">TuringDoodle</span>
+      </div>
+      <div class="topbar-controls">
+        <select id="modeSelect" title="Symbol set / mode">
+          <option value="simple">Simple (0 / 1 tape)</option>
+          <option value="math">Math (handwritten symbols)</option>
+          <option value="custom">Custom alphabet</option>
+        </select>
+        <button id="settingsBtn" class="icon-btn" title="Settings">⚙</button>
+        <button id="helpBtn" class="icon-btn" title="Tutorial">?</button>
+      </div>
+    </header>
+
+    <!-- legend chip strip -->
+    <div id="legend" class="legend"></div>
+
+    <!-- settings drawer -->
+    <aside id="settingsPanel" class="panel hidden">
+      <div class="panel-head">
+        <h2>Settings</h2>
+        <button class="icon-btn" id="closeSettings">✕</button>
+      </div>
+
+      <section class="panel-section" id="customAlphabetSection">
+        <h3>Custom alphabet</h3>
+        <p class="hint">Comma-separated list of valid symbols for this mode.</p>
+        <textarea id="customAlphabetInput" rows="2" placeholder="e.g. 0,1,2,+,-,="></textarea>
+        <button id="applyCustomAlphabet" class="btn">Apply</button>
+      </section>
+
+      <section class="panel-section">
+        <h3>Train symbols</h3>
+        <p class="hint">Draw each symbol on paper, hold it to the camera, then tap its tile to capture a sample. Simple mode (0/1) needs no training.</p>
+        <div id="trainGrid" class="train-grid"></div>
+        <button id="clearTraining" class="btn danger">Clear all trained samples</button>
+      </section>
+
+      <section class="panel-section">
+        <h3>Camera &amp; vision</h3>
+        <label class="row"><span>Threshold sensitivity</span>
+          <input type="range" id="thresholdBias" min="-60" max="60" value="0">
+        </label>
+        <label class="row"><span>Mirror preview</span>
+          <input type="checkbox" id="mirrorToggle">
+        </label>
+        <button id="flipCameraBtn" class="btn">Flip camera</button>
+      </section>
+    </aside>
+
+    <!-- tutorial card -->
+    <div id="tutorialCard" class="tutorial-card hidden">
+      <div class="tutorial-step-label" id="tutorialStepLabel">Step 1 of 5</div>
+      <div class="tutorial-body" id="tutorialBody"></div>
+      <div class="tutorial-nav">
+        <button id="tutorialSkip" class="btn ghost">Skip</button>
+        <div class="spacer"></div>
+        <button id="tutorialBack" class="btn ghost">Back</button>
+        <button id="tutorialNext" class="btn">Next</button>
+      </div>
+    </div>
+
+    <!-- recognition / result banner -->
+    <div id="resultBanner" class="result-banner hidden"></div>
+
+    <!-- tape panel -->
+    <div id="tapePanel" class="tape-panel hidden">
+      <div class="tape-scroll" id="tapeScroll"></div>
+      <div class="tape-controls">
+        <button id="tapeAddZero" class="btn small">+ -</button>
+        <button id="tapeAddOne" class="btn small">+ |</button>
+        <button id="tapeRemove" class="btn small">⌫</button>
+        <button id="tapeClear" class="btn small ghost">Clear</button>
+        <div class="spacer"></div>
+        <label class="row speed"><span>Speed</span><input type="range" id="speedSlider" min="1" max="10" value="5"></label>
+        <button id="tapeReset" class="btn small ghost">⟲</button>
+        <button id="tapeStep" class="btn small">Step</button>
+        <button id="tapeRun" class="btn small primary">▶ Run</button>
+      </div>
+      <div class="tm-state" id="tmState"></div>
+    </div>
+
+    <!-- expression panel (math mode) -->
+    <div id="exprPanel" class="expr-panel hidden">
+      <div class="expr-readout" id="exprReadout">—</div>
+      <div class="expr-vars" id="exprVars"></div>
+      <div class="expr-result" id="exprResult"></div>
+    </div>
+
+    <!-- bottom capture bar -->
+    <div class="capture-bar">
+      <button id="uploadBtn" class="icon-btn" title="Upload a photo instead">⤒</button>
+      <button id="scanBtn" class="shutter" title="Scan"></button>
+      <button id="liveBtn" class="icon-btn hidden" title="Back to live camera">↺</button>
+    </div>
+
+    <input type="file" id="uploadInput" accept="image/*" capture="environment" class="visually-hidden">
+
+    <div id="cameraError" class="camera-error hidden"></div>
+  </div>
+
+<script src="app.js"></script>
+</body>
+</html>
