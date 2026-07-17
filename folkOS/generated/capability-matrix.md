@@ -7,11 +7,11 @@ Legend: ✅ yes · 🟡 partial · 🔜 planned · ❌ not supported · ❔ unde
 
 | Feature | Folk native (Vulkan) | folkOS Vulkan clone | JS simulator (headless CLI) | WASM simulator | C++ simulator (CLI) | CLI ASCII emulation | Linux SDL renderer | JS <canvas> 2D | JS+WASM <canvas> | JS WebGPU <canvas> | Metal renderer (macOS) | Metal renderer (iOS) |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|
-| Core syntax (`core-syntax`) | ✅ | 🔜 | 🔜 | 🔜 | 🔜 | 🔜 | 🔜 | 🔜 | 🔜 | 🔜 | 🔜 | 🔜 |
-| Reactive DB (`reactive-db`) | ✅ | 🔜 | 🔜 | 🔜 | 🔜 | 🔜 | 🔜 | 🔜 | 🔜 | 🔜 | 🔜 | 🔜 |
-| Decorations (`decorations`) | ✅ | 🔜 | 🔜 | 🔜 | 🔜 | 🟡 | 🔜 | 🔜 | 🔜 | 🔜 | 🔜 | 🔜 |
+| Core syntax (`core-syntax`) | ✅ | 🔜 | 🔜 | 🔜 | 🔜 | 🔜 | 🔜 | 🔜 | 🔜 | 🔜 | 🔜 | 🟡 |
+| Reactive DB (`reactive-db`) | ✅ | 🔜 | 🔜 | 🔜 | 🔜 | 🔜 | 🔜 | 🔜 | 🔜 | 🔜 | 🔜 | 🟡 |
+| Decorations (`decorations`) | ✅ | 🔜 | 🔜 | 🔜 | 🔜 | 🟡 | 🔜 | 🔜 | 🔜 | 🔜 | 🔜 | ✅ |
 | Canvas (`canvas`) | ✅ | 🔜 | ❌ | 🔜 | 🔜 | 🟡 | 🔜 | 🔜 | 🔜 | 🔜 | 🔜 | 🔜 |
-| 2D drawing (`draw2d`) | ✅ | 🔜 | ❌ | 🔜 | 🔜 | 🟡 | 🔜 | 🔜 | 🔜 | 🔜 | 🔜 | 🔜 |
+| 2D drawing (`draw2d`) | ✅ | 🔜 | ❌ | 🔜 | 🔜 | 🟡 | 🔜 | 🔜 | 🔜 | 🔜 | 🔜 | 🟡 |
 | Image display (`image`) | ✅ | 🔜 | ❌ | 🔜 | 🔜 | 🟡 | 🔜 | 🔜 | 🔜 | 🔜 | 🔜 | 🔜 |
 | JPEG codec (`image-jpeg`) | ✅ | 🔜 | 🔜 | 🔜 | 🔜 | 🟡 | 🔜 | ✅ | ✅ | ✅ | ✅ | ✅ |
 | PNG codec (`image-png`) | ✅ | 🔜 | 🔜 | 🔜 | 🔜 | 🟡 | 🔜 | ✅ | ✅ | ✅ | ✅ | ✅ |
@@ -29,7 +29,7 @@ Legend: ✅ yes · 🟡 partial · 🔜 planned · ❌ not supported · ❔ unde
 | Clock/animation (`clock`) | ✅ | 🔜 | 🔜 | 🔜 | 🔜 | 🔜 | 🔜 | 🔜 | 🔜 | 🔜 | 🔜 | 🔜 |
 | Collect (`collect`) | ✅ | 🔜 | 🔜 | 🔜 | 🔜 | 🔜 | 🔜 | 🔜 | 🔜 | 🔜 | 🔜 | 🔜 |
 | Unix processes (`unix`) | ✅ | 🔜 | 🔜 | ❌ | 🔜 | 🔜 | 🔜 | ❌ | ❌ | ❌ | 🔜 | ❌ |
-| Error surfacing (`errors`) | ✅ | 🔜 | 🔜 | 🔜 | 🔜 | 🔜 | 🔜 | 🔜 | 🔜 | 🔜 | 🔜 | 🔜 |
+| Error surfacing (`errors`) | ✅ | 🔜 | 🔜 | 🔜 | 🔜 | 🔜 | 🔜 | 🔜 | 🔜 | 🔜 | 🔜 | ✅ |
 | Program mgmt (`programs`) | ✅ | 🔜 | 🔜 | 🔜 | 🔜 | 🔜 | 🔜 | 🔜 | 🔜 | 🔜 | 🔜 | 🔜 |
 | Editor (`editor`) | ✅ | 🔜 | ❌ | ❔ | ❔ | 🟡 | 🔜 | 🔜 | 🔜 | 🔜 | 🔜 | 🟡 |
 | Printing (`print`) | ✅ | ❔ | ❌ | ❌ | ❔ | ❌ | ❔ | ❌ | ❌ | ❌ | ❔ | ❌ |
@@ -51,5 +51,5 @@ Legend: ✅ yes · 🟡 partial · 🔜 planned · ❌ not supported · ❔ unde
 - **JS+WASM <canvas>** (`render-js-wasm-canvas`, WASM engine + Canvas2D, planned): Same surface as render-js-canvas with the WASM engine core.
 - **JS WebGPU <canvas>** (`render-webgpu`, WASM/TS + WebGPU, planned): Closest browser analog to upstream's Vulkan path; toy shaders retargeted to WGSL.
 - **Metal renderer (macOS)** (`render-metal-macos`, Swift/ObjC++ + Metal, planned): MSL retarget of shader surface; AVFoundation for camera/video.
-- **Metal renderer (iOS)** (`render-metal-ios`, Swift + Metal, planned): Touch-first; no subprocesses; camera is the device camera.
+- **Metal renderer (iOS)** (`render-metal-ios`, Swift + Metal + Jim Tcl, prototype): First slice shipped as FolkBoy (renderers/metal-ios): embedded Jim Tcl batch engine, decorations vocab, circles/text; touch-first, no subprocesses.
 

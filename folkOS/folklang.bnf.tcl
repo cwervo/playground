@@ -762,15 +762,15 @@ foreach f $::folklang::featureOrder { dict set ::folklang::_allYes $f yes }
      gpu-shader planned terminal unknown audio planned web unknown} \
     "MSL retarget of shader surface; AVFoundation for camera/video."
 
-::folklang::renderer render-metal-ios "Metal renderer (iOS)" "Swift + Metal" planned full \
-    {core-syntax planned reactive-db planned decorations planned canvas planned
-     draw2d planned image planned image-jpeg yes image-png yes image-gif planned
+::folklang::renderer render-metal-ios "Metal renderer (iOS)" "Swift + Metal + Jim Tcl" prototype full \
+    {core-syntax partial reactive-db partial decorations yes canvas planned
+     draw2d partial image planned image-jpeg yes image-png yes image-gif planned
      sprite planned video planned camera planned camera-slice planned
      apriltags planned geometry planned calibration planned connections planned
      recognition unknown keyboard partial clock planned collect planned unix no
-     errors planned programs planned editor partial print no gpu-shader planned
+     errors yes programs planned editor partial print no gpu-shader planned
      terminal no audio planned web unknown} \
-    "Touch-first; no subprocesses; camera is the device camera."
+    "First slice shipped as FolkBoy (renderers/metal-ios): embedded Jim Tcl batch engine, decorations vocab, circles/text; touch-first, no subprocesses."
 
 unset ::folklang::_allYes
 

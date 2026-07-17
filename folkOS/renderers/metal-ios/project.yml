@@ -1,0 +1,32 @@
+# XcodeGen project definition for FolkBoy.
+#   brew install xcodegen
+#   xcodegen           # generates FolkBoy.xcodeproj
+name: FolkBoy
+options:
+  bundleIdPrefix: computer.folk.folkos
+  deploymentTarget:
+    iOS: "16.0"
+targets:
+  FolkBoy:
+    type: application
+    platform: iOS
+    sources:
+      - path: App
+      - path: CSources
+        compilerFlags: ["-w"]   # folk_jim.c includes the third-party jimsh0.c
+      - path: Vendor
+        buildPhase: none        # jimsh0.c is #included by folk_jim.c, never compiled alone
+      - path: Engine
+        buildPhase: resources   # folk-engine.tcl ships in the bundle
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: computer.folk.folkos.folkboy
+        SWIFT_VERSION: "5.9"
+        SWIFT_OBJC_BRIDGING_HEADER: CSources/include/FolkBoy-Bridging-Header.h
+        HEADER_SEARCH_PATHS:
+          - "$(SRCROOT)/Vendor"
+          - "$(SRCROOT)/CSources/include"
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_KEY_UILaunchScreen_Generation: YES
+        INFOPLIST_KEY_UISupportedInterfaceOrientations: UIInterfaceOrientationPortrait
+        TARGETED_DEVICE_FAMILY: "1,2"
