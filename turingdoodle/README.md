@@ -3,8 +3,16 @@
 A full-screen camera app that turns hand-drawn marks on paper into a running
 Turing machine — no build step, no dependencies, just `index.html`.
 
-Open `index.html` (served over `https://` or `localhost` — browsers require
-a secure context for camera access) and point your camera at paper.
+The entire app — markup, styles, vision pipeline, Turing machine, math
+evaluator — lives in that one file with zero external references, so it works
+**completely offline**: open it from disk, airdrop it to a friend, or serve it
+from anywhere. (For live camera access browsers require a secure context, so
+use `https://`, `localhost`, or the iOS app below; the photo-upload button and
+manual tape editor work even from a plain `file://` open.)
+
+There's also a native iOS port in [`ios/`](ios/) — a SwiftUI + WKWebView
+wrapper that bundles this same `index.html`, with a one-command headless
+`xcodebuild` script to install it on your device.
 
 ## The idea
 
@@ -66,6 +74,7 @@ any device.
 
 ## Files
 
-- `index.html` — markup and UI panels
-- `style.css` — full-screen layout, dark UI chrome
-- `app.js` — camera handling, vision pipeline, Turing machine, math evaluator
+- `index.html` — the whole app, self-contained: markup, styles, camera
+  handling, vision pipeline, Turing machine, and math evaluator inlined
+- `ios/` — native iOS wrapper (SwiftUI + WKWebView) with headless CLI
+  build-and-install tooling; see [`ios/README.md`](ios/README.md)
