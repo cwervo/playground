@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>Broiderspiel</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #0c0c14; overflow: hidden; }
+  /* Single fullscreen canvas. touch-action:none so double-tap doesn't zoom. */
+  canvas { display: block; width: 100vw; height: 100vh; touch-action: none; cursor: crosshair; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<script>
+/*
+  Broiderspiel — a mashup of two Max Bittker toys, in one WebGL canvas:
+    • Broider  : a symmetric, self-mirroring "embroidery" that stitches the
+                 outer 4% frame of the viewport.
+    • Sandspiel: a falling-sand cellular automaton running inside the central
+                 84% box (sand, water, wood, plant, fire, smoke, stone).
+
+  Everything is simulated on the CPU into a low-res RGBA grid which is uploaded
+  once per frame to a texture and drawn as a single fullscreen triangle with
+  nearest-neighbour sampling.
+
+  Controls
+    • drag / paint : draw the current element into the sandspiel box
+    • single tap   : cycle the current element (sand → water → wood → …)
+    • double tap   : pause the simulation and open the native Share sheet
+                     (saves a PNG of your creation; falls back to download)
+*/
+(function () {
+  "use strict";
+
+  // ---- layout fractions ------------------------------------------------
+  const BORDER_FRAC = 0.04; // broider band: the outer 4% of the viewport
+  const INNER_FRAC  = 0.84; // sandspiel box: the central 84%
+  const MARGIN_FRAC = (1 - INNER_FRAC) / 2; // => 0.08 inset to the sand box
+  const TARGET_LONG = 300;  // cells along the longer viewport axis
+
+  // ---- element ids -----------------------------------------------------
+  const EMPTY = 0, WALL = 1, SAND = 2, WATER = 3,
+        WOOD = 4, PLANT = 5, FIRE = 6, SMOKE = 7, STONE = 8;
+  const BRUSHES = [SAND, WATER, WOOD, PLANT, FIRE, STONE];
+
+  // ---- WebGL setup -----------------------------------------------------
+  const canvas = document.getElementById("c");
+  const gl = canvas.getContext("webgl", {
+    preserveDrawingBuffer: true, // needed so canvas.toBlob() can capture frames
+    antialias: false,
+    alpha: false
+  });
+  if (!gl) { document.body.innerHTML = "<p style='color:#fff;font:16px sans-serif;padding:1em'>WebGL is required for Broiderspiel.</p>"; return; }
+
+  const VERT = `
+    attribute vec2 a_pos;
+    varying vec2 v_uv;
+    void main() {
+      // full-screen triangle; map so grid row 0 sits at the top of the screen.
+      v_uv = vec2((a_pos.x + 1.0) * 0.5, (1.0 - a_pos.y) * 0.5);
+      gl_Position = vec4(a_pos, 0.0, 1.0);
+    }`;
+  const FRAG = `
+    precision mediump float;
+    varying vec2 v_uv;
+    uniform sampler2D u_tex;
+    void main() { gl_FragColor = texture2D(u_tex, v_uv); }`;
+
+  function compile(type, src) {
+    const s = gl.createShader(type);
+    gl.shaderSource(s, src); gl.compileShader(s);
+    if (!gl.getShaderParameter(s, gl.COMPILE_STATUS))
+      throw new Error(gl.getShaderInfoLog(s));
+    return s;
+  }
+  const prog = gl.createProgram();
+  gl.attachShader(prog, compile(gl.VERTEX_SHADER, VERT));
+  gl.attachShader(prog, compile(gl.FRAGMENT_SHADER, FRAG));
+  gl.linkProgram(prog);
+  gl.useProgram(prog);
+
+  const buf = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
+  const a_pos = gl.getAttribLocation(prog, "a_pos");
+  gl.enableVertexAttribArray(a_pos);
+  gl.vertexAttribPointer(a_pos, 2, gl.FLOAT, false, 0, 0);
+
+  const tex = gl.createTexture();
+  gl.bindTexture(gl.TEXTURE_2D, tex);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+  gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
+  gl.uniform1i(gl.getUniformLocation(prog, "u_tex"), 0);
+
+  // ---- grid state (allocated / re-allocated on resize) -----------------
+  let W = 0, H = 0;                 // grid dimensions in cells
+  let type, life, noise, color;     // simulation + render buffers
+  let ix0, iy0, ix1, iy1;           // inner sandspiel box (inclusive)
+  let bandX, bandY;                 // broider band thickness in cells
+  let walkers = [];                 // broider stitch agents
+  let frame = 0;
+
+  const BG = [12, 12, 20];          // background / air colour
+
+  function idx(x, y) { return y * W + x; }
+  function inBox(x, y) { return x >= ix0 && x <= ix1 && y >= iy0 && y <= iy1; }
+  function isBorder(x, y) {
+    return x < bandX || x >= W - bandX || y < bandY || y >= H - bandY;
+  }
+
+  function allocate() {
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const cssW = window.innerWidth, cssH = window.innerHeight;
+    const cell = Math.max(1, Math.ceil(Math.max(cssW, cssH) / TARGET_LONG));
+    W = Math.max(16, Math.floor(cssW / cell));
+    H = Math.max(16, Math.floor(cssH / cell));
+
+    canvas.width  = Math.floor(cssW * dpr);
+    canvas.height = Math.floor(cssH * dpr);
+    gl.viewport(0, 0, canvas.width, canvas.height);
+
+    type  = new Uint8Array(W * H);
+    life  = new Uint8Array(W * H);
+    noise = new Uint8Array(W * H);
+    color = new Uint8Array(W * H * 4);
+    for (let i = 0; i < noise.length; i++) noise[i] = (Math.random() * 256) | 0;
+
+    bandX = Math.max(1, Math.round(BORDER_FRAC * W));
+    bandY = Math.max(1, Math.round(BORDER_FRAC * H));
+    const mx = Math.round(MARGIN_FRAC * W), my = Math.round(MARGIN_FRAC * H);
+    ix0 = mx; ix1 = W - 1 - mx;
+    iy0 = my; iy1 = H - 1 - my;
+
+    // paint the static background everywhere (gap + under-frame + air).
+    for (let i = 0; i < W * H; i++) {
+      color[i * 4] = BG[0]; color[i * 4 + 1] = BG[1];
+      color[i * 4 + 2] = BG[2]; color[i * 4 + 3] = 255;
+    }
+
+    seedSand();
+    seedBroider();
+    frame = 0;
+  }
+
+  // ---- sandspiel seeding ----------------------------------------------
+  function seedSand() {
+    // a strip of plant along the floor of the box, for the fire to nibble at.
+    for (let x = ix0; x <= ix1; x++) {
+      if (Math.random() < 0.55) {
+        type[idx(x, iy1)] = PLANT;
+        if (Math.random() < 0.4 && iy1 - 1 >= iy0) type[idx(x, iy1 - 1)] = PLANT;
+      }
+    }
+  }
+
+  // ---- broider seeding -------------------------------------------------
+  function seedBroider() {
+    walkers = [];
+    // top-edge agents roam in x; left-edge agents roam in y. 4-fold mirroring
+    // reflects each stitch into the other three edges for a symmetric frame.
+    const N = 3;
+    for (let i = 0; i < N; i++) {
+      walkers.push({
+        edge: "top",
+        x: Math.random() * W, y: Math.random() * bandY,
+        vx: (Math.random() < 0.5 ? -1 : 1) * (0.6 + Math.random()),
+        hue: Math.random(), dh: 0.002 + Math.random() * 0.004
+      });
+      walkers.push({
+        edge: "left",
+        x: Math.random() * bandX, y: Math.random() * H,
+        vy: (Math.random() < 0.5 ? -1 : 1) * (0.6 + Math.random()),
+        hue: Math.random(), dh: 0.002 + Math.random() * 0.004
+      });
+    }
+  }
+
+  // ---- colour helpers --------------------------------------------------
+  function hsv(h, s, v) {
+    h = ((h % 1) + 1) % 1;
+    const i = Math.floor(h * 6), f = h * 6 - i;
+    const p = v * (1 - s), q = v * (1 - f * s), t = v * (1 - (1 - f) * s);
+    let r, g, b;
+    switch (i % 6) {
+      case 0: r = v; g = t; b = p; break;
+      case 1: r = q; g = v; b = p; break;
+      case 2: r = p; g = v; b = t; break;
+      case 3: r = p; g = q; b = v; break;
+      case 4: r = t; g = p; b = v; break;
+      default: r = v; g = p; b = q;
+    }
+    return [(r * 255) | 0, (g * 255) | 0, (b * 255) | 0];
+  }
+  const clamp8 = (v) => v < 0 ? 0 : v > 255 ? 255 : v;
+
+  function writeCell(i, r, g, b) {
+    color[i * 4] = clamp8(r); color[i * 4 + 1] = clamp8(g);
+    color[i * 4 + 2] = clamp8(b); color[i * 4 + 3] = 255;
+  }
+
+  // ---- sandspiel simulation -------------------------------------------
+  function swap(a, b) {
+    let t = type[a]; type[a] = type[b]; type[b] = t;
+    t = life[a]; life[a] = life[b]; life[b] = t;
+  }
+
+  function emit(x, y, t, r) {
+    for (let dy = -r; dy <= r; dy++)
+      for (let dx = -r; dx <= r; dx++) {
+        const nx = x + dx, ny = y + dy;
+        if (inBox(nx, ny) && type[idx(nx, ny)] === EMPTY) type[idx(nx, ny)] = t;
+      }
+  }
+
+  function stepSand() {
+    const bw = ix1 - ix0;
+    // gentle self-running emitters keep the scene alive without any input.
+    if (frame % 2 === 0)  emit(ix0 + ((bw * 0.32) | 0), iy0 + 1, SAND, 1);
+    if (frame % 3 === 0)  emit(ix0 + ((bw * 0.68) | 0), iy0 + 1, WATER, 1);
+    if (frame % 220 === 0) type[idx(ix0 + ((bw * 0.5) | 0), iy0 + 1)] = FIRE, life[idx(ix0 + ((bw * 0.5) | 0), iy0 + 1)] = 40;
+
+    for (let y = iy1; y >= iy0; y--) {
+      const l2r = ((frame + y) & 1) === 0;
+      for (let k = 0; k <= ix1 - ix0; k++) {
+        const x = l2r ? ix0 + k : ix1 - k;
+        const i = idx(x, y);
+        const t = type[i];
+        if (t === EMPTY || t === WALL || t === STONE || t === WOOD) continue;
+
+        if (t === SAND) {
+          const d = i + W;
+          if (y < iy1 && (type[d] === EMPTY || type[d] === WATER)) { swap(i, d); continue; }
+          const dir = Math.random() < 0.5 ? 1 : -1;
+          if (y < iy1) {
+            if (inBox(x + dir, y + 1) && (type[d + dir] === EMPTY || type[d + dir] === WATER)) { swap(i, d + dir); continue; }
+            if (inBox(x - dir, y + 1) && (type[d - dir] === EMPTY || type[d - dir] === WATER)) { swap(i, d - dir); continue; }
+          }
+        } else if (t === WATER) {
+          const d = i + W;
+          if (y < iy1 && type[d] === EMPTY) { swap(i, d); continue; }
+          const dir = Math.random() < 0.5 ? 1 : -1;
+          if (y < iy1) {
+            if (inBox(x + dir, y + 1) && type[d + dir] === EMPTY) { swap(i, d + dir); continue; }
+            if (inBox(x - dir, y + 1) && type[d - dir] === EMPTY) { swap(i, d - dir); continue; }
+          }
+          if (inBox(x + dir, y) && type[i + dir] === EMPTY) { swap(i, i + dir); continue; }
+          if (inBox(x - dir, y) && type[i - dir] === EMPTY) { swap(i, i - dir); continue; }
+        } else if (t === FIRE) {
+          life[i]--;
+          let extinguished = false;
+          const nb = [i - W, i + W, i - 1, i + 1];
+          const nx = [x, x, x - 1, x + 1], ny = [y - 1, y + 1, y, y];
+          for (let n = 0; n < 4; n++) {
+            if (!inBox(nx[n], ny[n])) continue;
+            const nt = type[nb[n]];
+            if ((nt === WOOD || nt === PLANT) && Math.random() < 0.28) {
+              type[nb[n]] = FIRE; life[nb[n]] = 22 + (Math.random() * 22 | 0);
+            } else if (nt === WATER) { extinguished = true; }
+          }
+          if (extinguished) { type[i] = SMOKE; life[i] = 26; continue; }
+          if (life[i] <= 0) {
+            type[i] = Math.random() < 0.5 ? SMOKE : EMPTY;
+            life[i] = 30; continue;
+          }
+          // flicker upward
+          const u = i - W;
+          if (y > iy0 && type[u] === EMPTY && Math.random() < 0.4) { swap(i, u); continue; }
+        } else if (t === SMOKE) {
+          if (--life[i] <= 0) { type[i] = EMPTY; life[i] = 0; continue; }
+          const u = i - W, dir = Math.random() < 0.5 ? 1 : -1;
+          if (y > iy0) {
+            if (type[u] === EMPTY) { swap(i, u); continue; }
+            if (inBox(x + dir, y - 1) && type[u + dir] === EMPTY) { swap(i, u + dir); continue; }
+            if (inBox(x - dir, y - 1) && type[u - dir] === EMPTY) { swap(i, u - dir); continue; }
+          }
+        } else if (t === PLANT) {
+          // creep into an empty neighbour whenever water is adjacent (and
+          // consume that water), so plants trace the waterline then stop.
+          if (Math.random() < 0.12) {
+            const nb = [i - W, i + W, i - 1, i + 1];
+            const nx = [x, x, x - 1, x + 1], ny = [y - 1, y + 1, y, y];
+            let waterAt = -1, emptyAt = -1;
+            for (let n = 0; n < 4; n++) {
+              if (!inBox(nx[n], ny[n])) continue;
+              if (type[nb[n]] === WATER) waterAt = nb[n];
+              else if (type[nb[n]] === EMPTY) emptyAt = nb[n];
+            }
+            if (waterAt >= 0 && emptyAt >= 0) {
+              type[emptyAt] = PLANT;
+              if (Math.random() < 0.5) type[waterAt] = EMPTY;
+            }
+          }
+        }
+      }
+    }
+  }
+
+  // ---- broider simulation ---------------------------------------------
+  // plot with 4-fold mirror symmetry so the whole frame stays symmetric.
+  function stitch(x, y, r, g, b) {
+    const pts = [[x, y], [W - 1 - x, y], [x, H - 1 - y], [W - 1 - x, H - 1 - y]];
+    for (let p = 0; p < pts.length; p++) {
+      const px = pts[p][0], py = pts[p][1];
+      // small plus-shaped stitch for a bit of body
+      for (let o = -1; o <= 1; o++) {
+        const a = px + o, b2 = py + o;
+        if (a >= 0 && a < W && py >= 0 && py < H && isBorder(a, py)) writeCell(idx(a, py), r, g, b);
+        if (px >= 0 && px < W && b2 >= 0 && b2 < H && isBorder(px, b2)) writeCell(idx(px, b2), r, g, b);
+      }
+    }
+  }
+
+  function stepBroider() {
+    // slow fade of the whole band so old stitches recede — a living embroidery.
+    if (frame % 4 === 0) {
+      for (let y = 0; y < H; y++)
+        for (let x = 0; x < W; x++) {
+          if (!isBorder(x, y)) continue;
+          const i = idx(x, y) * 4;
+          color[i]     += (BG[0] - color[i])     * 0.03;
+          color[i + 1] += (BG[1] - color[i + 1]) * 0.03;
+          color[i + 2] += (BG[2] - color[i + 2]) * 0.03;
+        }
+    }
+    for (const w of walkers) {
+      w.hue = (w.hue + w.dh) % 1;
+      const [r, g, b] = hsv(w.hue, 0.65 + Math.random() * 0.25, 0.95);
+      if (w.edge === "top") {
+        w.x += w.vx;
+        w.y += (Math.random() - 0.5) * 0.9;
+        if (w.x < 0) { w.x = 0; w.vx = Math.abs(w.vx); }
+        if (w.x > W - 1) { w.x = W - 1; w.vx = -Math.abs(w.vx); }
+        if (w.y < 0) w.y = 0;
+        if (w.y > bandY - 1) w.y = bandY - 1;
+      } else {
+        w.y += w.vy;
+        w.x += (Math.random() - 0.5) * 0.9;
+        if (w.y < 0) { w.y = 0; w.vy = Math.abs(w.vy); }
+        if (w.y > H - 1) { w.y = H - 1; w.vy = -Math.abs(w.vy); }
+        if (w.x < 0) w.x = 0;
+        if (w.x > bandX - 1) w.x = bandX - 1;
+      }
+      stitch(w.x | 0, w.y | 0, r, g, b);
+    }
+  }
+
+  // ---- render the inner box into the colour buffer ---------------------
+  function colorizeBox() {
+    for (let y = iy0; y <= iy1; y++)
+      for (let x = ix0; x <= ix1; x++) {
+        const i = idx(x, y), t = type[i], n = noise[i], l = life[i];
+        switch (t) {
+          case EMPTY: writeCell(i, BG[0], BG[1], BG[2]); break;
+          case WALL:  writeCell(i, 80, 84, 96); break;
+          case STONE: { const s = 100 + (n % 24); writeCell(i, s, s, s + 8); break; }
+          case SAND:  writeCell(i, 200 + (n % 30 - 15), 176 + (n % 24 - 12), 88 + (n % 20 - 10)); break;
+          case WATER: writeCell(i, 40 + (n % 20 - 10), 96 + (n % 24 - 12), 200 + (n % 30 - 15)); break;
+          case WOOD:  writeCell(i, 110 + (n % 20 - 10), 66 + (n % 16 - 8), 38 + (n % 12 - 6)); break;
+          case PLANT: writeCell(i, 46 + (n % 24 - 12), 150 + (n % 40 - 20), 60 + (n % 24 - 12)); break;
+          case FIRE:  { const f = Math.min(1, l / 40); writeCell(i, 255, 90 + (f * 150 | 0), 20 + (f * 60 | 0)); break; }
+          case SMOKE: { const f = Math.min(1, l / 30), c = 60 + (f * 45 | 0); writeCell(i, c, c, c + 6); break; }
+          default:    writeCell(i, BG[0], BG[1], BG[2]);
+        }
+      }
+  }
+
+  // ---- draw ------------------------------------------------------------
+  function draw() {
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, W, H, 0, gl.RGBA, gl.UNSIGNED_BYTE, color);
+    gl.drawArrays(gl.TRIANGLES, 0, 3);
+  }
+
+  // ---- main loop -------------------------------------------------------
+  let paused = false;
+  function loop() {
+    if (!paused) {
+      stepSand();
+      stepBroider();
+      colorizeBox();
+      frame++;
+    }
+    draw();
+    requestAnimationFrame(loop);
+  }
+
+  // ---- input: paint, cycle, double-tap → pause + share -----------------
+  let brush = 0;
+  let down = false, moved = false, downX = 0, downY = 0, downT = 0;
+  let lastTap = 0, singleTimer = 0;
+
+  function toGrid(e) {
+    const rect = canvas.getBoundingClientRect();
+    const gx = Math.floor((e.clientX - rect.left) / rect.width * W);
+    const gy = Math.floor((e.clientY - rect.top) / rect.height * H);
+    return [gx, gy];
+  }
+  function paint(e) {
+    const [gx, gy] = toGrid(e);
+    const t = BRUSHES[brush];
+    const r = t === FIRE ? 1 : 2;
+    for (let dy = -r; dy <= r; dy++)
+      for (let dx = -r; dx <= r; dx++) {
+        const x = gx + dx, y = gy + dy;
+        if (!inBox(x, y)) continue;
+        const i = idx(x, y);
+        type[i] = t;
+        if (t === FIRE) life[i] = 40;
+      }
+  }
+
+  canvas.addEventListener("pointerdown", (e) => {
+    e.preventDefault();
+    down = true; moved = false;
+    downX = e.clientX; downY = e.clientY; downT = performance.now();
+    paint(e);
+  });
+  canvas.addEventListener("pointermove", (e) => {
+    if (!down) return;
+    if (Math.hypot(e.clientX - downX, e.clientY - downY) > 8) moved = true;
+    paint(e);
+  });
+  canvas.addEventListener("pointerup", (e) => {
+    e.preventDefault();
+    down = false;
+    const quick = performance.now() - downT < 300 && !moved;
+    if (!quick) return;
+    const now = performance.now();
+    if (now - lastTap < 320) {          // double tap
+      clearTimeout(singleTimer);
+      lastTap = 0;
+      onDoubleTap();
+    } else {                            // maybe a single tap
+      lastTap = now;
+      singleTimer = setTimeout(() => {
+        brush = (brush + 1) % BRUSHES.length; // cycle element
+      }, 320);
+    }
+  });
+  canvas.addEventListener("pointercancel", () => { down = false; });
+  window.addEventListener("contextmenu", (e) => e.preventDefault());
+
+  function onDoubleTap() {
+    paused = !paused;
+    if (paused) share();          // pause + open the share sheet
+  }
+
+  function share() {
+    draw(); // ensure the preserved buffer holds the current frame
+    canvas.toBlob((blob) => {
+      if (!blob) return;
+      const file = new File([blob], "broiderspiel.png", { type: "image/png" });
+      const data = { title: "Broiderspiel", text: "Made with Broiderspiel" };
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        navigator.share(Object.assign({ files: [file] }, data)).catch(() => {});
+      } else if (navigator.share) {
+        navigator.share(data).catch(() => {});
+      } else {
+        const a = document.createElement("a");
+        a.href = URL.createObjectURL(blob);
+        a.download = "broiderspiel.png";
+        a.click();
+        setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+      }
+    }, "image/png");
+  }
+
+  // ---- boot & resize ---------------------------------------------------
+  let resizeTimer = 0;
+  window.addEventListener("resize", () => {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(allocate, 150);
+  });
+
+  allocate();
+  requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>
