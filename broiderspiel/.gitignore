@@ -1,0 +1,11 @@
+# SDL build artifacts
+sdl/broiderspiel
+*.o
+# runtime snapshots
+*.ppm
+broiderspiel-*.png
+broiderspiel-share.*
+# node (used only for headless screenshots during dev)
+node_modules/
+package.json
+package-lock.json

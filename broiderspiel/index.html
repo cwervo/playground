@@ -374,18 +374,91 @@
     gl.drawArrays(gl.TRIANGLES, 0, 3);
   }
 
+  // ---- debug: FPS sparkline overlay ------------------------------------
+  // Keeps the ENTIRE fps history, streaming-downsampled so memory stays
+  // bounded, then compresses it across the width of a transparent overlay
+  // pinned to the bottom 10% of the viewport. Toggle with the "d" key or
+  // by loading the page with ?debug .
+  let debug = /[?&]debug\b/.test(location.search);
+  const FPS_CAP = 4096;          // history is halved whenever it hits 2x this
+  let fpsHist = [];              // every frame's instantaneous fps, compressed
+  let lastT = performance.now();
+
+  function recordFps(now) {
+    const dt = now - lastT; lastT = now;
+    if (dt <= 0) return;
+    fpsHist.push(Math.min(1000, 1000 / dt));   // clamp timer-resolution spikes
+    if (fpsHist.length >= FPS_CAP * 2) {   // downsample: average adjacent pairs
+      const half = new Array(FPS_CAP);
+      for (let i = 0; i < FPS_CAP; i++) half[i] = (fpsHist[i * 2] + fpsHist[i * 2 + 1]) * 0.5;
+      fpsHist = half;
+    }
+  }
+
+  function blend(i, r, g, b, a) {
+    const j = i * 4, ia = 1 - a;
+    color[j]     = color[j]     * ia + r * a;
+    color[j + 1] = color[j + 1] * ia + g * a;
+    color[j + 2] = color[j + 2] * ia + b * a;
+  }
+
+  function drawSparkline() {
+    const bandH = Math.max(3, Math.round(H * 0.10));
+    const y0 = H - bandH, y1 = H - 1;
+    for (let y = y0; y <= y1; y++)          // dim the band (still transparent)
+      for (let x = 0; x < W; x++) blend(idx(x, y), 0, 0, 0, 0.35);
+    const n = fpsHist.length;
+    if (!n) return;
+    let mx = 60;                            // 60fps sits near the top of the band
+    for (let i = 0; i < n; i++) if (fpsHist[i] > mx) mx = fpsHist[i];
+    let prevY = -1;
+    for (let x = 0; x < W; x++) {           // compress the whole history into W columns
+      const a = (x / W * n) | 0, b = Math.max(a + 1, ((x + 1) / W * n) | 0);
+      let s = 0, c = 0;
+      for (let j = a; j < b && j < n; j++) { s += fpsHist[j]; c++; }
+      const avg = c ? s / c : fpsHist[n - 1];
+      const yy = Math.round(y1 - (y1 - y0) * Math.min(1, avg / mx));
+      for (let y = yy; y <= y1; y++) blend(idx(x, y), 40, 230, 120, 0.5);   // area
+      if (prevY >= 0) {                     // connect the ridge for a crisp line
+        const lo = Math.min(prevY, yy), hi = Math.max(prevY, yy);
+        for (let y = lo; y <= hi; y++) blend(idx(x, y), 180, 255, 210, 0.7);
+      }
+      prevY = yy;
+    }
+    // ~60fps reference line across the band
+    const refY = Math.round(y1 - (y1 - y0) * Math.min(1, 60 / mx));
+    for (let x = 0; x < W; x += 2) blend(idx(x, refY), 255, 90, 90, 0.5);
+  }
+
   // ---- main loop -------------------------------------------------------
   let paused = false;
   function loop() {
+    const now = performance.now();
+    recordFps(now);
     if (!paused) {
       stepSand();
       stepBroider();
       colorizeBox();
       frame++;
     }
+    // The overlay is composited into the band, uploaded, then reverted so it
+    // never bakes into the persistent broider/gap pixels underneath.
+    let saved = null, tail = 0;
+    if (debug) {
+      tail = (H - Math.max(3, Math.round(H * 0.10))) * W * 4;
+      saved = color.slice(tail);
+      drawSparkline();
+    }
     draw();
+    if (saved) color.set(saved, tail);
     requestAnimationFrame(loop);
   }
+
+  window.addEventListener("keydown", (e) => {
+    if (e.key === "d" || e.key === "D") debug = !debug;
+    else if (e.key === " ") paused = !paused;
+    else if (e.key >= "1" && e.key <= String(BRUSHES.length)) brush = (+e.key) - 1;
+  });
 
   // ---- input: paint, cycle, double-tap → pause + share -----------------
   let brush = 0;

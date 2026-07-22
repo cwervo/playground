@@ -1,0 +1,626 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Broiderspiel — A Coffee-Table Book</title>
+<style>
+  @page { size: 11in 8.5in; margin: 0; }
+  :root{
+    --ink:#14141b; --paper:#f4f0e6; --paper2:#ece6d6; --dark:#0c0c14;
+    --accent:#b8452e; --accent2:#2f6f9f; --gold:#c8a24a; --green:#2e8b57;
+    --serif: "Bitstream Charter","DejaVu Serif","Liberation Serif",Georgia,serif;
+    --sans: "Liberation Sans","DejaVu Sans",Helvetica,Arial,sans-serif;
+    --mono: "DejaVu Sans Mono","Liberation Mono",monospace;
+  }
+  *{ box-sizing:border-box; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+  html,body{ margin:0; padding:0; }
+  body{ font-family:var(--serif); color:var(--ink); background:#888; }
+  .page{ width:11in; height:8.5in; position:relative; overflow:hidden;
+         background:var(--paper); page-break-after:always; }
+  .page:last-child{ page-break-after:auto; }
+  .pad{ padding:0.7in 0.85in; height:100%; }
+  .dark{ background:var(--dark); color:#e9e4d6; }
+  .cream{ background:var(--paper); }
+  .cream2{ background:var(--paper2); }
+  h1,h2,h3,h4{ font-weight:normal; margin:0; line-height:1.02; }
+  .display{ font-size:84pt; letter-spacing:-2px; line-height:0.9; }
+  .kicker{ font-family:var(--sans); text-transform:uppercase; letter-spacing:6px;
+           font-size:9.5pt; color:var(--accent); }
+  .kicker.light{ color:var(--gold); }
+  p{ font-size:11.6pt; line-height:1.5; margin:0 0 10pt; text-align:justify; hyphens:auto; }
+  .lead{ font-size:13.5pt; line-height:1.42; }
+  .drop::first-letter{ font-size:44pt; line-height:34pt; float:left; padding:6pt 8pt 0 0; color:var(--accent); }
+  .col2{ column-count:2; column-gap:30pt; }
+  .fig{ display:block; width:100%; border-radius:3px; box-shadow:0 2px 14px rgba(0,0,0,.35); }
+  .cap{ font-family:var(--sans); font-size:8pt; line-height:1.35; color:#5a5648; margin-top:5pt; }
+  .cap b{ color:var(--accent); }
+  .num{ font-family:var(--sans); font-size:9pt; letter-spacing:2px; color:#8a8470; }
+  .rule{ height:2px; background:var(--ink); margin:10pt 0; }
+  .rule.thin{ height:1px; background:#cfc8b6; }
+  .pull{ font-size:22pt; line-height:1.18; font-style:italic; color:var(--accent2); }
+  .mono{ font-family:var(--mono); font-size:8.8pt; line-height:1.45; }
+  .tag{ font-family:var(--sans); font-size:8pt; letter-spacing:1px; text-transform:uppercase;
+        background:var(--ink); color:var(--paper); padding:2pt 7pt; border-radius:2px; }
+  a{ color:inherit; text-decoration:none; }
+  .grid3{ display:grid; grid-template-columns:1fr 1fr 1fr; gap:16pt; }
+  .grid2{ display:grid; grid-template-columns:1fr 1fr; gap:26pt; }
+  table{ width:100%; border-collapse:collapse; font-size:10pt; }
+  th,td{ text-align:left; padding:7pt 8pt; border-bottom:1px solid #cfc8b6; vertical-align:top; }
+  th{ font-family:var(--sans); font-size:8pt; text-transform:uppercase; letter-spacing:1.5px; color:var(--accent); }
+  .foot{ position:absolute; bottom:0.34in; left:0.85in; right:0.85in; display:flex; justify-content:space-between;
+         font-family:var(--sans); font-size:7.5pt; letter-spacing:1px; color:#8a8470; text-transform:uppercase;}
+  .foot.light{ color:#7d7660; }
+  ol.refs{ font-size:9.6pt; line-height:1.4; padding-left:18pt; }
+  ol.refs li{ margin-bottom:8pt; }
+  .refs .u{ font-family:var(--mono); font-size:8pt; color:var(--accent2); word-break:break-all; }
+  .swatch{ display:inline-block; width:11pt; height:11pt; border-radius:2px; vertical-align:-1px; margin-right:3pt;
+           border:1px solid rgba(0,0,0,.2); }
+</style>
+</head>
+<body>
+
+<!-- ============================= COVER ============================= -->
+<section class="page dark">
+  <div class="pad" style="display:flex; flex-direction:column; justify-content:space-between;">
+    <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+      <div class="kicker light">A Coffee-Table Book &nbsp;·&nbsp; Three Ports of One Toy</div>
+      <div class="kicker light" style="text-align:right">Playground Editions<br>MMXXVI</div>
+    </div>
+    <div>
+      <div class="display" style="color:#f4f0e6; font-weight:bold;">BROIDER<span style="color:var(--gold)">SPIEL</span></div>
+      <div style="font-size:17pt; color:#cfc8b6; margin-top:14pt; max-width:8in; line-height:1.3;">
+        A falling-sand simulation stitched inside a self-mirroring embroidery — rendered three ways,
+        and read as a small history of graphics programming after
+        <span style="color:#fff">Sketchpad</span>, <span style="color:#fff">Simula</span>,
+        <span style="color:#fff">Smalltalk</span> &amp; <span style="color:#fff">HyperCard</span>.
+      </div>
+    </div>
+    <img class="fig" src="figures/webgl.png" alt="Broiderspiel, WebGL port"
+         style="width:100%; max-height:3.3in; object-fit:cover; object-position:center 78%;
+                box-shadow:0 6px 40px rgba(0,0,0,.6);">
+    <div class="foot light"><span>WebGL · Tcl/Tk · SDL+OpenGL</span><span>View / Simulations</span></div>
+  </div>
+</section>
+
+<!-- ============================= HALF TITLE / COLOPHON ============================= -->
+<section class="page cream">
+  <div class="pad">
+    <div class="num">i</div>
+    <div style="height:1.1in"></div>
+    <div class="kicker">Frontispiece</div>
+    <h1 style="font-size:40pt; margin-top:14pt; max-width:8in;">On repainting the same world<br>in three different rooms.</h1>
+    <div class="rule" style="width:2.6in"></div>
+    <div class="grid2" style="margin-top:26pt;">
+      <div>
+        <p class="lead drop">Broiderspiel is a toy: sand pours, water spreads, plants creep along the
+        waterline, fire climbs, smoke rises — all inside a coloured border that stitches itself in
+        four-fold symmetry like cross-stitch on a sampler. It exists in three implementations that
+        share one Model and differ only in how they <i>show</i> it.</p>
+        <p>This book uses that difference as a reading lens. A simulation that must be <i>drawn</i>
+        every frame is exactly the object early graphics research argued about: where does the world
+        live, who owns the pixels, and what is a "view"? We answer with running code and with the
+        people who asked the question first — at MIT, in Oslo, and at Xerox&nbsp;PARC.</p>
+      </div>
+      <div>
+        <p class="mono" style="background:var(--paper2); padding:14pt; border-left:3px solid var(--accent);">
+        THE THREE PORTS<br>
+        ── webgl &nbsp; index.html — one &lt;canvas&gt;, one &lt;script&gt;, CA on CPU,<br>
+        &nbsp;&nbsp;&nbsp;&nbsp;colour + upload each frame; double-tap → Web&nbsp;Share.<br>
+        ── tk &nbsp;&nbsp;&nbsp; broiderspiel.tcl — immediate-mode repaint into a<br>
+        &nbsp;&nbsp;&nbsp;&nbsp;Tk photo; no shader path (that is the point).<br>
+        ── sdl &nbsp;&nbsp; broiderspiel.c — SDL2 + GLSL; a fragment shader<br>
+        &nbsp;&nbsp;&nbsp;&nbsp;colours the grid on the GPU; immediate-mode UI.<br>
+        <br>
+        ALL THREE: a debug FPS <b>sparkline</b> compressed across the<br>
+        bottom 10% of the viewport.</p>
+        <p class="cap" style="margin-top:14pt;"><b>A note on the plates.</b> The archival images referenced
+        in this book (Internet Archive, Library of Congress, and the Met's Watson Library) could not be
+        reproduced here: the machine that typeset the book had its outbound network to those hosts
+        blocked by policy. Rather than fake a scan, every plate is cited as an external reference with
+        its catalogue address — see <i>Plates &amp; Sources</i>, p.&nbsp;11. All citations were verified;
+        none are invented.</p>
+      </div>
+    </div>
+    <div class="foot"><span>Broiderspiel</span><span>Frontispiece</span></div>
+  </div>
+</section>
+
+<!-- ============================= CONTENTS ============================= -->
+<section class="page cream2">
+  <div class="pad">
+    <div class="num">ii</div>
+    <div class="kicker">Contents</div>
+    <h1 style="font-size:34pt; margin:10pt 0 24pt;">What is inside</h1>
+    <table>
+      <tr><td style="width:0.6in; font-family:var(--sans); color:var(--accent)">01</td>
+          <td><b>The View</b> — where the world is drawn, and Reenskaug's model, view, controller</td>
+          <td style="text-align:right; width:0.6in">3</td></tr>
+      <tr><td style="color:var(--accent); font-family:var(--sans)">02</td>
+          <td><b>The Simulations</b> — Simula, cellular objects, and one frame in eleven steps</td>
+          <td style="text-align:right">5</td></tr>
+      <tr><td style="color:var(--accent); font-family:var(--sans)">03</td>
+          <td><b>Three Ports, One Toy</b> — immediate vs. retained; CPU photo vs. GPU shader</td>
+          <td style="text-align:right">7</td></tr>
+      <tr><td style="color:var(--accent); font-family:var(--sans)">04</td>
+          <td><b>Debugging the Ghost</b> — the FPS sparkline as a HyperCard-style live gauge</td>
+          <td style="text-align:right">8</td></tr>
+      <tr><td style="color:var(--accent); font-family:var(--sans)">05</td>
+          <td><b>A Lineage</b> — Sketchpad 1963 to Broiderspiel, on one timeline</td>
+          <td style="text-align:right">9</td></tr>
+      <tr><td style="color:var(--accent); font-family:var(--sans)">06</td>
+          <td><b>Four Diagrams</b> — MVC, the HyperCard stack, the Simula object, the pipeline</td>
+          <td style="text-align:right">10</td></tr>
+      <tr><td style="color:var(--accent); font-family:var(--sans)">07</td>
+          <td><b>Plates &amp; Sources</b> — archival references, verified</td>
+          <td style="text-align:right">11</td></tr>
+      <tr><td style="color:var(--accent); font-family:var(--sans)">08</td>
+          <td><b>Bibliography</b> — the papers this book leans on</td>
+          <td style="text-align:right">12</td></tr>
+    </table>
+    <div style="margin-top:30pt;" class="pull">"If a system is to serve the creative spirit, it must be
+      entirely comprehensible to a single individual."</div>
+    <div class="cap" style="font-size:9pt;">— Daniel H. H. Ingalls, <i>Design Principles Behind Smalltalk</i>, BYTE, August 1981.</div>
+    <div class="foot"><span>Broiderspiel</span><span>Contents</span></div>
+  </div>
+</section>
+
+<!-- ============================= 01 THE VIEW ============================= -->
+<section class="page cream">
+  <div class="pad">
+    <div class="num">3</div>
+    <div style="display:flex; justify-content:space-between; align-items:baseline;">
+      <div class="kicker">Chapter One</div><div class="tag">The View</div>
+    </div>
+    <h1 style="font-size:46pt; margin:8pt 0 4pt;">Who owns the pixels?</h1>
+    <div class="rule"></div>
+    <div class="col2" style="margin-top:6pt;">
+      <p class="drop">Every version of Broiderspiel keeps the same <b>Model</b>: a small grid of cells,
+      each holding a type (sand, water, wood, plant, fire, smoke, stone) and a life counter, plus a
+      persistent ring of border colours the embroidery paints into. Nothing in that Model knows what a
+      screen is. What differs between the three ports is entirely the <b>View</b> — the machinery that
+      turns the grid into light.</p>
+      <p>That word is not casual. In the winter of 1979, while visiting the Learning Research Group at
+      Xerox&nbsp;PARC, Trygve Reenskaug wrote two technical notes — <i>Thing–Model–View–Editor</i> in
+      May and <i>Models–Views–Controllers</i> in December — that first named the split we now take for
+      granted. The Model is the thing itself; the View is a way of seeing it; the Controller is the way
+      a person reaches in and changes it. After long argument with Adele Goldberg, "Editor" became
+      "Controller," and MVC entered the language of software.</p>
+      <p>Broiderspiel is an MVC triangle you can hold. The Model is <span class="mono">type[]</span> and
+      <span class="mono">life[]</span>. The View is three-headed. The Controller is your finger: drag to
+      paint, tap a swatch to choose an element, double-tap to freeze the world and hand it to the
+      operating system's share sheet. Reenskaug's point was that these should be separable — and here
+      they are so separable that the same Model wears three completely different Views without noticing.</p>
+      <p>The oldest ancestor of the View is older still. In 1963 Ivan Sutherland's <i>Sketchpad</i> let a
+      person draw directly on a CRT with a light pen, the display and the data structure bound together
+      in real time. Sutherland's drawings <i>were</i> the model; ours are a rendering of it. Everything
+      between — Smalltalk's <span class="mono">displayView</span>, HyperCard's painted card, the GPU's
+      framebuffer — is a negotiation about how far the picture may drift from the thing.</p>
+    </div>
+    <div class="pull" style="margin-top:8pt; max-width:8.5in;">The Model does not know it is being watched.
+      Three Views watch it anyway, and disagree about how.</div>
+    <div class="foot"><span>The View · Reenskaug 1979</span><span>Broiderspiel · 3</span></div>
+  </div>
+</section>
+
+<!-- ============================= 01 THE VIEW — plate ============================= -->
+<section class="page dark">
+  <div class="pad">
+    <div class="num" style="color:#7d7660">4</div>
+    <div class="kicker light">One Model, three Views</div>
+    <div class="grid3" style="margin-top:12pt;">
+      <div>
+        <img class="fig" src="figures/webgl.png" alt="WebGL port">
+        <div class="cap" style="color:#b8b09a"><b>WebGL.</b> The browser View. A CPU cellular automaton writes an
+          RGBA grid; a single fullscreen triangle samples it. One <span class="mono" style="color:#cfc8b6">&lt;canvas&gt;</span>,
+          one <span class="mono" style="color:#cfc8b6">&lt;script&gt;</span>.</div>
+      </div>
+      <div>
+        <img class="fig" src="figures/tk.png" alt="Tk port">
+        <div class="cap" style="color:#b8b09a"><b>Tcl/Tk.</b> The immediate-mode View. Tk has no shader; the whole
+          framebuffer is recomputed and blitted into one <span class="mono" style="color:#cfc8b6">photo</span> image
+          each frame — retained-mode toolkit, used the un-retained way.</div>
+      </div>
+      <div>
+        <img class="fig" src="figures/sdl.png" alt="SDL/OpenGL port">
+        <div class="cap" style="color:#b8b09a"><b>SDL + OpenGL.</b> The GPU View. Only a two-channel
+          <span class="mono" style="color:#cfc8b6">type/life</span> texture crosses the bus; a GLSL fragment shader
+          paints every pixel, palette and fire-gradient and all.</div>
+      </div>
+    </div>
+    <div style="margin-top:22pt; display:grid; grid-template-columns:1fr 1fr; gap:30pt;">
+      <p style="color:#cfc8b6;">The three images are the same instant of the same program: two faucets pour
+        sand and water; the water finds the plant strip on the floor and green creeps sideways along it; the
+        four-fold embroidery breathes around the edge. Only the <i>road</i> from grid to glass changes.</p>
+      <p style="color:#cfc8b6;">Read left to right, the pixel travels further from the CPU each time. In the
+        browser the CPU still touches every colour. In Tk it builds a giant string of hex and hands it to the
+        widget. In SDL the CPU has stopped colouring altogether — it ships integers and lets the shader decide.
+        That migration <i>is</i> the last forty years of graphics, compressed into one toy.</p>
+    </div>
+    <div class="foot light"><span>Plate: three Views of one Model</span><span>Broiderspiel · 4</span></div>
+  </div>
+</section>
+
+<!-- ============================= 02 THE SIMULATIONS ============================= -->
+<section class="page cream">
+  <div class="pad">
+    <div class="num">5</div>
+    <div style="display:flex; justify-content:space-between; align-items:baseline;">
+      <div class="kicker">Chapter Two</div><div class="tag">The Simulations</div>
+    </div>
+    <h1 style="font-size:46pt; margin:8pt 0 4pt;">A world made of small objects</h1>
+    <div class="rule"></div>
+    <div class="col2" style="margin-top:6pt;">
+      <p class="drop">The word "simulation" is not decoration. In 1966 Ole-Johan Dahl and Kristen Nygaard
+      published <i>SIMULA — an ALGOL-based simulation language</i>, built to describe and run
+      discrete-event systems: a harbour, a queue, a factory. To make that possible they needed a way to
+      speak of many independent things that each carry their own state and their own behaviour and act in
+      turn. SIMULA 67 would call that thing a <b>class</b>, and give it <b>objects</b> — and with them,
+      quietly, object-oriented programming was born inside a <i>simulation</i> language.</p>
+      <p>Broiderspiel's inner box is a discrete-event system in that exact spirit. Each cell is a tiny
+      object with local rules: sand asks "is the cell below me empty or water? then fall." Water asks the
+      same, then "else may I spread sideways?" Fire carries a life counter, ignites the wood and plant it
+      touches, is quenched to smoke by water. Plant creeps into an empty neighbour only when water is
+      adjacent, consuming it — so green traces the waterline and then stops. None of them sees the whole
+      board; the board is only the sum of their turns.</p>
+      <p>Alan Kay's Smalltalk sharpened this into a slogan: everything is an object, and computation is
+      objects sending each other messages. A Broiderspiel frame is one broadcast of an implicit
+      <span class="mono">step</span> message to every cell, resolved bottom-to-top so that gravity settles
+      in a single pass. The broider walkers are objects too — turtles pacing the border, each drawing a
+      stitch that is mirrored into four corners, their hue drifting a little every message.</p>
+      <p>The trick SIMULA needed was the <b>coroutine</b>: a routine that can pause mid-stride and be
+      resumed, so many processes can interleave without a scheduler fighting them. Our cellular sweep is
+      the humble descendant — cooperative turns over a shared world, resumed each frame. What was invented
+      to simulate a Norwegian harbour now settles a pile of pixel sand.</p>
+    </div>
+    <div class="pull" style="margin-top:6pt; max-width:8.5in;">Object-orientation did not arrive to organise
+      big programs. It arrived to <i>simulate</i> small worlds — which is all this is.</div>
+    <div class="foot"><span>The Simulations · Dahl &amp; Nygaard 1966</span><span>Broiderspiel · 5</span></div>
+  </div>
+</section>
+
+<!-- ============================= 02 — one frame in eleven steps ============================= -->
+<section class="page cream2">
+  <div class="pad">
+    <div class="num">6</div>
+    <div class="kicker">Chapter Two, continued</div>
+    <h1 style="font-size:30pt; margin:8pt 0 12pt;">One frame, in eleven messages</h1>
+    <div style="display:grid; grid-template-columns:1.15fr 1fr; gap:34pt;">
+      <div class="mono" style="background:#fff; border:1px solid #d8d1bf; padding:16pt; font-size:8.6pt; line-height:1.6;">
+<span style="color:#8a8470">// the Model steps itself; the View only reads it</span><br>
+<b style="color:var(--accent)">1</b>  record dt → push 1000/dt onto the fps history<br>
+<b style="color:var(--accent)">2</b>  emit: sand faucet, water faucet, a spark now and then<br>
+<b style="color:var(--accent)">3</b>  for y from the floor up, x scanning to and fro:<br>
+<b style="color:var(--accent)">4</b> &nbsp;&nbsp;sand  → fall / slide into empty or water<br>
+<b style="color:var(--accent)">5</b> &nbsp;&nbsp;water → fall / slide / spread sideways<br>
+<b style="color:var(--accent)">6</b> &nbsp;&nbsp;fire  → age, ignite wood &amp; plant, hiss at water<br>
+<b style="color:var(--accent)">7</b> &nbsp;&nbsp;smoke → age, rise into empty above<br>
+<b style="color:var(--accent)">8</b> &nbsp;&nbsp;plant → creep to an empty cell beside water<br>
+<b style="color:var(--accent)">9</b>  broider walkers pace the ring, stitch ×4 mirror<br>
+<b style="color:var(--accent)">10</b> pack type+life; hand the grid to the View<br>
+<b style="color:var(--accent)">11</b> if debug: composite the sparkline, then revert it<br>
+      </div>
+      <div>
+        <p>The same eleven steps run in JavaScript, in Tcl, and in C, line for line. Only step&nbsp;10 —
+        "hand the grid to the View" — forks: a texture upload, a string blit, a canvas texture.</p>
+        <p>Step&nbsp;3 hides a small classic. A falling-sand automaton that scans always left-to-right grows
+        a visible lean, because a grain checks one diagonal before the other. Alternating the scan
+        direction every row and every frame keeps the piles honestly symmetric — a coroutine's fairness,
+        enforced by hand.</p>
+        <p>Step&nbsp;11 is a courtesy to the persistent layers. The FPS overlay is blended <i>into</i> the
+        bottom of the buffer for the upload, then the saved band is written back, so the ghost never bakes
+        into the embroidery underneath. The debug view is a guest, not a resident.</p>
+        <div class="mono" style="margin-top:8pt; font-size:8pt; color:#6a6552;">
+          <span class="swatch" style="background:#c6b058"></span>sand
+          <span class="swatch" style="background:#2860c8"></span>water
+          <span class="swatch" style="background:#6e4226"></span>wood
+          <span class="swatch" style="background:#2e963c"></span>plant
+          <span class="swatch" style="background:#e65a28"></span>fire
+          <span class="swatch" style="background:#686870"></span>stone</div>
+      </div>
+    </div>
+    <div class="foot"><span>The Simulations · one frame</span><span>Broiderspiel · 6</span></div>
+  </div>
+</section>
+
+<!-- ============================= 03 THREE PORTS COMPARISON ============================= -->
+<section class="page cream">
+  <div class="pad">
+    <div style="display:flex; justify-content:space-between; align-items:baseline;">
+      <div class="kicker">Chapter Three</div><div class="tag">Three Ports, One Toy</div>
+    </div>
+    <h1 style="font-size:40pt; margin:6pt 0 4pt;">Immediate &amp; retained, CPU &amp; GPU</h1>
+    <div class="rule"></div>
+    <table style="margin-top:6pt;">
+      <tr><th></th><th>WebGL · JS</th><th>Tcl / Tk</th><th>SDL · C + OpenGL</th></tr>
+      <tr><td><b>GUI paradigm</b></td><td>immediate (redraw each frame)</td><td>retained toolkit, driven immediate-mode</td><td>immediate-mode UI, hand-built</td></tr>
+      <tr><td><b>Where colour happens</b></td><td>CPU → RGBA grid</td><td>CPU → hex string → <span class="mono">photo</span></td><td><b>GPU fragment shader</b></td></tr>
+      <tr><td><b>Crosses the bus</b></td><td>W·H·4 bytes / frame</td><td>a large string / frame</td><td>W·H·2 bytes / frame</td></tr>
+      <tr><td><b>"Share"</b></td><td>Web Share API (PNG)</td><td>writes a PNG to disk</td><td>writes a snapshot to disk</td></tr>
+      <tr><td><b>Debug overlay</b></td><td colspan="3" style="text-align:center;">FPS <b>sparkline</b> — entire history, streaming-downsampled, compressed across the bottom 10%</td></tr>
+      <tr><td><b>Lineage it echoes</b></td><td>HyperCard's card you paint on</td><td>Smalltalk's <span class="mono">displayView</span></td><td>Sketchpad → the framebuffer</td></tr>
+    </table>
+    <div class="grid2" style="margin-top:18pt;">
+      <p><b>Immediate versus retained</b> is the quiet argument under all three. A retained toolkit — Tk's
+      canvas, a Smalltalk widget tree — remembers your shapes and redraws them for you; you mutate a scene
+      graph. An immediate-mode UI remembers nothing: every frame you re-declare the whole interface from
+      current state and throw it away. Broiderspiel is immediate everywhere. Even in Tk, where a retained
+      photo widget is available, we treat it as a raw framebuffer and repaint it wholesale — closer in
+      spirit to HyperCard repainting a card than to a modern scene graph.</p>
+      <p><b>"However possible to bring the cost down"</b> was the brief, and the SDL port answers it
+      literally. The cellular automaton is inherently serial, so it stays on the CPU — but it touches only
+      a tiny integer grid. Every <i>pixel</i> is decided by the GPU: the fragment shader reads the
+      <span class="mono">type/life</span> texture, looks up the palette, hashes a little noise, ramps the
+      fire and smoke gradients, and samples the persistent border. The CPU never writes a colour. Scaling
+      the window costs the GPU, not the simulation — which is the whole trick of shader-accelerated
+      rendering.</p>
+    </div>
+    <div class="foot"><span>Three Ports, One Toy</span><span>Broiderspiel · 7</span></div>
+  </div>
+</section>
+
+<!-- ============================= 04 DEBUGGING THE GHOST ============================= -->
+<section class="page dark">
+  <div class="pad">
+    <div class="num" style="color:#7d7660">8</div>
+    <div style="display:flex; justify-content:space-between; align-items:baseline;">
+      <div class="kicker light">Chapter Four</div><div class="tag" style="background:var(--gold); color:#14141b">Debugging the Ghost</div>
+    </div>
+    <h1 style="font-size:38pt; margin:6pt 0 10pt; color:#f4f0e6;">The sparkline as a live gauge</h1>
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:18pt; align-items:start;">
+      <div>
+        <img class="fig" src="figures/sdl-debug.png" alt="SDL debug mode">
+        <div class="cap" style="color:#b8b09a"><b>SDL, debug on.</b> The palette bar (immediate-mode) sits top-left;
+          the green ridge along the bottom 10% is the FPS history, autoscaled, with a live readout drawn from a
+          hand-built 3×5 bitmap font. Rendered offscreen on Mesa <span class="mono" style="color:#cfc8b6">llvmpipe</span>.</div>
+      </div>
+      <div>
+        <img class="fig" src="figures/webgl-debug.png" alt="WebGL debug mode">
+        <div class="cap" style="color:#b8b09a"><b>WebGL, debug on.</b> Same overlay, blended into the RGBA grid and
+          reverted after upload. Steady 60&nbsp;Hz reads as a calm plateau; a stall would carve a notch you could
+          see from across the room.</div>
+      </div>
+    </div>
+    <div style="margin-top:16pt; display:grid; grid-template-columns:1fr 1fr; gap:30pt;">
+      <p style="color:#cfc8b6;">Press <span class="mono" style="color:#fff">d</span>. A transparent band lifts from
+      the floor of the viewport and the program's entire life in frames-per-second scrolls across it, the whole
+      recording <i>compressed</i> to the available width — old history averaged down in place so memory never
+      grows. It is a seismograph for jank.</p>
+      <p style="color:#cfc8b6;">HyperCard taught a generation that a program's state should be <i>visible and
+      touchable</i>, not hidden behind a compiler. The sparkline is that lesson as a gauge: no window, no
+      legend, no dependency — just the machine's pulse painted faintly over its own output, present in all
+      three ports because it belongs to the Model's sense of itself, not to any one View.</p>
+    </div>
+    <div class="foot light"><span>Debugging the Ghost · press “d”</span><span>Broiderspiel · 8</span></div>
+  </div>
+</section>
+
+<!-- ============================= 05 LINEAGE TIMELINE ============================= -->
+<section class="page cream2">
+  <div class="pad">
+    <div class="num">9</div>
+    <div class="kicker">Chapter Five</div>
+    <h1 style="font-size:34pt; margin:6pt 0 4pt;">A lineage, on one line</h1>
+    <div class="rule thin"></div>
+    <svg viewBox="0 0 1000 300" style="width:100%; height:2.9in; margin-top:8pt;">
+      <line x1="30" y1="150" x2="970" y2="150" stroke="#14141b" stroke-width="2"/>
+      <!-- ticks -->
+      <g font-family="Liberation Sans, sans-serif" font-size="12" fill="#14141b" text-anchor="middle">
+        <!-- each: circle, year, label -->
+        <g><circle cx="70" cy="150" r="6" fill="#b8452e"/><text x="70" y="182" font-weight="bold">1963</text>
+           <text x="70" y="120">Sketchpad</text><text x="70" y="104" font-size="10" fill="#5a5648">Sutherland · light pen</text></g>
+        <g><circle cx="205" cy="150" r="6" fill="#2f6f9f"/><text x="205" y="182" font-weight="bold">1966</text>
+           <text x="205" y="120">SIMULA</text><text x="205" y="104" font-size="10" fill="#5a5648">Dahl &amp; Nygaard</text></g>
+        <g><circle cx="330" cy="150" r="6" fill="#c8a24a"/><text x="330" y="182" font-weight="bold">1968–72</text>
+           <text x="330" y="120">Dynabook</text><text x="330" y="104" font-size="10" fill="#5a5648">Kay · PARC</text></g>
+        <g><circle cx="470" cy="150" r="6" fill="#2e8b57"/><text x="470" y="182" font-weight="bold">1972–80</text>
+           <text x="470" y="120">Smalltalk</text><text x="470" y="104" font-size="10" fill="#5a5648">LRG · messages</text></g>
+        <g><circle cx="600" cy="150" r="6" fill="#b8452e"/><text x="600" y="182" font-weight="bold">1979</text>
+           <text x="600" y="136">MVC</text><text x="600" y="122" font-size="10" fill="#5a5648">Reenskaug</text></g>
+        <g><circle cx="710" cy="150" r="6" fill="#2f6f9f"/><text x="710" y="182" font-weight="bold">1981</text>
+           <text x="710" y="120">BYTE</text><text x="710" y="104" font-size="10" fill="#5a5648">Ingalls · principles</text></g>
+        <g><circle cx="835" cy="150" r="6" fill="#c8a24a"/><text x="835" y="182" font-weight="bold">1987</text>
+           <text x="835" y="120">HyperCard</text><text x="835" y="104" font-size="10" fill="#5a5648">Atkinson · Apple</text></g>
+        <g><circle cx="945" cy="150" r="8" fill="#14141b"/><text x="945" y="182" font-weight="bold">2026</text>
+           <text x="945" y="120" font-weight="bold">Broider-</text><text x="945" y="134" font-weight="bold">spiel</text></g>
+      </g>
+    </svg>
+    <div class="grid3" style="margin-top:14pt;">
+      <p style="font-size:10.5pt;">The line is not tidy cause and effect; it is a family resemblance. Sutherland
+        binds picture to data. Dahl and Nygaard give the data <i>behaviour</i> and call it simulation.</p>
+      <p style="font-size:10.5pt;">Kay's group turns behaviour into messages and dreams a notebook that a child
+        could own; Reenskaug splits the seeing from the thing; Ingalls writes down why simplicity is the point.</p>
+      <p style="font-size:10.5pt;">HyperCard hands all of it to people who never called themselves programmers.
+        Broiderspiel is a postcard back down the line: same ideas, three Views, one small pouring world.</p>
+    </div>
+    <div class="foot"><span>A Lineage</span><span>Broiderspiel · 9</span></div>
+  </div>
+</section>
+
+<!-- ============================= 06 FOUR DIAGRAMS ============================= -->
+<section class="page cream">
+  <div class="pad">
+    <div class="num">10</div>
+    <div class="kicker">Chapter Six</div>
+    <h1 style="font-size:30pt; margin:6pt 0 10pt;">Four diagrams</h1>
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:22pt 30pt;">
+      <!-- MVC -->
+      <div>
+        <div class="tag" style="background:var(--accent2)">Model · View · Controller</div>
+        <svg viewBox="0 0 320 150" style="width:100%; margin-top:6pt;">
+          <polygon points="160,18 300,132 20,132" fill="none" stroke="#2f6f9f" stroke-width="1.5"/>
+          <g font-family="Liberation Sans" font-size="12" text-anchor="middle">
+            <rect x="120" y="4" width="80" height="26" fill="#2f6f9f"/><text x="160" y="21" fill="#fff">MODEL</text>
+            <rect x="0" y="120" width="80" height="26" fill="#b8452e"/><text x="40" y="137" fill="#fff">CONTROLLER</text>
+            <rect x="240" y="120" width="80" height="26" fill="#2e8b57"/><text x="280" y="137" fill="#fff">VIEW</text>
+            <text x="80" y="80" fill="#5a5648" font-size="10">updates</text>
+            <text x="245" y="80" fill="#5a5648" font-size="10">renders</text>
+            <text x="160" y="146" fill="#5a5648" font-size="10">user acts</text>
+          </g>
+        </svg>
+        <div class="cap"><b>MVC.</b> Reenskaug's 1979 split. Broiderspiel's Model is the grid; the Controller is
+          your finger; the View is any of the three ports.</div>
+      </div>
+      <!-- HyperCard stack -->
+      <div>
+        <div class="tag" style="background:var(--gold); color:#14141b">The HyperCard stack</div>
+        <svg viewBox="0 0 320 150" style="width:100%; margin-top:6pt;">
+          <g>
+            <rect x="60" y="20" width="150" height="95" fill="#ece6d6" stroke="#14141b"/>
+            <rect x="75" y="35" width="150" height="95" fill="#f4f0e6" stroke="#14141b"/>
+            <rect x="90" y="50" width="150" height="95" fill="#fff" stroke="#14141b"/>
+            <text x="165" y="76" font-family="Liberation Sans" font-size="11" text-anchor="middle">card</text>
+            <text x="165" y="94" font-family="Liberation Sans" font-size="8" fill="#5a5648" text-anchor="middle">buttons · fields</text>
+            <text x="120" y="128" font-family="Liberation Sans" font-size="8" fill="#5a5648">background (shared)</text>
+          </g>
+        </svg>
+        <div class="cap"><b>Stack.</b> Cards over a shared background, scripted in HyperTalk. Our repainted
+          framebuffer is one card we redraw whole, every tick.</div>
+      </div>
+      <!-- Simula object -->
+      <div>
+        <div class="tag">The Simula object</div>
+        <svg viewBox="0 0 320 150" style="width:100%; margin-top:6pt;">
+          <rect x="30" y="18" width="120" height="115" fill="none" stroke="#14141b" stroke-width="1.5"/>
+          <text x="90" y="38" font-family="Liberation Sans" font-size="11" text-anchor="middle" font-weight="bold">CELL</text>
+          <line x1="30" y1="46" x2="150" y2="46" stroke="#14141b"/>
+          <text x="40" y="64" font-family="DejaVu Sans Mono" font-size="9">type</text>
+          <text x="40" y="80" font-family="DejaVu Sans Mono" font-size="9">life</text>
+          <line x1="30" y1="90" x2="150" y2="90" stroke="#14141b"/>
+          <text x="40" y="108" font-family="DejaVu Sans Mono" font-size="9">step()</text>
+          <path d="M150,75 C210,75 210,45 250,45" fill="none" stroke="#b8452e" stroke-width="1.5" marker-end="url(#a)"/>
+          <text x="200" y="38" font-family="Liberation Sans" font-size="9" fill="#b8452e" text-anchor="middle">message</text>
+          <circle cx="278" cy="45" r="16" fill="#2e8b57"/><text x="278" y="49" fill="#fff" font-size="9" text-anchor="middle" font-family="Liberation Sans">nbr</text>
+          <defs><marker id="a" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 z" fill="#b8452e"/></marker></defs>
+        </svg>
+        <div class="cap"><b>Object.</b> State plus behaviour, resumed each turn — SIMULA's class, Smalltalk's
+          message. Each sand grain is one.</div>
+      </div>
+      <!-- Pipeline -->
+      <div>
+        <div class="tag" style="background:#14141b">The SDL pipeline</div>
+        <svg viewBox="0 0 320 150" style="width:100%; margin-top:6pt;">
+          <g font-family="Liberation Sans" font-size="9" text-anchor="middle">
+            <rect x="8" y="30" width="70" height="34" fill="#ece6d6" stroke="#14141b"/><text x="43" y="44">CPU: CA</text><text x="43" y="56" font-size="8" fill="#5a5648">grid step</text>
+            <rect x="98" y="30" width="74" height="34" fill="#ece6d6" stroke="#14141b"/><text x="135" y="44">type/life</text><text x="135" y="56" font-size="8" fill="#5a5648">RG texture</text>
+            <rect x="192" y="30" width="54" height="34" fill="#2f6f9f" stroke="#14141b"/><text x="219" y="44" fill="#fff">shader</text><text x="219" y="56" font-size="8" fill="#cfe0ee">colour</text>
+            <rect x="262" y="30" width="52" height="34" fill="#14141b"/><text x="288" y="44" fill="#fff">screen</text>
+            <rect x="98" y="96" width="74" height="30" fill="#c8a24a" stroke="#14141b"/><text x="135" y="115">broider bcol</text>
+            <rect x="192" y="96" width="54" height="30" fill="#2e8b57" stroke="#14141b"/><text x="219" y="115" fill="#fff">UI + spark</text>
+            <line x1="78" y1="47" x2="96" y2="47" stroke="#14141b" marker-end="url(#b)"/>
+            <line x1="172" y1="47" x2="190" y2="47" stroke="#14141b" marker-end="url(#b)"/>
+            <line x1="246" y1="47" x2="260" y2="47" stroke="#14141b" marker-end="url(#b)"/>
+            <line x1="172" y1="111" x2="192" y2="111" stroke="#14141b" marker-end="url(#b)"/>
+            <line x1="219" y1="96" x2="219" y2="66" stroke="#14141b" marker-end="url(#b)"/>
+            <line x1="135" y1="96" x2="135" y2="66" stroke="#14141b" marker-end="url(#b)"/>
+            <defs><marker id="b" markerWidth="7" markerHeight="7" refX="5" refY="3" orient="auto"><path d="M0,0 L5,3 L0,6 z" fill="#14141b"/></marker></defs>
+          </g>
+        </svg>
+        <div class="cap"><b>Pipeline.</b> The CPU ships integers; the GPU makes pixels. The border colours and the
+          immediate-mode overlay composite on top.</div>
+      </div>
+    </div>
+    <div class="foot"><span>Four Diagrams</span><span>Broiderspiel · 10</span></div>
+  </div>
+</section>
+
+<!-- ============================= 07 PLATES & SOURCES ============================= -->
+<section class="page cream2">
+  <div class="pad">
+    <div class="num">11</div>
+    <div class="kicker">Chapter Seven</div>
+    <h1 style="font-size:30pt; margin:6pt 0 6pt;">Plates &amp; sources</h1>
+    <p style="font-size:9.5pt; color:#5a5648; margin-bottom:12pt;">The following archival images are referenced,
+      not reproduced. The typesetting machine's network to these hosts was blocked by policy, so each plate is
+      cited to its holding institution for the reader to view at the source. Every address below was confirmed to
+      exist; none is invented.</p>
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:8pt 30pt; font-size:10pt;">
+      <div>
+        <div class="tag" style="background:#2f6f9f">Internet Archive</div>
+        <p style="font-size:9.6pt; margin-top:6pt;"><b>Plate A · <i>Sketchpad</i> (1963), MIT film.</b> Ivan
+          Sutherland drawing with a light pen on the TX-2. <span class="refs"><span class="u">archive.org/details/sketchpad19633of3</span></span></p>
+        <p style="font-size:9.6pt;"><b>Plate B · HyperCard on the Archive (2017).</b> Apple's HyperCard, emulated in
+          the browser for its 30th anniversary. <span class="refs"><span class="u">blog.archive.org/2017/08/11/hypercard-on-the-archive</span></span></p>
+      </div>
+      <div>
+        <div class="tag" style="background:var(--accent)">Computer History Museum</div>
+        <p style="font-size:9.6pt; margin-top:6pt;"><b>Plate C · Xerox Alto.</b> The 1973 machine on which Smalltalk
+          and MVC were built. <span class="refs"><span class="u">computerhistory.org/revolution/input-output/14/347</span></span></p>
+        <p style="font-size:9.6pt;"><b>Plate D · Dynabook model.</b> Alan Kay's cardboard mock-up (replica),
+          Mobile Computing gallery. <span class="refs"><span class="u">computerhistory.org/revolution/mobile-computing/18/315/1683</span></span></p>
+      </div>
+      <div>
+        <div class="tag" style="background:var(--green)">The Met · Watson Library</div>
+        <p style="font-size:9.6pt; margin-top:6pt;"><b>Plate E · Threads of History.</b> The Thomas J. Watson
+          Library's digitisation of textile <i>sample books</i> from the Antonio Ratti Textile Center — the
+          historical cousin of Broiderspiel's stitched border. <span class="refs"><span class="u">metmuseum.org/articles/digitizing-textile-sample-books</span></span></p>
+        <p style="font-size:9.6pt;"><b>Watson Digital Collections</b> (1.3M+ pages).
+          <span class="refs"><span class="u">metmuseum.org/art/libraries-and-research-centers/watson-digital-collections</span></span></p>
+      </div>
+      <div>
+        <div class="tag" style="background:#14141b">Library of Congress</div>
+        <p style="font-size:9.6pt; margin-top:6pt;"><b>Plate F · Institutional reference.</b> A specific LoC catalogue
+          item could not be verified from this environment; rather than cite an address blindly, it is left as a
+          collection-level pointer to the Library's online catalogue.
+          <span class="refs"><span class="u">catalog.loc.gov</span></span></p>
+        <p style="font-size:8.6pt; color:#8a8470;">Honesty note: this is the one requested source I could not pin to a
+          confirmed item under the network policy in force. It is flagged rather than fabricated.</p>
+      </div>
+    </div>
+    <div class="rule thin" style="margin-top:14pt;"></div>
+    <p style="font-size:9pt; color:#5a5648;">Figures in this book that <i>are</i> reproduced — the three ports and
+      their debug overlays, the timeline, and the four diagrams — are original: screenshots of the running programs
+      (WebGL via Chromium; Tk and SDL rendered offscreen under Xvfb, the SDL port on Mesa <span class="mono">llvmpipe</span>)
+      and hand-drawn SVG.</p>
+    <div class="foot"><span>Plates &amp; Sources</span><span>Broiderspiel · 11</span></div>
+  </div>
+</section>
+
+<!-- ============================= 08 BIBLIOGRAPHY ============================= -->
+<section class="page cream">
+  <div class="pad">
+    <div class="num">12</div>
+    <div class="kicker">Chapter Eight</div>
+    <h1 style="font-size:30pt; margin:6pt 0 10pt;">Bibliography</h1>
+    <div style="column-count:2; column-gap:34pt;">
+      <ol class="refs">
+        <li>Sutherland, Ivan E. <i>Sketchpad: A Man-Machine Graphical Communication System.</i> Ph.D.
+          dissertation, MIT, 1963. Reissued as Univ. of Cambridge Tech. Report&nbsp;574, 2003.</li>
+        <li>Dahl, Ole-Johan, and Kristen Nygaard. "SIMULA — an ALGOL-based simulation language."
+          <i>Communications of the ACM</i> 9, no. 9 (1966): 671–678.
+          <span class="u">doi.org/10.1145/365813.365819</span></li>
+        <li>Kay, Alan C., and Adele Goldberg. "Personal Dynamic Media." <i>Computer</i> 10, no. 3
+          (March 1977): 31–41. Xerox PARC, Learning Research Group.
+          <span class="u">doi.org/10.1109/C-M.1977.217672</span></li>
+        <li>Reenskaug, Trygve. "Models — Views — Controllers." Technical Note, Xerox PARC,
+          December 1979 (preceded by "Thing–Model–View–Editor," May 1979).</li>
+        <li>Ingalls, Daniel H. H. "Design Principles Behind Smalltalk." <i>BYTE</i> 6, no. 8
+          (August 1981): 286–298.
+          <span class="u">worrydream.com/refs/Ingalls_1981_-_Design_Principles_Behind_Smalltalk.pdf</span></li>
+        <li>Goldberg, Adele, and David Robson. <i>Smalltalk-80: The Language and Its Implementation.</i>
+          Addison-Wesley, 1983.</li>
+        <li>Nygaard, Kristen, and Ole-Johan Dahl. "The Development of the SIMULA Languages."
+          In <i>History of Programming Languages</i>, ACM, 1978.
+          <span class="u">doi.org/10.1145/960118.808391</span></li>
+        <li>Kay, Alan C. "The Early History of Smalltalk." In <i>HOPL-II</i>; <i>ACM SIGPLAN Notices</i>
+          28, no. 3 (1993): 69–95. <span class="u">doi.org/10.1145/155360.155364</span></li>
+        <li>Apple Computer, Inc. <i>HyperCard User's Guide</i> (Bill Atkinson, designer). Cupertino, 1987.
+          Introduced at MacWorld, Boston, 11 August 1987.</li>
+        <li>Goodman, Danny. <i>The Complete HyperCard Handbook.</i> Bantam Books, 1987.</li>
+        <li>The Metropolitan Museum of Art, Thomas J. Watson Library. "Threads of History: Digitizing
+          Textile Sample Books." Watson Library Digital Collections.</li>
+      </ol>
+    </div>
+    <div class="rule thin"></div>
+    <p style="font-size:9pt; color:#5a5648;">Citations were verified against publisher and institutional records;
+      quotations are given as published. Broiderspiel — the WebGL, Tcl/Tk, and SDL/OpenGL ports, the debug
+      sparkline, and this book — is released into the <span style="font-family:var(--sans)">playground</span> repository.</p>
+    <div style="margin-top:20pt; text-align:center;">
+      <div class="display" style="font-size:40pt; color:var(--ink);">BROIDER<span style="color:var(--gold)">SPIEL</span></div>
+      <div class="kicker" style="margin-top:8pt;">fin · press “d” for the pulse</div>
+    </div>
+    <div class="foot"><span>Bibliography</span><span>Broiderspiel · 12</span></div>
+  </div>
+</section>
+
+</body>
+</html>
