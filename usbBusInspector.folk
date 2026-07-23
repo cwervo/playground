@@ -1,0 +1,142 @@
+# ---------------------------------------------------------
+# USB Bus Inspector — live updating
+# ---------------------------------------------------------
+# Two live data sources, both fed by long-running Unix
+# subprocesses (same streaming pattern as bt/connect_bt_keyboard):
+#
+#   1. `lsusb` polled in a loop  -> the current bus/device table
+#   2. `udevadm monitor` (usb)   -> live Ubuntu kernel hotplug events
+#
+# The table refreshes every ~2s; the outline pulses green on a
+# device add and red on a remove, driven straight off udev.
+# ---------------------------------------------------------
+
+# Defensive cleanup: clear stale state from previous runs / edits
+Retract! $this has usb table /any/
+Retract! $this has usb device count /any/
+Retract! $this has usb events /any/
+Retract! $this last usb action is /any/ on /any/ at /any/
+
+Wish $this is titled "USB Bus Inspector"
+
+# Placeholder shown until the first lsusb snapshot lands
+When /nobody/ claims $this has usb table /any/ {
+    Wish $this is labelled "USB Bus Inspector\n\nWaiting for first lsusb snapshot..."
+}
+
+# Seed the highlight state so the outline logic always has a fact
+When /nobody/ claims $this last usb action is /a/ on /d/ at /t0/ {
+    Hold! -key [list $this usb-last] Claim $this last usb action is none on - at 0
+}
+
+# ---------------------------------------------------------
+# Source 1: lsusb device table (polled)
+# ---------------------------------------------------------
+# One long-running shell loop emits a full lsusb dump every 2s,
+# terminated by a marker line so we can grab the latest snapshot.
+set poller [list usb-poller $this]
+Wish $poller runs Unix command "/bin/sh" with arguments \
+    [list "-c" "while true; do lsusb; echo __USB_SNAPSHOT_END__; sleep 2; done"]
+
+When $poller has Unix output lines /lines/ {
+    # Find snapshot boundaries; use the most recent *complete* snapshot.
+    set idxs {}
+    for {set i 0} {$i < [llength $lines]} {incr i} {
+        if {[lindex $lines $i] eq "__USB_SNAPSHOT_END__"} { lappend idxs $i }
+    }
+
+    if {[llength $idxs] >= 1} {
+        set endMarker [lindex $idxs end]
+        if {[llength $idxs] >= 2} {
+            set startMarker [expr {[lindex $idxs end-1] + 1}]
+        } else {
+            set startMarker 0
+        }
+        set snap [lrange $lines $startMarker [expr {$endMarker - 1}]]
+
+        set rows {}
+        foreach line $snap {
+            # e.g. "Bus 001 Device 004: ID 8087:0024 Intel Corp. Hub"
+            if {[regexp {Bus (\d+) Device (\d+): ID ([0-9a-fA-F]{4}):([0-9a-fA-F]{4}) ?(.*)} \
+                     $line -> bus dev vid pid name]} {
+                set name [string trim $name]
+                if {$name eq ""} { set name "(unnamed device)" }
+                lappend rows [format "  %s:%s  bus %s dev %s  %s" $vid $pid $bus $dev $name]
+            }
+        }
+
+        set count [llength $rows]
+        set stamp [clock format [clock seconds] -format %H:%M:%S]
+        set table "USB devices ($count)  —  updated $stamp\n\n[join [lsort $rows] \n]"
+
+        Hold! -key [list $this usb-table] Claim $this has usb table $table
+        Hold! -key [list $this usb-count] Claim $this has usb device count $count
+    }
+}
+
+# ---------------------------------------------------------
+# Source 2: live kernel hotplug events (udev)
+# ---------------------------------------------------------
+set monitor [list usb-monitor $this]
+Wish $monitor runs Unix command "/bin/sh" with arguments \
+    [list "-c" "stdbuf -oL udevadm monitor --udev --subsystem-match=usb"]
+
+When $monitor has Unix output lines /lines/ {
+    set events {}
+    foreach line $lines {
+        # e.g. "UDEV  [12345.678901] add   /devices/.../usb1/1-2 (usb)"
+        if {[regexp {^UDEV\s+\[[0-9.]+\]\s+(\w+)\s+(\S+)\s+\((\w+)\)} \
+                 $line -> action path sub]} {
+            lappend events [list $action [file tail $path]]
+        }
+    }
+
+    set n [llength $events]
+    if {$n > 0} {
+        set recent [lrange $events [expr {$n > 8 ? $n - 8 : 0}] end]
+        set log {}
+        foreach e $recent {
+            lassign $e action node
+            set glyphs {add + remove -}
+            if {[dict exists $glyphs $action]} {
+                set glyph [dict get $glyphs $action]
+            } else {
+                set glyph "~"
+            }
+            lappend log [format "  %s %-7s %s" $glyph $action $node]
+        }
+        Hold! -key [list $this usb-events] Claim $this has usb events [join $log \n]
+
+        lassign [lindex $events end] lastAction lastNode
+        Hold! -key [list $this usb-last] \
+            Claim $this last usb action is $lastAction on $lastNode at [expr {[clock milliseconds] / 1000.0}]
+    }
+}
+
+# ---------------------------------------------------------
+# Rendering
+# ---------------------------------------------------------
+When $this has usb table /table/ {
+    Wish $this is labelled $table
+}
+
+When $this has usb device count /count/ {
+    Wish $this is titled "USB Bus Inspector — $count devices"
+}
+
+When $this has usb events /log/ {
+    Wish $this is footnoted "Live kernel events (udev)\n$log"
+}
+
+# Outline pulses off the most recent hotplug event, then settles to white.
+When $this last usb action is /action/ on /node/ at /t0/ &\
+     the clock time is /t/ {
+    set age [expr {$t - $t0}]
+    if {$action eq "add" && $age < 2.5} {
+        Wish $this is outlined thick green
+    } elseif {$action eq "remove" && $age < 2.5} {
+        Wish $this is outlined thick red
+    } else {
+        Wish $this is outlined thick white
+    }
+}
