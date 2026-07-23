@@ -5,17 +5,25 @@ hand-drawn field notes into a single self-contained `index.html`.
 
 ## Run
 
+The decoded pixel buffers (`assets/note*.raw`) are **committed**, so the Tcl
+pipeline runs with nothing but `tclsh`:
+
 ```sh
-node decode.cjs        # prep: JPEG -> raw RGB buffer (assets/note*.raw)
 tclsh extract.tcl      # reads assets/note*.{jpg,raw}, writes index.html
 ```
 
-`decode.cjs` is the one step pure Tcl can't do — turning a JPEG into pixels (a
-from-scratch JPEG decoder is out of scope). It writes a trivially-readable
-`RAW1` buffer (`"RAW1" | u32 w | u32 h | w*h*3 RGB`). Everything else — the
-slicing, downscaling, and PNG encoding of the **real photo pixels** — happens in
-`extract.tcl` with no packages and no network. The generated `index.html` itself
-makes **zero network requests**.
+`decode.cjs` is only needed to regenerate those buffers from scratch — it does
+the one step pure Tcl can't (turn a JPEG into pixels; a from-scratch JPEG decoder
+is out of scope) and writes a trivially-readable `RAW1` buffer
+(`"RAW1" | u32 w | u32 h | w*h*3 RGB`):
+
+```sh
+node decode.cjs        # optional: rebuild assets/note*.raw from the JPEGs
+```
+
+Everything else — the slicing, downscaling, and PNG encoding of the **real photo
+pixels** — happens in `extract.tcl` with no packages and no network. The
+generated `index.html` itself makes **zero network requests**.
 
 ## What the pipeline does (`extract.tcl`)
 
@@ -41,4 +49,6 @@ plus bone-white bloom, driven through a 3D-transformed layer).
 
 `assets/note*.jpg` are downscaled copies of the source photos, kept small so the
 inlined deliverable stays light; the blur hides the resolution loss.
-`assets/note*.raw` are regenerable decode intermediates (git-ignored).
+`assets/note*.raw` are the committed decode buffers (regenerable with
+`decode.cjs`). The full-resolution originals live in
+[`../InkyPixels/design-notes/`](../InkyPixels/design-notes/).

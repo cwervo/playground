@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Design Notes — the origin of Inky Pixels</title>
+<style>
+  :root{ --paper:#f5f1e8; --ink:#171320; --c:#00a8c8; --m:#e0219a; --y:#f2c20a; --line:rgba(23,19,32,.16); }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{ background:
+      radial-gradient(1000px 500px at 75% -10%, #fff, transparent),
+      linear-gradient(160deg,#f7f4ec,#e8e2d4 60%,#dcd6c8);
+    color:var(--ink); font:14px/1.6 ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+    padding:40px clamp(14px,4vw,56px) 90px; }
+  .wrap{max-width:1000px;margin:0 auto}
+  .badge{display:inline-block;padding:2px 10px;border-radius:999px;font-size:11px;border:1px solid var(--line);background:#fff}
+  h1{font-size:clamp(24px,4.4vw,44px);letter-spacing:-.02em;margin:10px 0 6px}
+  .lede{font-size:16px;opacity:.85;max-width:74ch}
+  figure{margin:34px 0;background:rgba(255,255,255,.6);border:1px solid var(--line);border-radius:14px;
+    overflow:hidden;box-shadow:0 24px 50px -34px rgba(0,0,0,.6)}
+  figure img{display:block;width:100%;height:auto;cursor:zoom-in;background:#111}
+  figure.zoom img{cursor:zoom-out}
+  figcaption{padding:14px 18px}
+  figcaption h2{margin:0 0 6px;font-size:clamp(16px,2.4vw,22px)}
+  figcaption .tags{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0}
+  figcaption .tag{font-size:11px;border:1px solid var(--line);border-radius:999px;padding:2px 9px;background:#fff}
+  .swatch{display:inline-block;width:11px;height:11px;border-radius:50%;vertical-align:middle;margin-right:4px}
+  a{color:#b3126b}
+  footer{margin-top:50px;font-size:11px;opacity:.6}
+  .note-idx{opacity:.5;font-size:12px}
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <span class="badge">InkyPixels · design notes</span>
+    <h1>The notes that started it</h1>
+    <p class="lede">Three hand-drawn pages — photographed as-is — are the origin of everything in this
+    line of work: the CMYK halftone dithering, the CIELAB "circle-brush" ink model, the <em>provenance</em>
+    slice extractor, and the off-thread render engine. They are reproduced here at full resolution. Click a
+    plate to zoom. (This page is standalone HTML — it just loads the three JPEGs sitting next to it.)</p>
+
+    <figure onclick="this.classList.toggle('zoom')">
+      <img src="note-1-cielab.jpeg" alt="Hand-drawn note: CIELAB circle-brush, A/B/C channel separation, 30mm dot sizing.">
+      <figcaption>
+        <div class="note-idx">Plate I</div>
+        <h2>CIELAB &amp; the circle-brush</h2>
+        <div class="tags"><span class="tag"><span class="swatch" style="background:#e0561f"></span>CAB → CIELAB</span>
+          <span class="tag">channel A/B separation</span><span class="tag">OKLAB → red</span>
+          <span class="tag">motion amplification · 8-frame-past</span></div>
+        <p>The seed of <a href="../../CIELABindex.html">CIELABindex.html</a>: separate a frame into channels,
+        paint ink with a 30&nbsp;mm "circle brush," and think in perceptual color. The smiley made it in too.</p>
+      </figcaption>
+    </figure>
+
+    <figure onclick="this.classList.toggle('zoom')">
+      <img src="note-2-amplify-color.jpeg" alt="Hand-drawn note: identify red pixels above, amplify $color pixels, weighted average of first 16 pixels.">
+      <figcaption>
+        <div class="note-idx">Plate II</div>
+        <h2>Amplify <span style="color:#b3126b">$color</span> pixels</h2>
+        <div class="tags"><span class="tag">identify red pixels</span><span class="tag">weighted avg · first 16 px</span>
+          <span class="tag">0xFCED22</span><span class="tag">#left-margined</span></div>
+        <p>"In order to do my job I need someone to define <code>#color</code> with a claim." The pixel-as-data,
+        ink-as-budget idea that runs through the whole engine.</p>
+      </figcaption>
+    </figure>
+
+    <figure onclick="this.classList.toggle('zoom')">
+      <img src="note-3-provenance.jpeg" alt="Hand-drawn note: Provenance in several hands, PNG pixel grids, POP lettering.">
+      <figcaption>
+        <div class="note-idx">Plate III</div>
+        <h2>Provenance</h2>
+        <div class="tags"><span class="tag">PNG pixel grids</span><span class="tag">#sketchpad</span>
+          <span class="tag">slick history</span></div>
+        <p>The word written a dozen ways, wrapped around PNG grids — the direct inspiration for
+        <a href="../../provenance/index.html">provenance/index.html</a>, which slices these very plates and
+        re-encodes them as from-scratch PNGs.</p>
+      </figcaption>
+    </figure>
+
+    <footer>
+      Full-resolution originals (4032&times;2268). Downscaled copies feed <a href="../../provenance/">provenance/</a>;
+      the halftone engine lives in <a href="../">InkyPixels/</a>.
+    </footer>
+  </div>
+</body>
+</html>

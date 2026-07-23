@@ -15,9 +15,11 @@ const notes = ['note1.jpg','note2.jpg','note3.jpg'];
     const { w, h, rgb } = await p.evaluate(async (du) => {
       const img = new Image();
       await new Promise((r,j)=>{img.onload=r;img.onerror=j;img.src=du;});
+      const TARGET_W = 720;               // committed buffer stays small & repo-friendly
+      const scale = Math.min(1, TARGET_W / img.naturalWidth);
       const c = document.createElement('canvas');
-      c.width = img.naturalWidth; c.height = img.naturalHeight;
-      const x = c.getContext('2d'); x.drawImage(img,0,0);
+      c.width = Math.round(img.naturalWidth*scale); c.height = Math.round(img.naturalHeight*scale);
+      const x = c.getContext('2d'); x.drawImage(img,0,0,c.width,c.height);
       const d = x.getImageData(0,0,c.width,c.height).data;   // RGBA
       const out = new Uint8Array(c.width*c.height*3);
       for (let i=0,o=0;i<d.length;i+=4){ out[o++]=d[i]; out[o++]=d[i+1]; out[o++]=d[i+2]; }
