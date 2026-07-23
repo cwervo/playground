@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<title>Halftone · CIELAB→CMYK Ink Deposition</title>
+<style>
+  :root {
+    --ink: #111;
+    --line: rgba(17,17,17,0.28);
+    --wet: rgba(0,120,180,0.9);
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; height: 100%; background: #fff; color: var(--ink);
+    font: 12px/1.4 ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    overflow: hidden; -webkit-tap-highlight-color: transparent;
+  }
+  #stage { position: fixed; inset: 0; display: grid; place-items: center; background: #fff; }
+  canvas#out { display: block; box-shadow: 0 0 0 1px rgba(17,17,17,0.12); }
+
+  /* ---- "inky" UI chrome: everything here is ink and obeys dry/fade ---- */
+  .ink {
+    transition: opacity 240ms ease, filter 240ms ease;
+  }
+  .ink.wet { filter: blur(0.6px) saturate(1.4); }
+  .ink.faded { opacity: 0.4; }
+
+  #ui {
+    position: fixed; top: 12px; left: 12px;
+    width: min(280px, calc(100vw - 24px));
+    background: rgba(255,255,255,0.82); border: 1px solid var(--line);
+    padding: 10px 12px 12px; z-index: 10; user-select: none; backdrop-filter: blur(1px);
+  }
+  #ui h1 { margin: 0 0 8px; font-size: 12px; letter-spacing: 0.12em; text-transform: uppercase;
+           font-weight: 700; border-bottom: 1px solid var(--line); padding-bottom: 6px; }
+  #ui h1 small { float: right; opacity: 0.55; font-weight: 400; letter-spacing: 0; }
+  .row { margin: 9px 0; }
+  .row label { display: flex; justify-content: space-between; text-transform: uppercase;
+               letter-spacing: 0.06em; font-size: 10px; opacity: 0.85; margin-bottom: 3px; }
+  .row label .val { font-weight: 700; }
+  input[type=range] { -webkit-appearance: none; appearance: none; width: 100%; height: 14px; background: transparent; cursor: ew-resize; }
+  input[type=range]::-webkit-slider-runnable-track { height: 2px; background: var(--line); }
+  input[type=range]::-moz-range-track { height: 2px; background: var(--line); }
+  input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 10px; height: 14px; background: var(--ink); margin-top: -6px; }
+  input[type=range]::-moz-range-thumb { width: 10px; height: 14px; background: var(--ink); border: 0; border-radius: 0; }
+  .btns { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 10px; }
+  button { flex: 1 1 auto; min-width: 62px; background: #fff; color: var(--ink); border: 1px solid var(--line);
+           padding: 7px 6px; font: inherit; text-transform: uppercase; letter-spacing: 0.06em; cursor: pointer; }
+  button:hover, button[aria-pressed="true"] { background: var(--ink); color: #fff; }
+
+  /* ---- 3-way ink-budget radio (vertical): 76 / 86 / 97 % ---- */
+  #budget {
+    position: fixed; top: 12px; right: 12px; z-index: 10;
+    display: flex; flex-direction: column; gap: 6px;
+    background: rgba(255,255,255,0.82); border: 1px solid var(--line); padding: 8px;
+  }
+  #budget .cap { font-size: 9px; text-transform: uppercase; letter-spacing: 0.1em; opacity: 0.7; text-align: center; margin-bottom: 2px; }
+  #budget button {
+    /* each tappable target: min 2% viewport-height tall, 3% viewport-width wide */
+    min-height: 2vh; min-width: 3vw;
+    padding: 10px 16px; display: flex; align-items: center; gap: 8px;
+    font-weight: 700; letter-spacing: 0.05em;
+  }
+  #budget button .dot {
+    width: 10px; height: 10px; border: 1px solid var(--ink); border-radius: 50%;
+    flex: 0 0 auto; background: #fff;
+  }
+  #budget button[aria-pressed="true"] .dot { background: var(--ink); }
+
+  #meter {
+    position: fixed; bottom: 12px; right: 12px; z-index: 10; width: 190px;
+    background: rgba(255,255,255,0.82); border: 1px solid var(--line); padding: 8px 10px;
+  }
+  #meter .bar { height: 8px; border: 1px solid var(--ink); margin-top: 5px; position: relative; overflow: hidden; }
+  #meter .fill { position: absolute; inset: 0 100% 0 0; background: var(--ink); transition: right 120ms linear; }
+  #meter .cap-line { position: absolute; top: -2px; bottom: -2px; width: 2px; background: #d00; }
+  #meter .lbl { display: flex; justify-content: space-between; font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; }
+
+  #hint { position: fixed; bottom: 12px; left: 12px; font-size: 10px; opacity: 0.5; z-index: 10; max-width: 46vw; }
+  #err { position: fixed; inset: auto 12px 44px 12px; z-index: 30; background: #fee; color: #900;
+         border: 1px solid #f66; padding: 8px 10px; display: none; }
+</style>
+</head>
+<body>
+  <div id="stage"><canvas id="out"></canvas></div>
+
+  <div id="ui" class="ink">
+    <h1>cmyk ink <small>cielab</small></h1>
+    <div class="row ink">
+      <label>Dot size (px) <span class="val" id="vDot">32</span></label>
+      <input type="range" id="dot" min="14" max="48" step="1" value="32" />
+    </div>
+    <div class="row ink">
+      <label>Ink gain <span class="val" id="vGain">1.10</span></label>
+      <input type="range" id="gain" min="0.6" max="1.6" step="0.01" value="1.10" />
+    </div>
+    <div class="row ink">
+      <label>L* contrast <span class="val" id="vCon">1.10</span></label>
+      <input type="range" id="con" min="0.5" max="2.0" step="0.01" value="1.10" />
+    </div>
+    <div class="btns">
+      <button class="ink" id="btnCam" aria-pressed="false">Camera</button>
+      <button class="ink" id="btnImg" aria-pressed="true">Image</button>
+      <button class="ink" id="btnMirror" aria-pressed="false">Mirror</button>
+      <button class="ink" id="btnFreeze" aria-pressed="false">Freeze</button>
+    </div>
+    <div class="btns">
+      <button class="ink" id="btnFile">Open file…</button>
+      <button class="ink" id="btnSave">Save PNG</button>
+    </div>
+    <input type="file" id="file" accept="image/*" hidden />
+  </div>
+
+  <div id="budget" class="ink" role="radiogroup" aria-label="Ink coverage budget">
+    <div class="cap">ink budget</div>
+    <button class="ink" data-cap="76" role="radio" aria-pressed="true"><span class="dot"></span>76%</button>
+    <button class="ink" data-cap="86" role="radio" aria-pressed="false"><span class="dot"></span>86%</button>
+    <button class="ink" data-cap="97" role="radio" aria-pressed="false"><span class="dot"></span>97%</button>
+  </div>
+
+  <div id="meter" class="ink">
+    <div class="lbl"><span>coverage</span><span id="covVal">0%</span></div>
+    <div class="bar"><div class="fill" id="covFill"></div><div class="cap-line" id="covCap"></div></div>
+  </div>
+
+  <div id="hint">CIELAB tone → CMYK screens · 32px ink blobs · multiply deposition · FIFO ink dries, fades after 1s · changes steal ink at 32px/200ms · coverage capped</div>
+  <div id="err"></div>
+
+<script>
+"use strict";
+/* ==================================================================== *
+ * CIELABindex.html
+ *
+ * Perceptual (CIELAB) tone control feeding a CMYK halftone made of
+ * 32px ink "blobs" composited in multiply mode — dots deposit like
+ * physical ink onto the white page. Four rotated screens (C/M/Y/K).
+ *
+ * "Inky data" UI rules enforced here:
+ *   • FIFO drying — controls placed first dry first; a freshly created
+ *     control is "wet", then dries solid.
+ *   • Fade after 1s — any inky element left untouched for 1000ms fades.
+ *   • Ink theft — camera frames, image changes and UI interaction spawn
+ *     expanding "steal fronts" that whiten surrounding ink at 32px/200ms
+ *     (= 160 px/s).
+ *   • Coverage cap — a controller keeps non-#FFF ink pixels at or below
+ *     the selected budget (76% default / 86% / 97%), via the 3-way
+ *     vertical radio at top-right.
+ * ==================================================================== */
+
+const out = document.getElementById("out");
+const ctx = out.getContext("2d", { alpha: false, willReadFrequently: false });
+const errBox = document.getElementById("err");
+function fail(m){ errBox.style.display = "block"; errBox.textContent = m; console.error(m); }
+
+const samp = document.createElement("canvas");
+const sctx = samp.getContext("2d", { willReadFrequently: true });
+const cov  = document.createElement("canvas");        // tiny coverage-measure buffer
+const cctx = cov.getContext("2d", { willReadFrequently: true });
+cov.width = 192; cov.height = 108;
+
+const state = {
+  mode: "image", mirror: false, freeze: false,
+  dot: 32, gain: 1.10, con: 1.10,
+  budget: 0.76, inkScale: 1.0,
+  srcW: 1280, srcH: 720, coverage: 0,
+};
+
+// CMYK screen angles (classic), pure inks for correct multiply subtraction.
+const SCREENS = [
+  { ch: "c", ang: 15 * Math.PI/180, color: "rgb(0,255,255)"   },
+  { ch: "m", ang: 75 * Math.PI/180, color: "rgb(255,0,255)"   },
+  { ch: "y", ang:  0,               color: "rgb(255,255,0)"   },
+  { ch: "k", ang: 45 * Math.PI/180, color: "rgb(0,0,0)"       },
+];
+
+let img = new Image(), video = null, stream = null;
+let dpr = Math.min(window.devicePixelRatio || 1, 2);
+let sampleData = null, sampW = 0, sampH = 0;
+const steals = [];      // {x,y,t0}
+
+/* ------------------------- color science --------------------------- */
+// sRGB (0..1) -> CIELAB L* (0..100). We only need L* for perceptual tone.
+function srgbToL(r, g, b){
+  const lin = c => (c <= 0.04045 ? c/12.92 : Math.pow((c+0.055)/1.055, 2.4));
+  const Y = 0.2126*lin(r) + 0.7152*lin(g) + 0.0722*lin(b);   // relative luminance
+  const yr = Y; // reference white Yn = 1
+  const f = yr > 0.008856 ? Math.cbrt(yr) : (7.787*yr + 16/116);
+  return 116*f - 16;   // 0..100
+}
+// RGB (0..1) -> CMYK (0..1)
+function rgbToCmyk(r, g, b){
+  const k = 1 - Math.max(r, g, b);
+  if (k >= 0.9999) return [0,0,0,1];
+  const ik = 1 - k;
+  return [ (1-r-k)/ik, (1-g-k)/ik, (1-b-k)/ik, k ];
+}
+
+/* ------------------------- sources --------------------------------- */
+function loadImage(src){
+  img.onload = () => { state.srcW = img.naturalWidth; state.srcH = img.naturalHeight; resize(); spawnBurst(); };
+  img.onerror = () => fail("Could not load image: " + src);
+  img.src = src;
+}
+loadImage("test.jpg");
+
+async function startCamera(){
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" }, audio: false });
+    video = document.createElement("video");
+    video.playsInline = true; video.muted = true; video.srcObject = stream;
+    await video.play();
+    state.srcW = video.videoWidth || 640; state.srcH = video.videoHeight || 480;
+    state.mode = "camera"; resize(); spawnBurst(); setPressed();
+  } catch (e) { fail("Camera unavailable: " + e.message); state.mode = "image"; setPressed(); }
+}
+function stopCamera(){ if (stream) stream.getTracks().forEach(t => t.stop()); stream = null; video = null; }
+
+/* ------------------------- sizing ---------------------------------- */
+function resize(){
+  dpr = Math.min(window.devicePixelRatio || 1, 2);
+  const ar = state.srcW / state.srcH;
+  let cssW = window.innerWidth, cssH = cssW / ar;
+  if (cssH > window.innerHeight) { cssH = window.innerHeight; cssW = cssH * ar; }
+  out.style.width = cssW + "px"; out.style.height = cssH + "px";
+  out.width = Math.round(cssW * dpr); out.height = Math.round(cssH * dpr);
+  const pitch = state.dot;
+  sampW = Math.max(2, Math.min(480, Math.round(out.width  / pitch * 2)));
+  sampH = Math.max(2, Math.min(480, Math.round(out.height / pitch * 2)));
+  samp.width = sampW; samp.height = sampH;
+}
+window.addEventListener("resize", resize);
+
+/* ------------------------- sampling -------------------------------- */
+function grabSource(){
+  const src = state.mode === "camera" ? video : img;
+  if (!src) return false;
+  if (state.mode === "camera" && (!video || video.readyState < 2)) return false;
+  sctx.save();
+  if (state.mirror) { sctx.translate(sampW, 0); sctx.scale(-1, 1); }
+  try { sctx.drawImage(src, 0, 0, sampW, sampH); } catch(e){ sctx.restore(); return false; }
+  sctx.restore();
+  sampleData = sctx.getImageData(0, 0, sampW, sampH).data;
+  return true;
+}
+function sampleRGB(x, y){
+  const u = Math.min(sampW - 1, Math.max(0, (x / out.width)  * sampW)) | 0;
+  const v = Math.min(sampH - 1, Math.max(0, (y / out.height) * sampH)) | 0;
+  const i = (v * sampW + u) * 4;
+  return [ sampleData[i]/255, sampleData[i+1]/255, sampleData[i+2]/255 ];
+}
+
+/* ------------------------- ink theft ------------------------------- */
+function spawnSteal(x, y){ steals.push({ x, y, t0: performance.now() }); if (steals.length > 48) steals.shift(); }
+function spawnBurst(){ const W = out.width, H = out.height; for (let i=0;i<6;i++) spawnSteal(Math.random()*W, Math.random()*H); }
+// map a client (CSS px) point onto the canvas device-pixel space
+function clientToCanvas(cx, cy){
+  const r = out.getBoundingClientRect();
+  if (cx < r.left || cx > r.right || cy < r.top || cy > r.bottom) return null;
+  return [ (cx - r.left)/r.width * out.width, (cy - r.top)/r.height * out.height ];
+}
+
+/* ------------------------- one screen ------------------------------ */
+function screen(chIndex, angle, cssColor){
+  const pitch = state.dot;
+  const cos = Math.cos(angle), sin = Math.sin(angle);
+  const W = out.width, H = out.height;
+  const R = Math.ceil(Math.hypot(W, H) / pitch) + 2;
+  const maxR = pitch * 0.5 * Math.SQRT2 * state.gain * state.inkScale;   // full-ink radius
+  const con = state.con;
+
+  ctx.fillStyle = cssColor;
+  ctx.beginPath();
+  for (let j = -R; j <= R; j++){
+    for (let i = -R; i <= R; i++){
+      const lx = i * pitch, ly = j * pitch;
+      const x = lx * cos - ly * sin + W * 0.5;
+      const y = lx * sin + ly * cos + H * 0.5;
+      if (x < -pitch || y < -pitch || x > W + pitch || y > H + pitch) continue;
+
+      const [r, g, b] = sampleRGB(x, y);
+      // perceptual contrast on L*, then rebuild an approximate tone factor
+      let L = srgbToL(r, g, b) / 100;              // 0..1
+      L = Math.min(1, Math.max(0, (L - 0.5) * con + 0.5));
+      const cmyk = rgbToCmyk(r, g, b);
+      let val = cmyk[chIndex];
+      // Fold perceptual darkness into K and lift chroma inks slightly by (1-L)
+      if (chIndex === 3) val = Math.max(val, 1 - L - 0.15);
+      else val *= (0.65 + 0.5 * (1 - L));
+      val = Math.min(1, Math.max(0, val));
+      if (val <= 0.02) continue;
+
+      const rad = Math.sqrt(val) * maxR;
+      if (rad < 0.35) continue;
+      ctx.moveTo(x + rad, y);
+      ctx.arc(x, y, rad, 0, Math.PI * 2);
+    }
+  }
+  ctx.fill();
+}
+
+/* ------------------------- coverage measure ------------------------ */
+function measureCoverage(){
+  cctx.drawImage(out, 0, 0, cov.width, cov.height);
+  const d = cctx.getImageData(0, 0, cov.width, cov.height).data;
+  let inked = 0; const n = cov.width * cov.height;
+  for (let i = 0; i < d.length; i += 4){
+    // "non-#FFF" = not near-white
+    if (d[i] < 245 || d[i+1] < 245 || d[i+2] < 245) inked++;
+  }
+  return inked / n;
+}
+
+/* ------------------------- render loop ----------------------------- */
+let lastCamSteal = 0;
+function frame(now){
+  const changed = (!state.freeze) && grabSource();
+
+  // camera preview updating "steals ink" from around a moving point
+  if (changed && state.mode === "camera" && now - lastCamSteal > 200){
+    lastCamSteal = now;
+    spawnSteal(out.width * (0.3 + 0.4*Math.random()), out.height * (0.3 + 0.4*Math.random()));
+  }
+
+  ctx.setTransform(1,0,0,1,0,0);
+  ctx.globalCompositeOperation = "source-over";
+  ctx.fillStyle = "#fff";
+  ctx.fillRect(0, 0, out.width, out.height);
+
+  if (sampleData){
+    ctx.globalCompositeOperation = "multiply";     // ink deposition
+    for (let s = 0; s < SCREENS.length; s++) screen(s, SCREENS[s].ang, SCREENS[s].color);
+    ctx.globalCompositeOperation = "source-over";
+  }
+
+  // steal fronts: whiten ink within an expanding radius (32px / 200ms)
+  const SPEED = 32 / 200;   // px per ms  == 160 px/s
+  for (let k = steals.length - 1; k >= 0; k--){
+    const s = steals[k];
+    const age = now - s.t0;
+    const rad = Math.max(0, SPEED * age);
+    const maxRad = 240 * dpr;
+    if (rad > maxRad){ steals.splice(k, 1); continue; }
+    if (rad < 1) continue;   // nothing to draw yet; radii must stay >= 0
+    const a = Math.max(0, 1 - rad / maxRad);       // fades as it dries out
+    const grad = ctx.createRadialGradient(s.x, s.y, rad * 0.5, s.x, s.y, rad);
+    grad.addColorStop(0, "rgba(255,255,255," + (0.9 * a) + ")");
+    grad.addColorStop(1, "rgba(255,255,255,0)");
+    ctx.fillStyle = grad;
+    ctx.beginPath(); ctx.arc(s.x, s.y, rad, 0, Math.PI*2); ctx.fill();
+  }
+
+  // coverage measurement + budget controller
+  if (!((now|0) % 2)) {   // roughly every other frame
+    state.coverage = measureCoverage();
+    const over = state.coverage - state.budget;
+    if (over > 0)      state.inkScale = Math.max(0.15, state.inkScale - Math.min(0.06, over * 0.8));
+    else               state.inkScale = Math.min(1.0,  state.inkScale + 0.01);
+    updateMeter();
+  }
+
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+
+/* ------------------------- meter ----------------------------------- */
+const covFill = document.getElementById("covFill");
+const covVal  = document.getElementById("covVal");
+const covCap  = document.getElementById("covCap");
+function updateMeter(){
+  const pct = Math.round(state.coverage * 100);
+  covVal.textContent = pct + "%";
+  covFill.style.right = (100 - Math.min(100, pct)) + "%";
+  covCap.style.left = Math.min(100, state.budget * 100) + "%";
+  covFill.style.background = state.coverage > state.budget + 0.02 ? "#d00" : "var(--ink)";
+}
+
+/* ==================================================================== *
+ * "Inky data" UI lifecycle: FIFO dry, then fade after 1s idle.
+ * ==================================================================== */
+const inkEls = Array.from(document.querySelectorAll(".ink"));
+const inkState = new Map();
+const now0 = performance.now();
+inkEls.forEach((el, idx) => {
+  // FIFO: earlier elements are born earlier, so they dry (and later fade) first.
+  inkState.set(el, { born: now0 + idx * 120, lastTouch: now0 + idx * 120 });
+  const touch = () => { inkState.get(el).lastTouch = performance.now(); el.classList.remove("faded"); };
+  el.addEventListener("pointerdown", touch);
+  el.addEventListener("pointerenter", touch);
+  el.addEventListener("input", touch);
+});
+function inkTick(){
+  const t = performance.now();
+  for (const el of inkEls){
+    const s = inkState.get(el);
+    const age = t - s.born;
+    // wet while fresh (< 500ms since birth), then dries solid
+    if (age < 500) el.classList.add("wet"); else el.classList.remove("wet");
+    // fade after 1s untouched (only once dried)
+    if (age >= 500 && t - s.lastTouch > 1000) el.classList.add("faded");
+  }
+  requestAnimationFrame(inkTick);
+}
+requestAnimationFrame(inkTick);
+
+/* ------------------------- UI wiring ------------------------------- */
+const $ = id => document.getElementById(id);
+function bind(id, key, label, fmt, relayout){
+  const el = $(id), o = $(label);
+  const apply = () => {
+    const v = parseFloat(el.value); state[key] = v; o.textContent = fmt ? fmt(v) : v;
+    if (relayout) resize();
+    // altering a control steals ink near the canvas center too
+    spawnSteal(out.width * 0.5, out.height * 0.5);
+  };
+  el.addEventListener("input", apply); apply();
+}
+bind("dot","dot","vDot", v => v|0, true);
+bind("gain","gain","vGain", v => v.toFixed(2));
+bind("con","con","vCon", v => v.toFixed(2));
+
+function setPressed(){
+  $("btnCam").setAttribute("aria-pressed", state.mode === "camera");
+  $("btnImg").setAttribute("aria-pressed", state.mode === "image");
+  $("btnMirror").setAttribute("aria-pressed", state.mirror);
+  $("btnFreeze").setAttribute("aria-pressed", state.freeze);
+}
+$("btnCam").onclick = () => { if (state.mode !== "camera") startCamera(); };
+$("btnImg").onclick = () => { stopCamera(); state.mode = "image"; resize(); spawnBurst(); setPressed(); };
+$("btnMirror").onclick = () => { state.mirror = !state.mirror; spawnBurst(); setPressed(); };
+$("btnFreeze").onclick = () => { state.freeze = !state.freeze; setPressed(); };
+$("btnFile").onclick = () => $("file").click();
+$("file").onchange = e => { const f = e.target.files[0]; if (!f) return; stopCamera(); state.mode = "image"; loadImage(URL.createObjectURL(f)); setPressed(); };
+$("btnSave").onclick = () => { const a = document.createElement("a"); a.download = "halftone-cmyk.png"; a.href = out.toDataURL("image/png"); a.click(); };
+
+// budget radio
+document.querySelectorAll("#budget button").forEach(btn => {
+  btn.onclick = () => {
+    document.querySelectorAll("#budget button").forEach(b => b.setAttribute("aria-pressed", "false"));
+    btn.setAttribute("aria-pressed", "true");
+    state.budget = parseInt(btn.dataset.cap, 10) / 100;
+    updateMeter();
+    spawnBurst();  // changing budget re-inks / steals
+  };
+});
+
+// any pointer interaction over the canvas steals ink there
+out.addEventListener("pointerdown", e => { const p = clientToCanvas(e.clientX, e.clientY); if (p) spawnSteal(p[0], p[1]); });
+out.addEventListener("pointermove", e => { if (e.buttons) { const p = clientToCanvas(e.clientX, e.clientY); if (p) spawnSteal(p[0], p[1]); } });
+
+setPressed();
+updateMeter();
+</script>
+</body>
+</html>
