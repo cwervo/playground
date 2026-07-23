@@ -1,0 +1,510 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The Folk Extension Algebra — A Formal Semantics of Compositional File Extensions</title>
+<style>
+  :root {
+    --ink: #1a1a1a;
+    --paper: #ffffff;
+    --muted: #555;
+    --rule: #d8d8d8;
+    --link: #7a1f12;         /* arXiv-ish dark red */
+    --code-bg: #f6f5f2;
+    --code-brd: #e4e2dc;
+    --box-bg: #f9f8f5;
+    --accent: #b31b1b;       /* Cornell/arXiv red */
+    --host: #0b5fa5;
+    --guest: #8a5a00;
+    --maxw: 46rem;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --ink: #e7e4dd; --paper: #16161a; --muted: #a4a09a; --rule: #33333a;
+      --link: #e8917f; --code-bg: #1e1e24; --code-brd: #33333c; --box-bg: #1c1c22;
+      --accent: #e0736f; --host: #6db3f0; --guest: #e0b768;
+    }
+  }
+  :root[data-theme="light"] {
+    --ink:#1a1a1a; --paper:#fff; --muted:#555; --rule:#d8d8d8; --link:#7a1f12;
+    --code-bg:#f6f5f2; --code-brd:#e4e2dc; --box-bg:#f9f8f5; --accent:#b31b1b; --host:#0b5fa5; --guest:#8a5a00;
+  }
+  :root[data-theme="dark"] {
+    --ink:#e7e4dd; --paper:#16161a; --muted:#a4a09a; --rule:#33333a; --link:#e8917f;
+    --code-bg:#1e1e24; --code-brd:#33333c; --box-bg:#1c1c22; --accent:#e0736f; --host:#6db3f0; --guest:#e0b768;
+  }
+
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: "Latin Modern Roman", "Computer Modern", Georgia, "Times New Roman", Times, serif;
+    font-size: 17px;
+    line-height: 1.5;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+  }
+  .page {
+    max-width: var(--maxw);
+    margin: 0 auto;
+    padding: 4.5rem 1.4rem 6rem;
+    position: relative;
+  }
+
+  /* arXiv vertical stamp */
+  .arxiv-stamp {
+    position: fixed;
+    left: max(0.4rem, calc(50vw - var(--maxw)/2 - 2.7rem));
+    top: 12rem;
+    transform: rotate(180deg);
+    writing-mode: vertical-rl;
+    font-family: "Latin Modern Roman", Georgia, serif;
+    font-size: 12px;
+    letter-spacing: 0.06em;
+    color: var(--muted);
+    user-select: text;
+    z-index: 5;
+  }
+  @media (max-width: 62rem) { .arxiv-stamp { display: none; } }
+
+  a { color: var(--link); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+
+  /* Title block */
+  header.title { text-align: center; margin-bottom: 1.6rem; }
+  h1.title {
+    font-size: 1.72rem;
+    line-height: 1.24;
+    font-weight: 700;
+    margin: 0 0 0.9rem;
+    letter-spacing: -0.01em;
+  }
+  .subtitle { font-style: italic; color: var(--muted); font-size: 1.02rem; margin: -0.3rem 0 1rem; }
+  .authors { font-size: 1.06rem; margin: 0.6rem 0 0.15rem; }
+  .affil { color: var(--muted); font-size: 0.9rem; font-style: italic; }
+  .venue { color: var(--muted); font-size: 0.82rem; margin-top: 0.7rem; letter-spacing: 0.02em; }
+
+  /* Abstract */
+  .abstract {
+    margin: 1.8rem auto 1.2rem;
+    max-width: 40rem;
+    font-size: 0.96rem;
+  }
+  .abstract h2 { text-align: center; font-size: 0.86rem; font-variant: small-caps; letter-spacing: 0.08em; font-weight: 700; margin: 0 0 0.5rem; }
+  .abstract p { margin: 0 0 0.6rem; text-align: justify; }
+  .keywords { font-size: 0.86rem; color: var(--muted); margin-top: 0.8rem; }
+  .keywords b { color: var(--ink); font-variant: small-caps; }
+
+  hr.rule { border: none; border-top: 1px solid var(--rule); margin: 1.6rem 0; }
+
+  /* Sections */
+  h2.sec { font-size: 1.16rem; font-weight: 700; margin: 2.1rem 0 0.6rem; letter-spacing: -0.005em; }
+  h3.sub { font-size: 1.02rem; font-weight: 700; margin: 1.4rem 0 0.4rem; }
+  h4.subsub { font-size: 0.96rem; font-weight: 700; font-style: italic; margin: 1.1rem 0 0.3rem; }
+  p { text-align: justify; margin: 0 0 0.75rem; hyphens: auto; }
+  section { counter-reset: none; }
+
+  .lead::first-letter { }
+
+  /* two-column intro-ish flow stays single column for readability on web */
+
+  /* Definition / theorem boxes */
+  .box {
+    border: 1px solid var(--code-brd);
+    background: var(--box-bg);
+    border-left: 3px solid var(--accent);
+    padding: 0.7rem 0.9rem;
+    margin: 1rem 0;
+    border-radius: 3px;
+    font-size: 0.95rem;
+  }
+  .box .lab { font-variant: small-caps; font-weight: 700; letter-spacing: 0.04em; color: var(--accent); }
+  .box.def { border-left-color: var(--host); }
+  .box.def .lab { color: var(--host); }
+  .box.prin { border-left-color: var(--guest); }
+  .box.prin .lab { color: var(--guest); }
+
+  /* Grammar / code */
+  pre.grammar, pre.code {
+    background: var(--code-bg);
+    border: 1px solid var(--code-brd);
+    border-radius: 4px;
+    padding: 0.8rem 0.95rem;
+    overflow-x: auto;
+    font-family: "SFMono-Regular", "JetBrains Mono", "DejaVu Sans Mono", Menlo, Consolas, monospace;
+    font-size: 13px;
+    line-height: 1.55;
+    margin: 0.9rem 0;
+    tab-size: 2;
+  }
+  pre.grammar { font-size: 12.5px; }
+  code.inl {
+    font-family: "SFMono-Regular", "DejaVu Sans Mono", Menlo, Consolas, monospace;
+    font-size: 0.86em;
+    background: var(--code-bg);
+    border: 1px solid var(--code-brd);
+    border-radius: 3px;
+    padding: 0.04em 0.32em;
+    white-space: nowrap;
+  }
+  .nt { color: var(--host); }         /* nonterminal */
+  .tk { color: var(--guest); }        /* terminal keyword */
+  .cm { color: var(--muted); font-style: italic; }  /* comment */
+  .op { color: var(--accent); }       /* meta operator */
+
+  figure { margin: 1.4rem 0; text-align: center; }
+  figure svg { max-width: 100%; height: auto; }
+  figcaption { font-size: 0.85rem; color: var(--muted); margin-top: 0.5rem; text-align: left; }
+  figcaption b { color: var(--ink); }
+
+  table.schema { width: 100%; border-collapse: collapse; font-size: 0.86rem; margin: 1rem 0; }
+  table.schema th, table.schema td { border: 1px solid var(--rule); padding: 0.4rem 0.55rem; text-align: left; vertical-align: top; }
+  table.schema th { background: var(--box-bg); font-variant: small-caps; letter-spacing: 0.03em; }
+  table.schema code { font-family: "SFMono-Regular","DejaVu Sans Mono",Menlo,monospace; font-size: 0.92em; }
+
+  ol.refs { font-size: 0.86rem; padding-left: 1.4rem; }
+  ol.refs li { margin: 0.35rem 0; }
+
+  .footnote { font-size: 0.8rem; color: var(--muted); }
+  sup.fn { font-size: 0.7em; }
+
+  .disclaimer {
+    margin-top: 2.5rem; padding-top: 1rem; border-top: 1px solid var(--rule);
+    font-size: 0.78rem; color: var(--muted); font-style: italic; text-align: center;
+  }
+
+  /* small caps section numbering handled inline */
+  .secno { font-weight: 700; }
+
+  ::selection { background: rgba(179,27,27,0.18); }
+</style>
+
+<div class="arxiv-stamp">arXiv:2607.14023v1&nbsp;&nbsp;[cs.PL]&nbsp;&nbsp;23 Jul 2026</div>
+
+<div class="page">
+
+  <header class="title">
+    <h1 class="title">The Folk Extension Algebra: A Formal Semantics of<br>Compositional File Extensions for Reactive Tangible Computing</h1>
+    <div class="subtitle">Or: why <code class="inl">.svg.folk</code> and <code class="inl">.folk.svg</code> are not the same file</div>
+    <div class="authors">cwervo</div>
+    <div class="affil">Folk Computer Playground &middot; Independent</div>
+    <div class="venue">Draft preprint. In the spirit of OOPSLA (Onward! track). Not a real arXiv submission.</div>
+  </header>
+
+  <section class="abstract">
+    <h2>Abstract</h2>
+    <p>Folk Computer programs live as physical pages sensed by cameras and evaluated as a shared database of <em>statements</em>. As such programs began to emit and embed other notations — SVG for vector output, HTML/CSS/JS for panels, Tcl for raw escape, and even BNF for self-description — an informal convention of <em>stacked file extensions</em> emerged in practice (e.g. <code class="inl">.tcl.html.folk</code>). This paper argues that these stacks are not decoration: they are a lightweight <em>typing discipline</em> that names, for each file, the exact nesting of language runtimes that own its brackets. We give a formal account. We define the <b>Folk Extension Algebra</b>, in which a dotted extension chain read right-to-left denotes a host stack from outermost runtime to innermost guest, and prove informally that hosting is <em>non-commutative</em>: swapping two extensions swaps which parser is authoritative. We present a single BNF metagrammar, a core grammar for Folk, and a higher-order <em>host combinator</em> that, instantiated eleven times, yields concrete grammars for <code class="inl">.bnf.folk</code>, <code class="inl">.svg.folk</code>, <code class="inl">.folk.svg</code>, <code class="inl">.tcl.folk</code>, <code class="inl">.folk.tcl</code>, <code class="inl">.html.folk</code>, <code class="inl">.tcl.html.folk</code>, <code class="inl">.css.folk</code>, <code class="inl">.folk.css</code>, <code class="inl">.js.folk</code>, and <code class="inl">.folk.js</code>. We close with the semantics of reflection between host and guest layers, using Folk's statement database as a universal interchange, and relate the design to <code class="inl">#lang</code>, literate programming, MIME suffix trees, and polyglot files.</p>
+    <div class="keywords"><b>Keywords:</b> file extensions, host languages, embedded DSLs, tangible computing, Folk, reactive systems, grammar composition, projectional syntax</div>
+  </section>
+
+  <hr class="rule">
+
+  <!-- 1 -->
+  <section>
+    <h2 class="sec"><span class="secno">1.</span> Introduction</h2>
+    <p class="lead">A Folk Computer program is a piece of paper. A projector-and-camera table watches the page, optically recognizes it, and runs the text printed on it as a set of reactive <em>statements</em> against a shared, table-wide database <span class="footnote">[1]</span>. The canonical file extension for such a page is <code class="inl">.folk</code>. In day-to-day use, however, a single <code class="inl">.folk</code> extension quickly stops being enough to describe what is actually on the page.</p>
+
+    <p>Consider three real situations. A page that draws vector graphics is, in every meaningful sense, an <em>SVG generator</em> that happens to be written as Folk. A page that renders a live web panel is an <em>HTML document</em> whose text is Tcl-templated and which is, in turn, produced by Folk. And an ordinary <code class="inl">.svg</code> illustration might want to sprout a little reactive behavior — a few Folk rules embedded directly inside the drawing. Practitioners already reach for stacked extensions to name these: <code class="inl">drawing.svg.folk</code>, <code class="inl">panel.tcl.html.folk</code>, <code class="inl">badge.folk.svg</code>. The convention appears in the wild the moment a workflow needs to round-trip a Folk page through another tool.<sup class="fn">1</sup></p>
+
+    <p>The thesis of this paper is simple: <strong>the order of stacked extensions is meaningful, and it denotes a stack of language runtimes.</strong> Reading the chain right-to-left gives the <em>host order</em> — the outermost runtime first, each language to the left hosted by the one to its right, down to the innermost guest that carries the file's "real" content. Under this reading <code class="inl">.svg.folk</code> (a Folk program that emits SVG) and <code class="inl">.folk.svg</code> (an SVG document that embeds Folk) are genuinely different file types with different top-level parsers, different loaders, and different failure modes. The extension chain is a type, and like most types it is not commutative.</p>
+
+    <p>We make this precise. Section 2 recalls just enough of Folk. Section 3 defines the extension algebra and its central duality. Sections 4&ndash;6 give a metanotation, a core grammar for Folk, and a single higher-order <em>host combinator</em>. Section 7 instantiates that combinator eleven times, once per file type in the title. Section 8 gives the reflective semantics that make the whole thing hang together, and Section 9 situates it among related ideas.</p>
+  </section>
+
+  <!-- 2 -->
+  <section>
+    <h2 class="sec"><span class="secno">2.</span> Background: Folk in One Page</h2>
+    <p>Folk is hosted on Tcl. A program is a sequence of <em>statements</em>, plus ordinary Tcl. The core verbs are:</p>
+    <pre class="code"><span class="tk">Wish</span> $this is outlined thick white
+<span class="tk">Wish</span> $this is titled <span class="guest">"Key monitor"</span>
+
+<span class="tk">When</span> keyboard /k/ claims key /key/ is down with timestamp /any/ {
+  <span class="tk">Wish</span> $this is labelled <span class="guest">"$k | $key | $any"</span>
+}
+
+<span class="tk">Claim</span> the sky is blue
+<span class="tk">Commit</span> c { <span class="tk">Claim</span> $this has seen 0 boops }</pre>
+    <p>Four ideas matter for what follows. (i) <b>Claims and Wishes</b> assert facts and desires into the database. (ii) <b>When</b> is a reactive pattern-matched rule; its body re-runs whenever matching statements exist. (iii) <b>Pattern variables</b> are written <code class="inl">/name/</code> and capture matched terms. (iv) <b>Escapes to Tcl</b> are pervasive: <code class="inl">$var</code> substitutes a value and <code class="inl">[script]</code> evaluates Tcl inline. The last point is the crux for composition — Folk statement <em>payloads</em> are strings, and strings can carry any other notation, with <code class="inl">$</code> and <code class="inl">[…]</code> serving as interpolation holes into the guest text.</p>
+    <div class="box def"><span class="lab">Observation 2.1 (Folk is already a two-level language).</span> Because every Folk file is also a Tcl script, <code class="inl">.folk</code> is silently <code class="inl">.tcl.folk</code> with the Tcl left implicit. The extension algebra below simply makes such implicit hosts nameable, and lets us stack more of them.</div>
+  </section>
+
+  <!-- 3 -->
+  <section>
+    <h2 class="sec"><span class="secno">3.</span> The Extension Algebra</h2>
+
+    <p>Fix a finite alphabet of extension symbols <code class="inl">&Sigma; = { folk, tcl, svg, html, css, js, bnf }</code>. A <em>filename</em> is a stem followed by a non-empty dotted <em>extension chain</em> drawn from <code class="inl">&Sigma;</code>.</p>
+
+    <div class="box def"><span class="lab">Definition 3.1 (Host order).</span> For a chain <code class="inl">e<sub>n</sub>&middot;&hellip;&middot;e<sub>1</sub>&middot;e<sub>0</sub></code> (written left-to-right as it appears in the filename, so <code class="inl">e<sub>0</sub></code> is <em>rightmost</em>), the <em>host relation</em> <code class="inl">&#8842;</code> is
+      <div style="text-align:center; margin:0.5rem 0;"><code class="inl" style="white-space:normal">e<sub>0</sub> &#8842; e<sub>1</sub> &#8842; &hellip; &#8842; e<sub>n</sub></code></div>
+      read "<code class="inl">e<sub>0</sub></code> hosts <code class="inl">e<sub>1</sub></code> hosts &hellip;". The rightmost symbol <code class="inl">e<sub>0</sub></code> is the <b>top host</b> (the runtime the loader dispatches on); the leftmost symbol <code class="inl">e<sub>n</sub></code> is the <b>innermost guest</b> (the file's effective content type). Each <code class="inl">e<sub>k</sub></code> is embedded in, templated by, or emitted from <code class="inl">e<sub>k+1</sub></code>.</div>
+
+    <p>Two mnemonics fall out, and they point in opposite directions. <b>Control</b> flows right-to-left: the top host loads first and delegates inward. <b>Content</b> flows left-to-right: the innermost guest is the payload, lifted outward through each host until the top host runs it. The rightmost extension answers <em>"who parses the outermost brackets?"</em>; the leftmost answers <em>"what is this file really about?"</em></p>
+
+    <figure>
+      <svg viewBox="0 0 620 190" role="img" aria-label="Host nesting for tcl.html.folk">
+        <rect x="10" y="20" width="600" height="150" rx="10" fill="none" stroke="#0b5fa5" stroke-width="2"/>
+        <text x="24" y="42" font-family="Georgia, serif" font-size="15" fill="#0b5fa5" font-weight="bold">folk</text>
+        <text x="70" y="42" font-family="Georgia, serif" font-size="12" fill="#888">— top host: the Folk runtime loads &amp; evaluates the page</text>
+        <rect x="40" y="54" width="540" height="104" rx="8" fill="none" stroke="#8a5a00" stroke-width="2"/>
+        <text x="54" y="76" font-family="Georgia, serif" font-size="15" fill="#8a5a00" font-weight="bold">html</text>
+        <text x="100" y="76" font-family="Georgia, serif" font-size="12" fill="#888">— emitted document (string payloads of Wish/Claim)</text>
+        <rect x="70" y="88" width="480" height="58" rx="6" fill="none" stroke="#b31b1b" stroke-width="2"/>
+        <text x="84" y="110" font-family="Georgia, serif" font-size="15" fill="#b31b1b" font-weight="bold">tcl</text>
+        <text x="118" y="110" font-family="Georgia, serif" font-size="12" fill="#888">— innermost guest: templating inside HTML text nodes</text>
+        <text x="84" y="132" font-family="monospace" font-size="12" fill="#666">panel.tcl.html.folk</text>
+      </svg>
+      <figcaption><b>Figure 1.</b> The chain <code>tcl.html.folk</code> as concentric hosts. Control enters at <code>folk</code> (outer) and delegates inward; the file's content type is <code>tcl</code>-templated <code>html</code>. Nesting depth equals chain length.</figcaption>
+    </figure>
+
+    <div class="box prin"><span class="lab">Principle 3.2 (Non-commutativity of hosting).</span> In general <code class="inl">a&middot;b &ne; b&middot;a</code> as file types. The chains name different top hosts, so a conforming loader runs a different parser first, and a syntactically valid <code class="inl">a&middot;b</code> file is typically <em>not</em> a valid <code class="inl">b&middot;a</code> file. Concatenation of chains is associative (nesting is), giving a monoid on <code class="inl">&Sigma;<sup>+</sup></code> under juxtaposition, but the hosting interpretation of that monoid is order-sensitive.</div>
+
+    <p>This yields the paper's organizing distinction. Every file type below is either <b>Folk-as-host</b> (<code class="inl">folk</code> is rightmost — Folk owns the outer brackets and <em>emits</em> the guest) or <b>Folk-as-guest</b> (<code class="inl">folk</code> is not rightmost — some other runtime owns the outer brackets and <em>embeds</em> Folk). The two families are duals, and the marquee pairs <code class="inl">.svg.folk</code>/<code class="inl">.folk.svg</code>, <code class="inl">.tcl.folk</code>/<code class="inl">.folk.tcl</code>, and the CSS/JS analogues, exhibit the duality directly.</p>
+
+    <table class="schema">
+      <tr><th>Chain</th><th>Top host (loader)</th><th>Innermost guest</th><th>Family</th></tr>
+      <tr><td><code>bnf.folk</code></td><td>Folk</td><td>BNF</td><td>Folk-as-host / emit</td></tr>
+      <tr><td><code>svg.folk</code></td><td>Folk</td><td>SVG</td><td>Folk-as-host / emit</td></tr>
+      <tr><td><code>folk.svg</code></td><td>SVG</td><td>Folk</td><td>Folk-as-guest / embed</td></tr>
+      <tr><td><code>tcl.folk</code></td><td>Folk</td><td>Tcl</td><td>Folk-as-host / emit</td></tr>
+      <tr><td><code>folk.tcl</code></td><td>Tcl (tclsh)</td><td>Folk</td><td>Folk-as-guest / embed</td></tr>
+      <tr><td><code>html.folk</code></td><td>Folk</td><td>HTML</td><td>Folk-as-host / emit</td></tr>
+      <tr><td><code>tcl.html.folk</code></td><td>Folk</td><td>Tcl-in-HTML</td><td>Folk-as-host / emit (depth 3)</td></tr>
+      <tr><td><code>css.folk</code></td><td>Folk</td><td>CSS</td><td>Folk-as-host / emit</td></tr>
+      <tr><td><code>folk.css</code></td><td>CSS</td><td>Folk</td><td>Folk-as-guest / embed</td></tr>
+      <tr><td><code>js.folk</code></td><td>Folk</td><td>JS</td><td>Folk-as-host / emit</td></tr>
+      <tr><td><code>folk.js</code></td><td>JS</td><td>Folk</td><td>Folk-as-guest / embed</td></tr>
+    </table>
+  </section>
+
+  <!-- 4 -->
+  <section>
+    <h2 class="sec"><span class="secno">4.</span> Metanotation</h2>
+    <p>All grammars use one EBNF-flavored metanotation. Nonterminals are <span class="nt">&lang;angled&rang;</span> and blue; terminal keywords are <span class="tk">bold-ish</span> gold; guest text is set literally. Operators:</p>
+    <pre class="grammar"><span class="nt">&lang;x&rang;</span>            nonterminal
+<span class="tk">"lit"</span>          terminal (literal characters)
+a <span class="op">|</span> b          alternation
+<span class="op">{</span> a <span class="op">}</span>          zero or more repetitions
+<span class="op">{</span> a <span class="op">}</span><span class="op">+</span>         one or more repetitions
+<span class="op">[</span> a <span class="op">]</span>          optional
+<span class="op">(</span> a <span class="op">)</span>          grouping
+<span class="op">&lang;</span>G<span class="op">&rang;</span>            grammar parameter (a nonterminal supplied as an argument)
+Host<span class="op">&lang;</span>G<span class="op">&rang;</span>       higher-order production, instantiated per guest G
+<span class="cm">// text</span>        metagrammar comment</pre>
+  </section>
+
+  <!-- 5 -->
+  <section>
+    <h2 class="sec"><span class="secno">5.</span> Core Folk Grammar</h2>
+    <p>We first give the grammar of Folk itself, <code class="inl">&lang;folk&rang;</code>, reused throughout. Lexically, Folk is Tcl: words are whitespace-separated, braces group, brackets substitute.</p>
+
+    <h3 class="sub">5.1 &nbsp;Lexical layer</h3>
+    <pre class="grammar"><span class="nt">&lang;word&rang;</span>        <span class="op">::=</span> <span class="nt">&lang;bareword&rang;</span> <span class="op">|</span> <span class="nt">&lang;string&rang;</span> <span class="op">|</span> <span class="nt">&lang;brace-group&rang;</span>
+                  <span class="op">|</span> <span class="nt">&lang;var&rang;</span> <span class="op">|</span> <span class="nt">&lang;subst&rang;</span> <span class="op">|</span> <span class="nt">&lang;pattern-var&rang;</span>
+<span class="nt">&lang;bareword&rang;</span>    <span class="op">::=</span> <span class="op">{</span> <span class="nt">&lang;wchar&rang;</span> <span class="op">}</span><span class="op">+</span>                <span class="cm">// any non-space, non-metacharacter run</span>
+<span class="nt">&lang;var&rang;</span>         <span class="op">::=</span> <span class="tk">"$"</span> <span class="nt">&lang;name&rang;</span> <span class="op">|</span> <span class="tk">"${"</span> <span class="nt">&lang;name&rang;</span> <span class="tk">"}"</span>
+<span class="nt">&lang;subst&rang;</span>       <span class="op">::=</span> <span class="tk">"["</span> <span class="nt">&lang;tcl-script&rang;</span> <span class="tk">"]"</span>       <span class="cm">// inline Tcl evaluation</span>
+<span class="nt">&lang;pattern-var&rang;</span> <span class="op">::=</span> <span class="tk">"/"</span> <span class="nt">&lang;name&rang;</span> <span class="tk">"/"</span>           <span class="cm">// capture / wildcard</span>
+<span class="nt">&lang;string&rang;</span>      <span class="op">::=</span> <span class="tk">'"'</span> <span class="op">{</span> <span class="nt">&lang;schar&rang;</span> <span class="op">|</span> <span class="nt">&lang;var&rang;</span> <span class="op">|</span> <span class="nt">&lang;subst&rang;</span> <span class="op">}</span> <span class="tk">'"'</span>
+<span class="nt">&lang;brace-group&rang;</span> <span class="op">::=</span> <span class="tk">"{"</span> <span class="op">{</span> <span class="nt">&lang;any&rang;</span> <span class="op">}</span> <span class="tk">"}"</span>          <span class="cm">// literal, unsubstituted</span>
+<span class="nt">&lang;name&rang;</span>        <span class="op">::=</span> <span class="op">{</span> <span class="nt">&lang;alpha&rang;</span> <span class="op">|</span> <span class="nt">&lang;digit&rang;</span> <span class="op">|</span> <span class="tk">"_"</span> <span class="op">|</span> <span class="tk">"::"</span> <span class="op">}</span><span class="op">+</span></pre>
+
+    <h3 class="sub">5.2 &nbsp;Statement layer</h3>
+    <pre class="grammar"><span class="nt">&lang;folk&rang;</span>        <span class="op">::=</span> <span class="op">{</span> <span class="nt">&lang;stmt&rang;</span> <span class="op">|</span> <span class="nt">&lang;tcl-stmt&rang;</span> <span class="op">|</span> <span class="nt">&lang;comment&rang;</span> <span class="op">}</span>
+<span class="nt">&lang;stmt&rang;</span>        <span class="op">::=</span> <span class="nt">&lang;claim&rang;</span> <span class="op">|</span> <span class="nt">&lang;wish&rang;</span> <span class="op">|</span> <span class="nt">&lang;when&rang;</span>
+                  <span class="op">|</span> <span class="nt">&lang;every&rang;</span> <span class="op">|</span> <span class="nt">&lang;commit&rang;</span> <span class="op">|</span> <span class="nt">&lang;hold&rang;</span>
+<span class="nt">&lang;claim&rang;</span>       <span class="op">::=</span> <span class="tk">"Claim"</span> <span class="nt">&lang;phrase&rang;</span>
+<span class="nt">&lang;wish&rang;</span>        <span class="op">::=</span> <span class="tk">"Wish"</span> <span class="nt">&lang;phrase&rang;</span>
+<span class="nt">&lang;when&rang;</span>        <span class="op">::=</span> <span class="tk">"When"</span> <span class="nt">&lang;cond&rang;</span> <span class="op">{</span> <span class="tk">"&amp;"</span> <span class="nt">&lang;cond&rang;</span> <span class="op">}</span> <span class="nt">&lang;block&rang;</span>
+<span class="nt">&lang;every&rang;</span>       <span class="op">::=</span> <span class="tk">"Every" "time"</span> <span class="nt">&lang;cond&rang;</span> <span class="op">{</span> <span class="tk">"&amp;"</span> <span class="nt">&lang;cond&rang;</span> <span class="op">}</span> <span class="nt">&lang;block&rang;</span>
+<span class="nt">&lang;commit&rang;</span>      <span class="op">::=</span> <span class="tk">"Commit"</span> <span class="op">[</span> <span class="nt">&lang;name&rang;</span> <span class="op">]</span> <span class="nt">&lang;block&rang;</span>
+<span class="nt">&lang;hold&rang;</span>        <span class="op">::=</span> <span class="tk">"Hold"</span> <span class="op">[</span> <span class="nt">&lang;name&rang;</span> <span class="op">]</span> <span class="nt">&lang;block&rang;</span>
+<span class="nt">&lang;cond&rang;</span>        <span class="op">::=</span> <span class="nt">&lang;phrase&rang;</span>
+                  <span class="op">|</span> <span class="tk">"the collected matches for"</span> <span class="nt">&lang;list&rang;</span> <span class="tk">"are"</span> <span class="nt">&lang;pattern-var&rang;</span>
+<span class="nt">&lang;block&rang;</span>       <span class="op">::=</span> <span class="tk">"{"</span> <span class="nt">&lang;folk&rang;</span> <span class="tk">"}"</span>          <span class="cm">// recursive: bodies contain statements</span>
+<span class="nt">&lang;phrase&rang;</span>      <span class="op">::=</span> <span class="op">{</span> <span class="nt">&lang;word&rang;</span> <span class="op">}</span><span class="op">+</span>
+<span class="nt">&lang;comment&rang;</span>     <span class="op">::=</span> <span class="tk">"#"</span> <span class="op">{</span> <span class="nt">&lang;any&rang;</span> <span class="op">}</span> <span class="nt">&lang;newline&rang;</span>
+<span class="nt">&lang;tcl-stmt&rang;</span>    <span class="op">::=</span> <span class="nt">&lang;word&rang;</span> <span class="op">{</span> <span class="nt">&lang;word&rang;</span> <span class="op">}</span>       <span class="cm">// proc, fn, set, if, foreach, expr, ...</span></pre>
+    <p>The key composition hook is <code class="inl">&lang;string&rang;</code> and <code class="inl">&lang;brace-group&rang;</code>: any guest language rides inside them, with <code class="inl">&lang;var&rang;</code> and <code class="inl">&lang;subst&rang;</code> punching interpolation holes into the guest. This is what the next section abstracts.</p>
+  </section>
+
+  <!-- 6 -->
+  <section>
+    <h2 class="sec"><span class="secno">6.</span> The Host Combinator</h2>
+    <p>Rather than write eleven bespoke grammars, we define two higher-order productions parameterized by a guest grammar <code class="inl">&lang;G&rang;</code>. <b>Emit</b> covers Folk-as-host (Folk brackets outside, guest text inside payloads). <b>Host</b> covers Folk-as-guest (a guest document outside, Folk statements inside guest-native carriers).</p>
+
+    <h3 class="sub">6.1 &nbsp;Emit&lang;G&rang; — Folk hosts, and emits, G</h3>
+    <pre class="grammar"><span class="nt">Emit&lang;G&rang;</span>      <span class="op">::=</span> <span class="op">{</span> <span class="nt">&lang;stmt&rang;</span> <span class="op">|</span> <span class="nt">&lang;tcl-stmt&rang;</span> <span class="op">|</span> <span class="nt">&lang;comment&rang;</span>
+                  <span class="op">|</span> <span class="nt">&lang;g-emitting-stmt&rang;</span> <span class="op">}</span>
+<span class="nt">&lang;g-emitting-stmt&rang;</span>
+              <span class="op">::=</span> <span class="op">(</span> <span class="tk">"Wish"</span> <span class="op">|</span> <span class="tk">"Claim"</span> <span class="op">)</span> <span class="nt">&lang;phrase&rang;</span> <span class="nt">&lang;G-payload&rang;</span> <span class="op">{</span> <span class="nt">&lang;phrase&rang;</span> <span class="op">}</span>
+<span class="nt">&lang;G-payload&rang;</span>   <span class="op">::=</span> <span class="tk">'"'</span> <span class="nt">&lang;G-frag&rang;</span> <span class="tk">'"'</span> <span class="op">|</span> <span class="tk">"{"</span> <span class="nt">&lang;G-frag&rang;</span> <span class="tk">"}"</span>
+<span class="nt">&lang;G-frag&rang;</span>      <span class="op">::=</span> <span class="op">{</span> <span class="nt">&lang;G&rang;</span> <span class="op">|</span> <span class="nt">&lang;var&rang;</span> <span class="op">|</span> <span class="nt">&lang;subst&rang;</span> <span class="op">}</span>   <span class="cm">// guest G with Folk holes</span></pre>
+    <p>Intuition: <code class="inl">&lang;G-frag&rang;</code> is the guest grammar <code class="inl">&lang;G&rang;</code> with two extra productions, <code class="inl">&lang;var&rang;</code> and <code class="inl">&lang;subst&rang;</code>, admitted anywhere a guest token may appear. The guest is thus a <em>template</em> over Folk values, and the Folk runtime is the emitter.</p>
+
+    <h3 class="sub">6.2 &nbsp;Host&lang;G&rang; — G hosts, and embeds, Folk</h3>
+    <pre class="grammar"><span class="nt">Host&lang;G&rang;</span>      <span class="op">::=</span> <span class="op">{</span> <span class="nt">&lang;G&rang;</span> <span class="op">|</span> <span class="nt">&lang;folk-region&rang;<sub>G</sub></span> <span class="op">}</span>
+<span class="nt">&lang;folk-region&rang;<sub>G</sub></span>
+              <span class="op">::=</span> <span class="nt">&lang;carrier-open&rang;<sub>G</sub></span> <span class="nt">&lang;folk&rang;</span> <span class="nt">&lang;carrier-close&rang;<sub>G</sub></span></pre>
+    <p>The <em>carrier</em> is guest-native syntax that the guest parser already tolerates as an opaque region — a processing instruction, an at-rule, a tagged template, a comment fence, or a custom command. The guest owns the outer brackets; Folk text is lifted out of the carriers, evaluated, and its results reflected back (Section 8). Carriers per guest:</p>
+    <table class="schema">
+      <tr><th>Guest G</th><th><code>carrier-open</code></th><th><code>carrier-close</code></th></tr>
+      <tr><td>SVG / XML</td><td><code>&lt;?folk</code></td><td><code>?&gt;</code> &nbsp;(or <code>&lt;folk:when&gt;…&lt;/folk:when&gt;</code>)</td></tr>
+      <tr><td>CSS</td><td><code>@folk {</code></td><td><code>}</code></td></tr>
+      <tr><td>JS</td><td><code>folk`</code> &nbsp;(tagged template)</td><td>`&nbsp; (or <code>/*&lt;folk&gt;*/ … /*&lt;/folk&gt;*/</code>)</td></tr>
+      <tr><td>Tcl</td><td><code>folk {</code></td><td><code>}</code></td></tr>
+    </table>
+  </section>
+
+  <!-- 7 -->
+  <section>
+    <h2 class="sec"><span class="secno">7.</span> The Eleven Schemas</h2>
+    <p>Each file type is now a one-line instantiation of Section 6, plus (where needed) the guest grammar it references. We give the instantiations grouped by family, and expand the guest grammars that are not standard off-the-shelf notations.</p>
+
+    <h3 class="sub">7.1 &nbsp;Folk-as-host (emit family)</h3>
+
+    <h4 class="subsub">7.1.1 &nbsp;<code class="inl">.bnf.folk</code> — a Folk program that emits grammar</h4>
+    <p>The self-referential base case: a Folk page whose payloads are BNF productions. This very document's grammar of grammars is, fittingly, a <code class="inl">.bnf.folk</code>.</p>
+    <pre class="grammar"><span class="nt">&lang;.bnf.folk&rang;</span>  <span class="op">::=</span> Emit<span class="op">&lang;</span><span class="nt">&lang;bnf&rang;</span><span class="op">&rang;</span>
+<span class="nt">&lang;bnf&rang;</span>         <span class="op">::=</span> <span class="op">{</span> <span class="nt">&lang;production&rang;</span> <span class="op">}</span>
+<span class="nt">&lang;production&rang;</span>  <span class="op">::=</span> <span class="nt">&lang;nonterminal&rang;</span> <span class="tk">"::="</span> <span class="nt">&lang;rhs&rang;</span>
+<span class="nt">&lang;rhs&rang;</span>         <span class="op">::=</span> <span class="nt">&lang;alt&rang;</span> <span class="op">{</span> <span class="tk">"|"</span> <span class="nt">&lang;alt&rang;</span> <span class="op">}</span>
+<span class="nt">&lang;alt&rang;</span>         <span class="op">::=</span> <span class="op">{</span> <span class="nt">&lang;nonterminal&rang;</span> <span class="op">|</span> <span class="nt">&lang;terminal&rang;</span> <span class="op">}</span><span class="op">+</span></pre>
+    <pre class="code"><span class="cm"># badge.bnf.folk — Folk emits (and can typeset) a grammar</span>
+<span class="tk">Claim</span> production <span class="guest">"&lang;greeting&rang; ::= \"hello\" &lang;name&rang;"</span>
+<span class="tk">When</span> /p/ is a production {
+  <span class="tk">Wish</span> $this draws text <span class="guest">"$p"</span> with anchor left
+}</pre>
+
+    <h4 class="subsub">7.1.2 &nbsp;<code class="inl">.svg.folk</code> — a Folk program that emits SVG</h4>
+    <pre class="grammar"><span class="nt">&lang;.svg.folk&rang;</span>  <span class="op">::=</span> Emit<span class="op">&lang;</span><span class="nt">&lang;svg&rang;</span><span class="op">&rang;</span>       <span class="cm">// &lang;svg&rang; = standard SVG element grammar</span></pre>
+    <pre class="code"><span class="tk">When</span> the clock time is /t/ {
+  <span class="tk">Wish</span> $this draws svg <span class="guest">"&lt;circle r='[expr {60+40*sin($t)}]' fill='tomato'/&gt;"</span>
+}</pre>
+
+    <h4 class="subsub">7.1.3 &nbsp;<code class="inl">.html.folk</code> — a Folk program that emits HTML</h4>
+    <pre class="grammar"><span class="nt">&lang;.html.folk&rang;</span> <span class="op">::=</span> Emit<span class="op">&lang;</span><span class="nt">&lang;html&rang;</span><span class="op">&rang;</span></pre>
+
+    <h4 class="subsub">7.1.4 &nbsp;<code class="inl">.tcl.html.folk</code> — depth-3: Folk emits HTML that templates Tcl</h4>
+    <p>The showcase case. The guest of Folk is not plain HTML but <em>Tcl-in-HTML</em>: an HTML document whose text nodes and attribute values may contain Tcl template holes. We express this by nesting the combinator — the guest grammar handed to <code class="inl">Emit</code> is itself an <code class="inl">Emit</code>-style template.</p>
+    <pre class="grammar"><span class="nt">&lang;.tcl.html.folk&rang;</span>
+               <span class="op">::=</span> Emit<span class="op">&lang;</span> <span class="nt">&lang;html-with-tcl&rang;</span> <span class="op">&rang;</span>
+<span class="nt">&lang;html-with-tcl&rang;</span>
+               <span class="op">::=</span> <span class="op">{</span> <span class="nt">&lang;html-node&rang;</span> <span class="op">|</span> <span class="nt">&lang;tcl-hole&rang;</span> <span class="op">}</span>
+<span class="nt">&lang;tcl-hole&rang;</span>    <span class="op">::=</span> <span class="tk">"[[ "</span> <span class="nt">&lang;tcl-script&rang;</span> <span class="tk">" ]]"</span>    <span class="cm">// inner (HTML-level) template</span>
+                 <span class="op">|</span> <span class="nt">&lang;var&rang;</span> <span class="op">|</span> <span class="nt">&lang;subst&rang;</span>          <span class="cm">// outer (Folk-level) holes</span></pre>
+    <p>Note the two distinct template layers: <code class="inl">$x</code>/<code class="inl">[…]</code> are resolved by Folk at emit time (outer), while <code class="inl">[[ … ]]</code> survives into the HTML to be resolved by an HTML-side Tcl templater at render time (inner). Reading depth off the extension chain — three symbols, three layers — is exactly the payoff of Definition 3.1.</p>
+
+    <h4 class="subsub">7.1.5 &nbsp;<code class="inl">.css.folk</code> — a Folk program that emits CSS</h4>
+    <pre class="grammar"><span class="nt">&lang;.css.folk&rang;</span>  <span class="op">::=</span> Emit<span class="op">&lang;</span><span class="nt">&lang;css&rang;</span><span class="op">&rang;</span></pre>
+
+    <h4 class="subsub">7.1.6 &nbsp;<code class="inl">.js.folk</code> — a Folk program that emits JS</h4>
+    <pre class="grammar"><span class="nt">&lang;.js.folk&rang;</span>   <span class="op">::=</span> Emit<span class="op">&lang;</span><span class="nt">&lang;js&rang;</span><span class="op">&rang;</span></pre>
+
+    <h4 class="subsub">7.1.7 &nbsp;<code class="inl">.tcl.folk</code> — a Folk program that is Tcl-forward</h4>
+    <p>The near-degenerate emit case (cf. Observation 2.1). Because Folk's body already <em>is</em> Tcl, <code class="inl">Emit&lang;tcl&rang;</code> collapses into ordinary Folk; the left <code class="inl">tcl</code> is a documentation marker declaring "this page is mostly bare Tcl procedures with a few statements," and asks tooling to lint it as Tcl.</p>
+    <pre class="grammar"><span class="nt">&lang;.tcl.folk&rang;</span>  <span class="op">::=</span> Emit<span class="op">&lang;</span><span class="nt">&lang;tcl&rang;</span><span class="op">&rang;</span>  <span class="op">&equiv;</span>  <span class="nt">&lang;folk&rang;</span>   <span class="cm">// with Tcl-forward lint intent</span></pre>
+
+    <h3 class="sub">7.2 &nbsp;Folk-as-guest (embed family)</h3>
+    <p>Here the top host is some other runtime; Folk is embedded in carriers and never sees the outer brackets. Each is one line of <code class="inl">Host&lang;G&rang;</code>.</p>
+
+    <h4 class="subsub">7.2.1 &nbsp;<code class="inl">.folk.svg</code> — an SVG document embedding Folk</h4>
+    <pre class="grammar"><span class="nt">&lang;.folk.svg&rang;</span>  <span class="op">::=</span> Host<span class="op">&lang;</span><span class="nt">&lang;svg&rang;</span><span class="op">&rang;</span>
+                     <span class="cm">// carrier: &lt;?folk … ?&gt;  or  &lt;folk:when&gt;…&lt;/folk:when&gt;</span></pre>
+    <pre class="code"><span class="guest">&lt;svg xmlns="http://www.w3.org/2000/svg"
+     xmlns:folk="https://folk.computer/ns"&gt;</span>
+  <span class="guest">&lt;circle id="dot" r="20" fill="gray"/&gt;</span>
+  <span class="guest">&lt;?folk</span>
+    <span class="tk">When</span> the clock time is /t/ {
+      <span class="tk">Wish</span> #dot has fill <span class="guest">"hsl([expr {$t*40}] 80% 60%)"</span>
+    }
+  <span class="guest">?&gt;</span>
+<span class="guest">&lt;/svg&gt;</span></pre>
+
+    <h4 class="subsub">7.2.2 &nbsp;<code class="inl">.folk.tcl</code> — a Tcl script embedding Folk</h4>
+    <p>Runs under bare <code class="inl">tclsh</code>, not the Folk runtime. A <code class="inl">folk { … }</code> command reflects the enclosed statements into a local database — useful for headless tests and for driving Folk from ordinary Tcl automation.</p>
+    <pre class="grammar"><span class="nt">&lang;.folk.tcl&rang;</span>  <span class="op">::=</span> Host<span class="op">&lang;</span><span class="nt">&lang;tcl&rang;</span><span class="op">&rang;</span>      <span class="cm">// carrier: folk { … }</span></pre>
+    <pre class="code"><span class="cm">#!/usr/bin/env tclsh</span>
+<span class="guest">package require</span> folk
+<span class="guest">set</span> db [folk::db new]
+<span class="tk">folk</span> {
+  <span class="tk">Claim</span> the sky is blue
+  <span class="tk">When</span> the sky is /color/ { puts <span class="guest">"sky: $color"</span> }
+}
+<span class="guest">$db</span> step
+</pre>
+
+    <h4 class="subsub">7.2.3 &nbsp;<code class="inl">.folk.css</code> — a stylesheet embedding Folk</h4>
+    <pre class="grammar"><span class="nt">&lang;.folk.css&rang;</span>  <span class="op">::=</span> Host<span class="op">&lang;</span><span class="nt">&lang;css&rang;</span><span class="op">&rang;</span>      <span class="cm">// carrier: @folk { … }</span></pre>
+    <pre class="code"><span class="guest">.panel { color: white; }</span>
+<span class="tk">@folk</span> {
+  <span class="tk">When</span> $this has brightness /b/ {
+    <span class="tk">Wish</span> .panel has background <span class="guest">"rgb($b $b $b)"</span>
+  }
+}</pre>
+
+    <h4 class="subsub">7.2.4 &nbsp;<code class="inl">.folk.js</code> — a module embedding Folk</h4>
+    <pre class="grammar"><span class="nt">&lang;.folk.js&rang;</span>   <span class="op">::=</span> Host<span class="op">&lang;</span><span class="nt">&lang;js&rang;</span><span class="op">&rang;</span>
+                     <span class="cm">// carrier: folk`…`  or  /*&lt;folk&gt;*/ … /*&lt;/folk&gt;*/</span></pre>
+    <pre class="code"><span class="guest">import { folk } from "folk";</span>
+<span class="guest">export const</span> rule = <span class="tk">folk</span>`
+  <span class="tk">When</span> /p/ has position /xy/ {
+    <span class="tk">Wish</span> /p/ is outlined green
+  }
+`;</pre>
+
+    <div class="box"><span class="lab">Duality, restated.</span> The pairs collapse to a single equation: for any web guest <code class="inl">G &isin; {svg, css, js, tcl}</code>, <code class="inl">.G.folk = Emit&lang;G&rang;</code> and <code class="inl">.folk.G = Host&lang;G&rang;</code>. Same two languages; the extension order alone selects emitter vs. embedder.</div>
+  </section>
+
+  <!-- 8 -->
+  <section>
+    <h2 class="sec"><span class="secno">8.</span> Reflective Semantics</h2>
+    <p>What makes both families interoperate is that Folk's runtime value is not a string but a <em>set of statements</em>. We sketch the two directions.</p>
+    <p><b>Emit (reification).</b> For <code class="inl">Emit&lang;G&rang;</code>, evaluation of the Folk program yields Wishes whose payloads are guest fragments. A collector concatenates the satisfied fragments in document order and hands the result to G's own consumer (a browser, an SVG rasterizer, a Tcl <code class="inl">source</code>). Folk holes <code class="inl">$x</code>/<code class="inl">[…]</code> are resolved <em>before</em> hand-off; inner holes (as in <code class="inl">.tcl.html.folk</code>) are preserved verbatim and resolved by the guest's own templater afterward. Emit is thus staged: one stage per host level, outermost first.</p>
+    <p><b>Host (reflection).</b> For <code class="inl">Host&lang;G&rang;</code>, the guest parser runs first and produces a document tree with opaque carrier nodes. A pre-pass extracts each <code class="inl">&lang;folk-region&rang;</code>, evaluates it against the table database, and <em>reflects</em> the results back onto guest nodes addressed by selector (<code class="inl">#id</code>, class, XPath). The guest is authoritative for structure; Folk supplies behavior. Crucially the same database is shared across all regions and, on a live table, across all pages — so a <code class="inl">.folk.css</code> rule and a <code class="inl">.svg.folk</code> page can communicate through Claims without either knowing the other's file type.</p>
+    <div class="box prin"><span class="lab">Principle 8.1 (Brackets ownership).</span> At every level exactly one language owns the outermost brackets and is responsible for delimiting the next level's regions. The extension chain is a total order on bracket ownership; a well-formed file is one whose actual delimiters agree with that order. Most "polyglot" bugs are a disagreement between the chain and the bytes.</div>
+    <p>An immediate corollary is a typing rule for pipelines: a tool that consumes <code class="inl">X</code> and produces <code class="inl">Y</code> transforms a file's chain by popping <code class="inl">X</code> from one end and pushing <code class="inl">Y</code>; the chain is a running record of every runtime the bytes have passed through, which is why the temporary artifacts observed in practice (e.g. <code class="inl">program.folk.temp</code>) already stack extensions without anyone deciding they should.</p>
+  </section>
+
+  <!-- 9 -->
+  <section>
+    <h2 class="sec"><span class="secno">9.</span> Related Work</h2>
+    <p><b>Language-oriented programming.</b> Racket's <code class="inl">#lang</code> line selects a reader/expander per file <span class="footnote">[2]</span>; our chain generalizes the idea to a <em>stack</em> of readers named positionally rather than a single in-band directive. <b>Literate programming</b> <span class="footnote">[3]</span> interleaves two languages (prose and code) with tangling/weaving as our Emit/Host duals. <b>MIME &amp; media-type suffixes</b> (<code class="inl">application/soap+xml</code>) already read structured-syntax suffixes right-to-left, the same direction as Definition 3.1; we differ by treating each level as an executable host, not merely a serialization. <b>Polyglot files</b> and <b>projectional editors</b> (JetBrains MPS) motivate Principle 8.1: keep exactly one authoritative parser per level. <b>Server-page templating</b> (JSP/ERB/PHP) is the classical two-level emit case that <code class="inl">.tcl.html.folk</code> extends to three. Against all of these, Folk's contribution is the shared statement database as the interchange between layers, and the observation that a filesystem-visible extension chain suffices to name the whole tower.</p>
+  </section>
+
+  <!-- 10 -->
+  <section>
+    <h2 class="sec"><span class="secno">10.</span> Conclusion</h2>
+    <p>Stacked extensions on Folk files were never noise. Read right-to-left they name a stack of hosting runtimes; the rightmost owns the outer brackets, the leftmost is the payload, and swapping any two changes the file's type because hosting does not commute. A single host combinator, instantiated eleven times, formalizes every case in the title, unifying the emit and embed families as duals over a shared reflective database. The practical upshot is modest and usable today: name your files by their host order, keep one parser per level, and let the extension chain carry the type. <code class="inl">.svg.folk</code> draws; <code class="inl">.folk.svg</code> comes alive. They are not the same file, and now we can say exactly why.</p>
+  </section>
+
+  <hr class="rule">
+  <section>
+    <h2 class="sec" style="font-size:1.02rem;">References</h2>
+    <ol class="refs">
+      <li>Folk Computer. <i>Folk: a tangible, communal computer.</i> folk.computer, project documentation.</li>
+      <li>M. Flatt. <i>Creating Languages in Racket.</i> Communications of the ACM, 2012.</li>
+      <li>D. E. Knuth. <i>Literate Programming.</i> The Computer Journal, 27(2), 1984.</li>
+      <li>N. Freed and N. Borenstein. <i>MIME Part Two: Media Types.</i> RFC 2046, 1996. (Structured syntax suffixes: RFC 6839.)</li>
+      <li>M. Voelter et al. <i>Language and IDE Modularization with MPS.</i> GTTSE, 2011.</li>
+      <li>The Tcl Core Team. <i>Tcl/Tk Reference: substitution, brace grouping, and the dodekalogue.</i></li>
+    </ol>
+  </section>
+
+  <div class="disclaimer">
+    Playground whitepaper for the Folk Computer extension-naming convention. Styled as an arXiv/OOPSLA preprint for fun;
+    it is not an actual arXiv submission and the identifier is fictional. &copy; 2026 cwervo &middot; Folk Computer Playground.
+  </div>
+
+</div>
+
+<script>
+  // Respect an explicit theme toggle stamped on <html data-theme="...">, else follow the OS.
+  (function () {
+    try {
+      var root = document.documentElement;
+      if (!root.getAttribute('data-theme')) {
+        var mq = window.matchMedia('(prefers-color-scheme: dark)');
+        // leave unset so CSS @media handles it; toggling stamps data-theme which wins.
+      }
+    } catch (e) {}
+  })();
+</script>
