@@ -1,0 +1,608 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>InkyPixels UI Kit</title>
+<style>
+:root{
+  --c:#00a8c8; --m:#e0219a; --y:#f2c20a; --k:#141018;
+  --paper:#f5f1e8; --ink:#171320; --line:rgba(23,19,32,0.16);
+  --panel:rgba(255,255,255,0.72);
+}
+*{box-sizing:border-box}
+html,body{margin:0;min-height:100%}
+body{
+  font:14px/1.55 ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  color:var(--ink); background:var(--paper);
+  -webkit-font-smoothing:antialiased;
+}
+.ip-bg{ position:fixed; inset:0; width:100vw; height:100vh; z-index:-2; display:block; background:var(--paper); }
+.ip-veil{ position:fixed; inset:0; z-index:-1; pointer-events:none;
+  background:linear-gradient(180deg, rgba(245,241,232,0.20), rgba(245,241,232,0.55) 60%, rgba(245,241,232,0.78)); }
+.ip-wrap{ max-width:1080px; margin:0 auto; padding:40px clamp(14px,4vw,48px) 120px; }
+h1,h2,h3{ line-height:1.15; letter-spacing:-0.01em; }
+h1{ font-size:clamp(24px,4.4vw,44px); margin:0 0 10px; }
+h2{ font-size:clamp(18px,2.6vw,26px); margin:34px 0 12px; }
+p{ max-width:70ch; }
+a{ color:#b3126b; }
+.ip-lede{ font-size:16px; opacity:0.85; max-width:74ch; }
+
+/* panels & cards */
+.ip-card{ background:var(--panel); border:1px solid var(--line); border-radius:12px;
+  padding:16px 18px; backdrop-filter:blur(3px); box-shadow:0 18px 40px -30px rgba(0,0,0,0.6); }
+.ip-grid{ display:grid; gap:16px; }
+.cols-2{ grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); }
+.cols-3{ grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); }
+
+/* buttons */
+.ip-btn{ font:inherit; cursor:pointer; border-radius:9px; padding:9px 15px;
+  border:1px solid var(--line); background:#fff; color:var(--ink);
+  text-transform:uppercase; letter-spacing:0.05em; font-size:12px; font-weight:600;
+  transition:transform .08s ease, background .15s ease, color .15s ease; }
+.ip-btn:hover{ transform:translateY(-1px); }
+.ip-btn:active{ transform:translateY(0); }
+.ip-btn.primary{ background:var(--ink); color:#fff; border-color:var(--ink); }
+.ip-btn.c{ background:var(--c); color:#062; border-color:transparent; color:#00323b; }
+.ip-btn.m{ background:var(--m); color:#fff; border-color:transparent; }
+.ip-btn.ghost{ background:transparent; }
+.ip-btn[aria-pressed="true"]{ background:var(--ink); color:#fff; }
+
+/* fields */
+.ip-field{ display:flex; flex-direction:column; gap:6px; margin:10px 0; }
+.ip-field label{ font-size:11px; text-transform:uppercase; letter-spacing:.07em; opacity:.75; }
+.ip-input{ font:inherit; padding:9px 11px; border-radius:8px; border:1px solid var(--line); background:#fff; }
+input[type=range].ip-range{ -webkit-appearance:none; appearance:none; height:16px; background:transparent; cursor:ew-resize; width:100%; }
+input[type=range].ip-range::-webkit-slider-runnable-track{ height:3px; background:var(--line); border-radius:3px; }
+input[type=range].ip-range::-moz-range-track{ height:3px; background:var(--line); border-radius:3px; }
+input[type=range].ip-range::-webkit-slider-thumb{ -webkit-appearance:none; width:16px; height:16px; border-radius:50%; background:var(--m); margin-top:-7px; box-shadow:0 1px 4px rgba(0,0,0,.3); }
+input[type=range].ip-range::-moz-range-thumb{ width:16px; height:16px; border:0; border-radius:50%; background:var(--m); }
+
+/* toggle switch */
+.ip-switch{ display:inline-flex; align-items:center; gap:10px; cursor:pointer; }
+.ip-switch .track{ width:44px; height:24px; border-radius:999px; background:var(--line); position:relative; transition:background .18s ease; }
+.ip-switch .knob{ position:absolute; top:2px; left:2px; width:20px; height:20px; border-radius:50%; background:#fff; box-shadow:0 1px 3px rgba(0,0,0,.35); transition:left .18s ease; }
+.ip-switch[aria-pressed="true"] .track{ background:var(--m); }
+.ip-switch[aria-pressed="true"] .knob{ left:22px; }
+
+/* segmented / radio3 */
+.ip-seg{ display:inline-flex; border:1px solid var(--line); border-radius:9px; overflow:hidden; background:#fff; }
+.ip-seg button{ font:inherit; border:0; background:transparent; padding:8px 12px; cursor:pointer; font-size:12px;
+  text-transform:uppercase; letter-spacing:.05em; border-right:1px solid var(--line); }
+.ip-seg button:last-child{ border-right:0; }
+.ip-seg button[aria-checked="true"]{ background:var(--ink); color:#fff; }
+.ip-radio3{ display:flex; flex-direction:column; border:1px solid var(--line); border-radius:10px; overflow:hidden; background:#fff; width:max-content; }
+.ip-radio3 button{ font:inherit; border:0; border-bottom:1px solid var(--line); background:transparent; cursor:pointer;
+  min-height:2vh; min-width:3vw; padding:10px 16px; display:flex; gap:9px; align-items:center; font-weight:600; }
+.ip-radio3 button:last-child{ border-bottom:0; }
+.ip-radio3 button .rdot{ width:11px; height:11px; border-radius:50%; border:1px solid var(--ink); }
+.ip-radio3 button[aria-checked="true"] .rdot{ background:var(--ink); }
+.ip-radio3 button[aria-checked="true"]{ background:rgba(224,33,154,0.10); }
+
+/* tabs */
+.ip-tabs{ display:flex; gap:4px; border-bottom:1px solid var(--line); margin-bottom:14px; flex-wrap:wrap; }
+.ip-tabs button{ font:inherit; border:0; background:transparent; padding:9px 13px; cursor:pointer; font-size:12px;
+  text-transform:uppercase; letter-spacing:.05em; border-bottom:2px solid transparent; margin-bottom:-1px; }
+.ip-tabs button[aria-selected="true"]{ border-bottom-color:var(--m); color:#b3126b; }
+
+/* misc */
+.ip-badge{ display:inline-block; padding:2px 9px; border-radius:999px; font-size:11px; border:1px solid var(--line); background:#fff; }
+.ip-chip{ display:inline-flex; align-items:center; gap:6px; padding:4px 10px; border-radius:999px; background:#fff; border:1px solid var(--line); font-size:12px; }
+kbd.ip-kbd{ font:11px ui-monospace,monospace; background:var(--ink); color:#fff; border-radius:4px; padding:2px 6px; }
+.ip-progress{ height:8px; border-radius:999px; background:var(--line); overflow:hidden; }
+.ip-progress > span{ display:block; height:100%; background:linear-gradient(90deg,var(--c),var(--m)); }
+.ip-note{ border-left:3px solid var(--m); padding:8px 14px; background:rgba(255,255,255,0.6); border-radius:0 8px 8px 0; }
+
+/* dialog */
+[role="dialog"]{ position:fixed; inset:0; z-index:60; display:grid; place-items:center; background:rgba(20,16,24,0.4); }
+[role="dialog"][hidden]{ display:none; }
+[role="dialog"] .sheet{ background:var(--paper); border:1px solid var(--line); border-radius:14px; padding:22px; max-width:440px; width:92%; box-shadow:0 30px 70px -30px rgba(0,0,0,.7); }
+
+/* toasts */
+#ip-toasts{ position:fixed; right:16px; bottom:16px; z-index:80; display:flex; flex-direction:column; gap:8px; }
+.ip-toast{ background:var(--ink); color:#fff; padding:10px 14px; border-radius:9px; font-size:13px; opacity:0; transform:translateY(8px); transition:opacity .3s, transform .3s; box-shadow:0 12px 30px -12px rgba(0,0,0,.7); }
+.ip-toast.show{ opacity:1; transform:none; }
+
+/* inkwells */
+#ip-wells{ position:fixed; left:16px; bottom:16px; z-index:40; display:flex; gap:10px; align-items:flex-end;
+  padding:12px 12px 10px; background:var(--panel); border:1px solid var(--line); border-radius:12px; backdrop-filter:blur(4px); }
+#ip-wells .cap{ position:absolute; top:-10px; left:12px; font-size:9px; letter-spacing:.14em; text-transform:uppercase; background:var(--paper); padding:0 6px; opacity:.7; }
+.ip-well{ display:flex; flex-direction:column; align-items:center; gap:5px; }
+.ip-well .vessel{ width:26px; height:72px; border:1px solid var(--line); border-radius:5px 5px 7px 7px; position:relative; overflow:hidden; background:rgba(255,255,255,0.5); }
+.ip-well .fluid{ position:absolute; left:0; right:0; bottom:0; height:0%; transition:height .18s ease; }
+.ip-well.c .fluid{ background:var(--c); } .ip-well.m .fluid{ background:var(--m); }
+.ip-well.y .fluid{ background:var(--y); } .ip-well.k .fluid{ background:var(--k); }
+.ip-well .lbl{ font-size:11px; font-weight:700; } .ip-well .val{ font-size:10px; opacity:.7; }
+
+/* engine badge */
+#ip-badge{ position:fixed; right:16px; top:16px; z-index:40; font-size:11px; display:flex; gap:8px; align-items:center;
+  background:var(--panel); border:1px solid var(--line); border-radius:999px; padding:6px 12px; backdrop-filter:blur(4px); }
+#ip-badge .dot{ width:8px; height:8px; border-radius:50%; background:#3ac06a; box-shadow:0 0 0 3px rgba(58,192,106,.2); }
+#ip-badge b{ font-weight:700; }
+.ip-foot{ margin-top:60px; font-size:11px; opacity:.6; }
+</style>
+
+</head>
+<body>
+<canvas id="ipbg" class="ip-bg"></canvas>
+<div class="ip-veil"></div>
+
+<div class="ip-wrap">
+  <div class="ip-badge">InkyPixels · UI kit</div>
+  <h1>An Inky UI Kit</h1>
+  <p class="ip-lede">A full page of modern, accessible components — buttons, switches, ranges, segmented
+  controls, a three-way ink-budget radio, tabs, cards, progress, badges, dialogs and toasts — every one of
+  them floating over the <b>same</b> off-thread CMYK render loop that powers the history demo. Drive the
+  background live below.</p>
+
+  <div class="ip-card" style="margin:20px 0">
+    <h3 style="margin:0 0 10px">Drive the render loop</h3>
+    <div class="ip-grid cols-2">
+      <div><div class="ip-field"><span>Era · <b id="range3o">4</b></span> <input class="ip-range" type="range" min="0" max="6" step="0.01" value="4" data-ip="segrange" data-out="range3o" data-bind="era"></div><div style="font-size:12px;opacity:.7">0 cyanotype … 6 · 70mm color</div></div>
+      <div><div style="font-size:11px;text-transform:uppercase;letter-spacing:.07em;opacity:.7;margin-bottom:6px">Coverage budget</div><div class="ip-radio3" role="radiogroup"><button data-ip="radio" data-group="budget" data-val="0.76" aria-checked="true"> <span class="rdot"></span>76%</button><button data-ip="radio" data-group="budget" data-val="0.86" aria-checked="false"> <span class="rdot"></span>86%</button><button data-ip="radio" data-group="budget" data-val="0.97" aria-checked="false"> <span class="rdot"></span>97%</button></div></div>
+    </div>
+  </div>
+
+  <h2>Components</h2>
+  <div class="ip-tabs"><button data-ip="tab" data-group="kit" data-target="kit-0" aria-selected="true">Inputs</button><button data-ip="tab" data-group="kit" data-target="kit-1" aria-selected="false">Controls</button><button data-ip="tab" data-group="kit" data-target="kit-2" aria-selected="false">Feedback</button></div><div data-panel="kit-0" data-group="kit" ><div class="ip-grid cols-2">
+  <div class="ip-card"><h3 style="margin:0 0 10px">Text fields</h3><label class="ip-field"><span>Plate name</span><input class="ip-input" placeholder="e.g. whole-plate"></label><label class="ip-field"><span>Exposure (s)</span><input class="ip-input" placeholder="12"></label></div>
+  <div class="ip-card"><h3 style="margin:0 0 10px">Range</h3><div class="ip-field"><span>Screen pitch · <b id="range1o">8</b></span> <input class="ip-range" type="range" min="4" max="16" step="1" value="8" data-ip="segrange" data-out="range1o" ></div><div class="ip-field"><span>Grain · <b id="range2o">22</b></span> <input class="ip-range" type="range" min="0" max="100" step="1" value="22" data-ip="segrange" data-out="range2o" ></div></div>
+</div></div><div data-panel="kit-1" data-group="kit" hidden><div class="ip-grid cols-2">
+  <div class="ip-card"><h3 style="margin:0 0 10px">Toggles</h3><div style="display:flex;flex-direction:column;gap:12px"><button class="ip-switch" data-ip="toggle" aria-pressed="true"> <span class="track"><span class="knob"></span></span><span>Halftone screens</span></button><button class="ip-switch" data-ip="toggle" aria-pressed="false"> <span class="track"><span class="knob"></span></span><span>Show registration</span></button><button class="ip-switch" data-ip="toggle" aria-pressed="true"> <span class="track"><span class="knob"></span></span><span>Dry-down simulation</span></button></div></div>
+  <div class="ip-card"><h3 style="margin:0 0 10px">Segmented</h3><div style="display:flex;flex-direction:column;gap:14px"><div>Fit<br><div class="ip-seg"><button data-ip="radio" data-group="fit" aria-checked="true">Cover</button><button data-ip="radio" data-group="fit" aria-checked="false">Contain</button><button data-ip="radio" data-group="fit" aria-checked="false">Tile</button></div></div><div>Blend<br><div class="ip-seg"><button data-ip="radio" data-group="blend" aria-checked="true">Multiply</button><button data-ip="radio" data-group="blend" aria-checked="false">Screen</button><button data-ip="radio" data-group="blend" aria-checked="false">Ink</button></div></div></div></div>
+  <div class="ip-card"><h3 style="margin:0 0 10px">3-way ink budget</h3><div class="ip-radio3" role="radiogroup"><button data-ip="radio" data-group="budget2" data-val="0.76" aria-checked="true"> <span class="rdot"></span>76%</button><button data-ip="radio" data-group="budget2" data-val="0.86" aria-checked="false"> <span class="rdot"></span>86%</button><button data-ip="radio" data-group="budget2" data-val="0.97" aria-checked="false"> <span class="rdot"></span>97%</button></div></div>
+  <div class="ip-card"><h3 style="margin:0 0 10px">Buttons</h3><div style="display:flex;flex-wrap:wrap;gap:8px"><button class="ip-btn primary" >Primary</button><button class="ip-btn c" >Cyan</button><button class="ip-btn m" >Magenta</button><button class="ip-btn ghost" >Ghost</button><button class="ip-btn ghost" disabled>Disabled</button></div></div>
+</div></div><div data-panel="kit-2" data-group="kit" hidden><div class="ip-grid cols-2">
+  <div class="ip-card"><h3 style="margin:0 0 10px">Progress</h3><div style="display:flex;flex-direction:column;gap:12px"><div>Developing… 38%<div class="ip-progress"><span style="width:38%"></span></div></div><div>Fixing… 72%<div class="ip-progress"><span style="width:72%"></span></div></div></div></div>
+  <div class="ip-card"><h3 style="margin:0 0 10px">Badges &amp; chips</h3><div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center"><span class="ip-badge">stable</span><span class="ip-badge">beta</span><span class="ip-chip">C · 44%</span><span class="ip-chip">M · 44%</span><span class="ip-chip">palette · ⌘K</span></div></div>
+  <div class="ip-card"><h3 style="margin:0 0 10px">Dialog</h3><p style="margin-top:0">Open a modal sheet.</p><button class="ip-btn primary" data-ip="modal-open" data-target="dlg1">Open dialog</button></div>
+  <div class="ip-card"><h3 style="margin:0 0 10px">Toasts</h3><p style="margin-top:0">Fire a transient notice.</p><button class="ip-btn m" data-ip="toast" data-msg="Deposited 32px of magenta.">Ink a toast</button></div>
+</div></div>
+
+  <h2>Layout &amp; content</h2>
+  <div class="ip-grid cols-3" style="margin-top:8px">
+    <div class="ip-card"><h3 style="margin:0 0 10px">Card</h3>A translucent panel that blurs the ink behind it — the halftone reads as texture, never noise.</div>
+    <div class="ip-card"><h3 style="margin:0 0 10px">Note</h3><div class="ip-note">Left-ruled aside for asides, warnings, and the occasional printer's remark.</div></div>
+    <div class="ip-card"><h3 style="margin:0 0 10px">Keyboard</h3>Press <kbd class="ip-kbd">⌘</kbd> <kbd class="ip-kbd">K</kbd> to summon the palette (decorative here).</div>
+  </div>
+
+  <div class="ip-foot">One engine, many widgets · progressive enhancement WebGPU &rarr; WebGL2 &rarr; Canvas2D · the heavy pixels never touch this thread.</div>
+</div>
+<div role="dialog" id="dlg1" hidden><div class="sheet"><h3 style="margin-top:0">A modal sheet</h3> <p style=\"margin-top:0\">Dialogs dim the page and trap nothing you can't escape.
+ The background keeps developing behind the scrim — proof the render loop is independent of the DOM.</p><div style="margin-top:18px;text-align:right"><button class="ip-btn" data-ip="modal-close">Close</button></div></div></div>
+<div id="ip-wells"><span class="cap">data wells · CMYK</span><div class="ip-well c"><div class="vessel"><div class="fluid" id="well-c"></div></div> <span class="lbl">C</span><span class="val" id="wellv-c">0%</span></div><div class="ip-well m"><div class="vessel"><div class="fluid" id="well-m"></div></div> <span class="lbl">M</span><span class="val" id="wellv-m">0%</span></div><div class="ip-well y"><div class="vessel"><div class="fluid" id="well-y"></div></div> <span class="lbl">Y</span><span class="val" id="wellv-y">0%</span></div><div class="ip-well k"><div class="vessel"><div class="fluid" id="well-k"></div></div> <span class="lbl">K</span><span class="val" id="wellv-k">0%</span></div></div>
+<div id="ip-badge"><span class="dot"></span>engine <b id="ip-tier">booting</b> · <span id="ip-fps">– fps</span></div>
+<div id="ip-toasts"></div>
+<script type="text/plain" id="ip-renderer">
+// ---- shared era / ink model ---------------------------------------
+// Each era anchor: paper tone, screen pitch (px), grain, and the mean
+// CMYK the era deposits on the page (drives the inkwells).
+var ERAS = [
+  { name:"Cyanotype",      paper:[0.96,0.98,1.00], pitch:11, grain:0.05, cmyk:[0.72,0.06,0.05,0.24] },
+  { name:"Daguerreotype",  paper:[0.90,0.91,0.94], pitch:10, grain:0.07, cmyk:[0.10,0.09,0.13,0.55] },
+  { name:"Tintype",        paper:[0.84,0.80,0.72], pitch:10, grain:0.09, cmyk:[0.12,0.34,0.50,0.58] },
+  { name:"Painted B/W",    paper:[0.98,0.96,0.92], pitch:9,  grain:0.10, cmyk:[0.16,0.30,0.24,0.40] },
+  { name:"Autochrome",     paper:[0.99,0.98,0.96], pitch:8,  grain:0.14, cmyk:[0.44,0.44,0.50,0.20] },
+  { name:"Film grain",     paper:[1.00,1.00,1.00], pitch:7,  grain:0.22, cmyk:[0.42,0.42,0.46,0.34] },
+  { name:"70mm color",     paper:[1.00,1.00,1.00], pitch:6,  grain:0.10, cmyk:[0.50,0.48,0.52,0.28] }
+];
+function lerp(a,b,t){ return a+(b-a)*t; }
+function lerp3(a,b,t){ return [lerp(a[0],b[0],t),lerp(a[1],b[1],t),lerp(a[2],b[2],t)]; }
+function budgetInk(budget){ return 0.55 + budget*0.75; }     // coverage cap -> ink gain
+function eraParams(era, budget){
+  var n = ERAS.length-1;
+  var e = Math.max(0, Math.min(n, era));
+  var lo = Math.floor(e), hi = Math.min(n, lo+1), f = e-lo;
+  var A = ERAS[lo], B = ERAS[hi];
+  return {
+    paper: lerp3(A.paper,B.paper,f),
+    pitch: lerp(A.pitch,B.pitch,f),
+    grain: lerp(A.grain,B.grain,f),
+    ink:   budgetInk(budget)
+  };
+}
+function cmykForEra(era, budget){
+  var n = ERAS.length-1;
+  var e = Math.max(0, Math.min(n, era));
+  var lo = Math.floor(e), hi = Math.min(n, lo+1), f = e-lo;
+  var a = ERAS[lo].cmyk, b = ERAS[hi].cmyk;
+  var g = budgetInk(budget);
+  var out = [];
+  for (var i=0;i<4;i++){ out[i] = Math.max(0, Math.min(1, lerp(a[i],b[i],f) * g)); }
+  return out;
+}
+
+// ---- GLSL (WebGL2) --------------------------------------------------
+var VS_GLSL =
+  "#version 300 es\n" +
+  "void main(){ vec2 p = vec2(float((gl_VertexID<<1)&2), float(gl_VertexID&2)); gl_Position = vec4(p*2.0-1.0, 0.0, 1.0); }";
+
+var FS_GLSL = [
+"#version 300 es",
+"precision highp float;",
+"uniform vec2 uRes; uniform float uTime; uniform float uEra;",
+"uniform float uPitch; uniform float uInk; uniform float uGrain; uniform vec3 uPaper;",
+"out vec4 fragColor;",
+"float hash(vec2 p){ return fract(sin(dot(p, vec2(41.3, 289.1)))*43758.5453); }",
+"float noise(vec2 p){ vec2 i=floor(p), f=fract(p); f=f*f*(3.0-2.0*f);",
+"  float a=hash(i), b=hash(i+vec2(1.0,0.0)), c=hash(i+vec2(0.0,1.0)), d=hash(i+vec2(1.0,1.0));",
+"  return mix(mix(a,b,f.x), mix(c,d,f.x), f.y); }",
+"vec3 pal(int idx, float lum, vec2 uv, float t){",
+"  if(idx==0){ return vec3(lum*0.22, lum*0.48, 0.34+lum*0.62); }",           // cyanotype
+"  if(idx==1){ return vec3(lum)*vec3(0.95,0.97,1.02); }",                    // daguerreotype
+"  if(idx==2){ return pow(vec3(lum),vec3(1.3))*vec3(1.08,0.86,0.60); }",     // tintype
+"  if(idx==3){ float cheek=smoothstep(0.5,0.0,length((uv-vec2(0.5,0.46))*vec2(1.2,1.5)));",
+"              return mix(vec3(lum), vec3(lum)*vec3(1.1,0.82,0.86)+vec3(0.12,0.0,0.05)*cheek, 0.7); }",
+"  if(idx==4){ vec3 tri=vec3(noise(uv*6.0), noise(uv*6.0+3.1), noise(uv*6.0+7.7));",
+"              return vec3(lum)*(0.55+0.9*tri); }",                          // autochrome
+"  vec3 f=vec3(sin(uv.x*4.0+t), cos(uv.y*4.0-t), sin((uv.x+uv.y)*3.0));",
+"  return clamp(vec3(lum)*vec3(1.0,0.92,0.82)+0.22*f, 0.0, 1.0); }",         // film / 70mm
+"vec3 scene(vec2 uv, float era, float t){",
+"  float face = smoothstep(0.56, 0.0, length((uv-vec2(0.5,0.44))*vec2(1.15,1.5)));",
+"  float drape = 0.32 + 0.26*noise(uv*3.0 + vec2(0.0, t*0.05));",
+"  float lum = clamp(mix(drape, 0.93, face), 0.0, 1.0);",
+"  int lo = int(floor(era)); int hi = lo+1; if(hi>6) hi=6; float fr = era-float(lo);",
+"  return mix(pal(lo,lum,uv,t), pal(hi,lum,uv,t), fr); }",
+"float screen(vec2 fragpx, float ang, float pitch, float value){",
+"  float s=sin(ang), c=cos(ang); mat2 R=mat2(c,-s,s,c);",
+"  vec2 p=R*fragpx; vec2 cell=mod(p,pitch)-0.5*pitch;",
+"  float d=length(cell); float r=sqrt(clamp(value,0.0,1.0))*0.5*pitch;",
+"  return 1.0 - smoothstep(r-1.0, r+1.0, d); }",
+"void main(){",
+"  vec2 uv = gl_FragCoord.xy / uRes;",
+"  vec3 rgb = scene(uv, uEra, uTime);",
+"  float gr = (noise(gl_FragCoord.xy*0.9 + uTime*13.0) - 0.5) * uGrain;",
+"  rgb = clamp(rgb + gr, 0.0, 1.0);",
+"  float k = 1.0 - max(max(rgb.r, rgb.g), rgb.b);",
+"  vec3 cmy = (k < 0.999) ? (1.0 - rgb - k) / (1.0 - k) : vec3(0.0);",
+"  float pitch = uPitch;",
+"  float dC = screen(gl_FragCoord.xy, 0.2618, pitch, cmy.r*uInk);",
+"  float dM = screen(gl_FragCoord.xy, 1.3090, pitch, cmy.g*uInk);",
+"  float dY = screen(gl_FragCoord.xy, 0.0,    pitch, cmy.b*uInk);",
+"  float dK = screen(gl_FragCoord.xy, 0.7854, pitch, k*uInk);",
+"  vec3 col = uPaper;",
+"  col *= 1.0 - dC*vec3(1.0,0.0,0.0);",
+"  col *= 1.0 - dM*vec3(0.0,1.0,0.0);",
+"  col *= 1.0 - dY*vec3(0.0,0.0,1.0);",
+"  col *= 1.0 - dK*vec3(1.0,1.0,1.0);",
+"  fragColor = vec4(col, 1.0);",
+"}"].join("\n");
+
+function makeWebGL2(canvas){
+  var gl = canvas.getContext("webgl2", { antialias:false, alpha:false, preserveDrawingBuffer:false });
+  if(!gl) throw new Error("no webgl2");
+  function sh(type, src){
+    var s=gl.createShader(type); gl.shaderSource(s,src); gl.compileShader(s);
+    if(!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error("glsl: "+gl.getShaderInfoLog(s));
+    return s;
+  }
+  var prog=gl.createProgram();
+  gl.attachShader(prog, sh(gl.VERTEX_SHADER, VS_GLSL));
+  gl.attachShader(prog, sh(gl.FRAGMENT_SHADER, FS_GLSL));
+  gl.linkProgram(prog);
+  if(!gl.getProgramParameter(prog, gl.LINK_STATUS)) throw new Error("link: "+gl.getProgramInfoLog(prog));
+  gl.useProgram(prog);
+  var vao=gl.createVertexArray(); gl.bindVertexArray(vao);
+  var U={};
+  ["uRes","uTime","uEra","uPitch","uInk","uGrain","uPaper"].forEach(function(n){ U[n]=gl.getUniformLocation(prog,n); });
+  var W=1,H=1,DPR=1, t0=(self.performance?performance.now():Date.now());
+  return {
+    tier:"webgl2",
+    resize:function(w,h,d){ W=w;H=h;DPR=d; canvas.width=w; canvas.height=h; gl.viewport(0,0,w,h); },
+    render:function(s){
+      var t=((self.performance?performance.now():Date.now())-t0)/1000;
+      var ep=eraParams(s.era,s.budget);
+      gl.uniform2f(U.uRes, W, H);
+      gl.uniform1f(U.uTime, t);
+      gl.uniform1f(U.uEra, s.era);
+      gl.uniform1f(U.uPitch, Math.max(3.0, ep.pitch*DPR));
+      gl.uniform1f(U.uInk, ep.ink);
+      gl.uniform1f(U.uGrain, ep.grain);
+      gl.uniform3f(U.uPaper, ep.paper[0], ep.paper[1], ep.paper[2]);
+      gl.drawArrays(gl.TRIANGLES, 0, 3);
+    }
+  };
+}
+
+// ---- WebGPU (best tier; guarded — falls back on any failure) --------
+var WGSL = [
+"struct U { res:vec2f, time:f32, era:f32, pitch:f32, ink:f32, grain:f32, pad:f32, paper:vec4f };",
+"@group(0) @binding(0) var<uniform> u: U;",
+"@vertex fn vs(@builtin(vertex_index) vi:u32) -> @builtin(position) vec4f {",
+"  var p = vec2f(f32((vi<<1u)&2u), f32(vi&2u));",
+"  return vec4f(p*2.0-1.0, 0.0, 1.0); }",
+"fn hash(p:vec2f)->f32{ return fract(sin(dot(p, vec2f(41.3,289.1)))*43758.5453); }",
+"fn noise(p:vec2f)->f32{ let i=floor(p); let f=fract(p); let u=f*f*(3.0-2.0*f);",
+"  let a=hash(i); let b=hash(i+vec2f(1.0,0.0)); let c=hash(i+vec2f(0.0,1.0)); let d=hash(i+vec2f(1.0,1.0));",
+"  return mix(mix(a,b,u.x), mix(c,d,u.x), u.y); }",
+"fn scene(uv:vec2f, t:f32)->vec3f{",
+"  let face = smoothstep(0.56, 0.0, length((uv-vec2f(0.5,0.44))*vec2f(1.15,1.5)));",
+"  let drape = 0.32 + 0.26*noise(uv*3.0 + vec2f(0.0, t*0.05));",
+"  let lum = clamp(mix(drape, 0.93, face), 0.0, 1.0);",
+"  let tri = vec3f(noise(uv*6.0), noise(uv*6.0+3.1), noise(uv*6.0+7.7));",
+"  let warm = clamp(vec3f(lum)*vec3f(1.0,0.92,0.82) + 0.2*(tri-0.5), 0.0, 1.0);",
+"  let cyan = vec3f(lum*0.22, lum*0.48, 0.34+lum*0.62);",
+"  return mix(cyan, warm, clamp(u.era/6.0, 0.0, 1.0)); }",
+"fn screen(fragpx:vec2f, ang:f32, pitch:f32, value:f32)->f32{",
+"  let s=sin(ang); let c=cos(ang); let R=mat2x2f(c,-s,s,c);",
+"  let p=R*fragpx; let cell=(p - floor(p/pitch)*pitch) - 0.5*pitch;",
+"  let d=length(cell); let r=sqrt(clamp(value,0.0,1.0))*0.5*pitch;",
+"  return 1.0 - smoothstep(r-1.0, r+1.0, d); }",
+"@fragment fn fs(@builtin(position) pos:vec4f) -> @location(0) vec4f {",
+"  let uv = pos.xy / u.res;",
+"  var rgb = scene(uv, u.time);",
+"  let gr = (noise(pos.xy*0.9 + u.time*13.0) - 0.5) * u.grain;",
+"  rgb = clamp(rgb + vec3f(gr), vec3f(0.0), vec3f(1.0));",
+"  let k = 1.0 - max(max(rgb.r, rgb.g), rgb.b);",
+"  var cmy = vec3f(0.0);",
+"  if(k < 0.999){ cmy = (vec3f(1.0) - rgb - vec3f(k)) / (1.0 - k); }",
+"  let dC = screen(pos.xy, 0.2618, u.pitch, cmy.r*u.ink);",
+"  let dM = screen(pos.xy, 1.3090, u.pitch, cmy.g*u.ink);",
+"  let dY = screen(pos.xy, 0.0,    u.pitch, cmy.b*u.ink);",
+"  let dK = screen(pos.xy, 0.7854, u.pitch, k*u.ink);",
+"  var col = u.paper.xyz;",
+"  col = col * (1.0 - dC*vec3f(1.0,0.0,0.0));",
+"  col = col * (1.0 - dM*vec3f(0.0,1.0,0.0));",
+"  col = col * (1.0 - dY*vec3f(0.0,0.0,1.0));",
+"  col = col * (1.0 - dK*vec3f(1.0,1.0,1.0));",
+"  return vec4f(col, 1.0); }"].join("\n");
+
+async function makeWebGPU(canvas){
+  if(!(self.navigator && self.navigator.gpu)) throw new Error("no webgpu");
+  var adapter = await navigator.gpu.requestAdapter();
+  if(!adapter) throw new Error("no adapter");
+  var device = await adapter.requestDevice();
+  var ctx = canvas.getContext("webgpu");
+  if(!ctx) throw new Error("no webgpu context");
+  var format = navigator.gpu.getPreferredCanvasFormat();
+  ctx.configure({ device:device, format:format, alphaMode:"opaque" });
+  var mod = device.createShaderModule({ code:WGSL });
+  var pipeline = device.createRenderPipeline({
+    layout:"auto",
+    vertex:{ module:mod, entryPoint:"vs" },
+    fragment:{ module:mod, entryPoint:"fs", targets:[{ format:format }] },
+    primitive:{ topology:"triangle-list" }
+  });
+  var ubuf = device.createBuffer({ size:48, usage:GPUBufferUsage.UNIFORM|GPUBufferUsage.COPY_DST });
+  var bind = device.createBindGroup({ layout:pipeline.getBindGroupLayout(0), entries:[{ binding:0, resource:{ buffer:ubuf } }] });
+  var W=1,H=1,DPR=1, t0=(self.performance?performance.now():Date.now());
+  var arr = new Float32Array(12);
+  return {
+    tier:"webgpu",
+    resize:function(w,h,d){ W=w;H=h;DPR=d; canvas.width=w; canvas.height=h; },
+    render:function(s){
+      var t=((self.performance?performance.now():Date.now())-t0)/1000;
+      var ep=eraParams(s.era,s.budget);
+      arr[0]=W; arr[1]=H; arr[2]=t; arr[3]=s.era;
+      arr[4]=Math.max(3.0, ep.pitch*DPR); arr[5]=ep.ink; arr[6]=ep.grain; arr[7]=0;
+      arr[8]=ep.paper[0]; arr[9]=ep.paper[1]; arr[10]=ep.paper[2]; arr[11]=1;
+      device.queue.writeBuffer(ubuf, 0, arr);
+      var enc=device.createCommandEncoder();
+      var pass=enc.beginRenderPass({ colorAttachments:[{ view:ctx.getCurrentTexture().createView(), clearValue:{r:1,g:1,b:1,a:1}, loadOp:"clear", storeOp:"store" }] });
+      pass.setPipeline(pipeline); pass.setBindGroup(0, bind); pass.draw(3); pass.end();
+      device.queue.submit([enc.finish()]);
+    }
+  };
+}
+
+// ---- Canvas2D fallback (main-thread capable) ------------------------
+function sceneRGB(x, y, era, t){
+  var fx=x-0.5, fy=y-0.46;
+  var face=Math.max(0, 1 - Math.min(1, Math.sqrt(fx*fx*1.3 + fy*fy*2.2)/0.56));
+  var drape=0.34 + 0.2*Math.sin(x*7.0 + t*0.3)*Math.cos(y*6.0 - t*0.2);
+  var lum=Math.max(0, Math.min(1, drape*(1-face) + 0.93*face));
+  var col;
+  if(era < 1){ col=[lum*0.22, lum*0.48, 0.34+lum*0.62]; }
+  else { var warm=[lum, lum*0.9, lum*0.8]; col=[warm[0], warm[1], warm[2]]; }
+  return col;
+}
+function makeCanvas2D(canvas){
+  var ctx=canvas.getContext("2d", { alpha:false });
+  if(!ctx) throw new Error("no 2d");
+  var W=1,H=1,DPR=1, t0=(self.performance?performance.now():Date.now());
+  var CH=[[0.2618,"0,168,200"],[1.309,"224,33,154"],[0.0,"242,194,10"],[0.7854,"20,16,24"]];
+  function drawScreen(ang, css, pitch, era, t, ink, ci){
+    var cos=Math.cos(ang), sin=Math.sin(ang), R=Math.ceil(Math.hypot(W,H)/pitch)+2, maxR=pitch*0.6;
+    ctx.fillStyle="rgb("+css+")"; ctx.beginPath();
+    for(var j=-R;j<=R;j++){ for(var i=-R;i<=R;i++){
+      var lx=i*pitch, ly=j*pitch;
+      var xx=lx*cos-ly*sin+W*0.5, yy=lx*sin+ly*cos+H*0.5;
+      if(xx< -pitch||yy< -pitch||xx>W+pitch||yy>H+pitch) continue;
+      var col=sceneRGB(xx/W, yy/H, era, t);
+      var k=1-Math.max(col[0],col[1],col[2]);
+      var val = ci===3 ? k : (k<0.999 ? (1-col[ci]-k)/(1-k) : 0);
+      val=Math.max(0,Math.min(1,val*ink));
+      if(val<=0.02) continue;
+      var r=Math.sqrt(val)*maxR; if(r<0.4) continue;
+      ctx.moveTo(xx+r,yy); ctx.arc(xx,yy,r,0,Math.PI*2);
+    }}
+    ctx.fill();
+  }
+  return {
+    tier:"canvas2d",
+    resize:function(w,h,d){ W=w;H=h;DPR=d; canvas.width=w; canvas.height=h; },
+    render:function(s){
+      var t=((self.performance?performance.now():Date.now())-t0)/1000;
+      var ep=eraParams(s.era,s.budget);
+      ctx.setTransform(1,0,0,1,0,0);
+      ctx.fillStyle="rgb("+(ep.paper[0]*255|0)+","+(ep.paper[1]*255|0)+","+(ep.paper[2]*255|0)+")";
+      ctx.fillRect(0,0,W,H);
+      var pitch=Math.max(8, ep.pitch*DPR*1.7);
+      ctx.globalCompositeOperation="multiply";
+      for(var ci=0; ci<4; ci++){ drawScreen(CH[ci][0], CH[ci][1], pitch, s.era, t, ep.ink, ci); }
+      ctx.globalCompositeOperation="source-over";
+    }
+  };
+}
+
+async function createRenderer(canvas, opts){
+  opts = opts || {};
+  var order = (!opts.tier || opts.tier==="auto") ? ["webgpu","webgl2","canvas2d"] : [opts.tier,"webgl2","canvas2d"];
+  var errs=[];
+  for(var i=0;i<order.length;i++){
+    try{
+      if(order[i]==="webgpu")   return await makeWebGPU(canvas);
+      if(order[i]==="webgl2")   return makeWebGL2(canvas);
+      return makeCanvas2D(canvas);
+    }catch(e){ errs.push(order[i]+": "+(e&&e.message||e)); }
+  }
+  throw new Error("no renderer available :: "+errs.join(" | "));
+}
+</script>
+<script type="text/plain" id="ip-worker">
+var R=null, STATE={era:4, budget:0.86}, running=false;
+function tick(){
+  if(R && STATE){ try{ R.render(STATE); }catch(e){ self.postMessage({type:"fail", error:String(e&&e.message||e)}); running=false; return; } }
+  setTimeout(tick, 16);
+}
+self.onmessage = async function(ev){
+  var m=ev.data;
+  if(m.type==="init"){
+    try{
+      R = await createRenderer(m.canvas, { tier:m.tier||"auto" });
+      if(m.size){ R.resize(m.size.w, m.size.h, m.size.dpr); }
+      STATE = m.state || STATE;
+      self.postMessage({ type:"ready", tier:R.tier });
+      if(!running){ running=true; tick(); }
+    }catch(e){ self.postMessage({ type:"fail", error:String(e&&e.message||e) }); }
+  } else if(m.type==="state"){ STATE = m.state; }
+  else if(m.type==="resize"){ if(R) R.resize(m.w, m.h, m.dpr); }
+};
+</script>
+<script>window.IP_START_ERA=4; </script>
+<script>
+(function(){
+  "use strict";
+  var rsrc = document.getElementById("ip-renderer").textContent;
+  var gsrc = document.getElementById("ip-worker").textContent;
+  // main-thread copy of the ink model for inkwells + fallback
+  var api = (new Function(rsrc + "\n return { createRenderer:createRenderer, cmykForEra:cmykForEra };"))();
+
+  var IP = window.IP = {
+    state: { era: (window.IP_START_ERA!=null?window.IP_START_ERA:4), budget: 0.86 },
+    tier: "booting", worker: null, renderer: null, canvas: null
+  };
+
+  function bgSize(){
+    var dpr = Math.min(window.devicePixelRatio||1, 2);
+    return { w: Math.round(innerWidth*dpr), h: Math.round(innerHeight*dpr), dpr: dpr };
+  }
+  function pushState(){
+    if(IP.worker){ IP.worker.postMessage({ type:"state", state: IP.state }); }
+  }
+  function setTier(t){
+    IP.tier = t;
+    var b=document.getElementById("ip-tier"); if(b) b.textContent = t;
+  }
+
+  function startWorker(canvas){
+    var src = rsrc + "\n" + gsrc;
+    var url = URL.createObjectURL(new Blob([src], { type:"text/javascript" }));
+    var w = new Worker(url);
+    IP.worker = w;
+    var settled=false;
+    var giveUp = setTimeout(function(){ if(!settled){ settled=true; w.terminate(); IP.worker=null; fallbackMain(); } }, 1500);
+    w.onmessage=function(ev){
+      var m=ev.data;
+      if(m.type==="ready"){ settled=true; clearTimeout(giveUp); setTier(m.tier+" · worker"); }
+      else if(m.type==="fail"){ if(!settled){ settled=true; clearTimeout(giveUp); } w.terminate(); IP.worker=null; fallbackMain(); }
+    };
+    var off = canvas.transferControlToOffscreen();
+    var sz = bgSize();
+    w.postMessage({ type:"init", canvas: off, size: sz, state: IP.state, tier:"auto" }, [off]);
+  }
+  function fallbackMain(){
+    // rebuild a fresh canvas (the previous one may be transfer-neutered)
+    var old=document.getElementById("ipbg");
+    var c=document.createElement("canvas"); c.id="ipbg"; c.className="ip-bg";
+    old.parentNode.replaceChild(c, old); IP.canvas=c;
+    var sz=bgSize();
+    api.createRenderer(c, { tier:"auto" }).then(function(r){
+      IP.renderer=r; r.resize(sz.w, sz.h, sz.dpr); setTier(r.tier+" · main");
+      (function loop(){ r.render(IP.state); requestAnimationFrame(loop); })();
+    }).catch(function(e){ setTier("unavailable"); });
+  }
+
+  function boot(){
+    var c=document.getElementById("ipbg"); IP.canvas=c;
+    var canOff = ("transferControlToOffscreen" in HTMLCanvasElement.prototype) && (typeof Worker!=="undefined");
+    if(canOff){ try{ startWorker(c); }catch(e){ fallbackMain(); } }
+    else { fallbackMain(); }
+
+    addEventListener("resize", function(){
+      var s=bgSize();
+      if(IP.worker) IP.worker.postMessage({ type:"resize", w:s.w, h:s.h, dpr:s.dpr });
+      else if(IP.renderer) IP.renderer.resize(s.w, s.h, s.dpr);
+    });
+  }
+
+  // ---- inkwells + main-thread heartbeat (proves responsiveness) ----
+  var wells=["c","m","y","k"], frames=0, lastFps=performance.now(), fpsEl=null;
+  function heartbeat(now){
+    frames++;
+    if(now-lastFps > 500){
+      var fps=Math.round(frames*1000/(now-lastFps)); frames=0; lastFps=now;
+      fpsEl = fpsEl || document.getElementById("ip-fps");
+      if(fpsEl) fpsEl.textContent = fps+" fps";
+    }
+    var cmyk = api.cmykForEra(IP.state.era, IP.state.budget);
+    var breathe = 0.03*Math.sin(now/900);
+    for(var i=0;i<4;i++){
+      var v=Math.max(0, Math.min(1, cmyk[i] + breathe));
+      var fill=document.getElementById("well-"+wells[i]);
+      if(fill){ fill.style.height=(v*100).toFixed(1)+"%"; }
+      var lab=document.getElementById("wellv-"+wells[i]);
+      if(lab){ lab.textContent=Math.round(v*100)+"%"; }
+    }
+    var eraEl=document.getElementById("ip-eraname");
+    if(eraEl && window.IP_ERA_NAMES){ eraEl.textContent = window.IP_ERA_NAMES[Math.round(IP.state.era)]; }
+    requestAnimationFrame(heartbeat);
+  }
+
+  // ---- generic UI behaviours --------------------------------------
+  function wireUI(){
+    document.addEventListener("click", function(e){
+      var t=e.target.closest("[data-ip]"); if(!t) return;
+      var act=t.getAttribute("data-ip");
+      if(act==="toggle"){ t.setAttribute("aria-pressed", t.getAttribute("aria-pressed")==="true"?"false":"true"); }
+      else if(act==="tab"){
+        var group=t.getAttribute("data-group");
+        document.querySelectorAll("[data-ip='tab'][data-group='"+group+"']").forEach(function(x){ x.setAttribute("aria-selected","false"); });
+        t.setAttribute("aria-selected","true");
+        document.querySelectorAll("[data-panel][data-group='"+group+"']").forEach(function(p){ p.hidden = (p.getAttribute("data-panel")!==t.getAttribute("data-target")); });
+      }
+      else if(act==="radio"){
+        var g=t.getAttribute("data-group");
+        document.querySelectorAll("[data-ip='radio'][data-group='"+g+"']").forEach(function(x){ x.setAttribute("aria-checked","false"); });
+        t.setAttribute("aria-checked","true");
+        if(g==="budget" && window.IP){ IP.state.budget=parseFloat(t.getAttribute("data-val")); pushState(); }
+      }
+      else if(act==="modal-open"){ var d=document.getElementById(t.getAttribute("data-target")); if(d) d.hidden=false; }
+      else if(act==="modal-close"){ var m=t.closest("[role='dialog']"); if(m) m.hidden=true; }
+      else if(act==="toast"){ toast(t.getAttribute("data-msg")||"Inked."); }
+    });
+    document.querySelectorAll("[data-ip='segrange']").forEach(function(r){
+      r.addEventListener("input", function(){
+        var out=document.getElementById(r.getAttribute("data-out")); if(out) out.textContent=r.value;
+        var bind=r.getAttribute("data-bind");
+        if(bind==="era" && window.IP){ IP.state.era=parseFloat(r.value); pushState(); }
+        if(bind==="budget" && window.IP){ IP.state.budget=parseFloat(r.value); pushState(); }
+      });
+    });
+  }
+  var toastN=0;
+  function toast(msg){
+    var host=document.getElementById("ip-toasts"); if(!host) return;
+    var el=document.createElement("div"); el.className="ip-toast"; el.textContent=msg; host.appendChild(el);
+    requestAnimationFrame(function(){ el.classList.add("show"); });
+    setTimeout(function(){ el.classList.remove("show"); setTimeout(function(){ el.remove(); }, 300); }, 2200);
+  }
+  window.ipToast = toast;
+  window.ipSetEra = function(e){ if(window.IP){ IP.state.era=e; pushState(); var r=document.getElementById("era-range"); if(r) r.value=e; var o=document.getElementById("era-out"); if(o) o.textContent=e; } };
+
+  function ready(fn){ if(document.readyState!=="loading") fn(); else document.addEventListener("DOMContentLoaded", fn); }
+  ready(function(){ boot(); wireUI(); requestAnimationFrame(heartbeat); });
+})();
+</script>
+</body>
+</html>
