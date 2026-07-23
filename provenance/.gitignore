@@ -1,0 +1,2 @@
+# decode intermediates — regenerate with: node decode.cjs
+assets/*.raw

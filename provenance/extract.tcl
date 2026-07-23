@@ -220,57 +220,59 @@ proc rectout {x0 y0 x1 y1 th rgb} {
     thline $x0 $y1 $x0 $y0 $th $rgb
 }
 
-# ---- platonic shape icons: each returns a base64 PNG data payload -----
-# All draw into a fresh transparent canvas sized `S` and use ink `rgb`.
-proc icon_render {type rgb {S 120}} {
-    cnew $S $S
-    set c [expr {$S/2.0}]; set m [expr {$S*0.16}]
-    set a $m; set b [expr {$S-$m}]
-    switch -- $type {
-        box      { rectout $a $a $b $b 3 $rgb }
-        ring     { ring $c $c [expr {$c-$m}] 4 $rgb }
-        blob     { ring $c $c [expr {$c-$m}] 6 $rgb; ring $c $c [expr {$c-$m*1.9}] 3 $rgb }
-        concentric {
-            rectout $a $a $b $b 3 $rgb
-            rectout [expr {$a+$S*0.12}] [expr {$a+$S*0.12}] [expr {$b-$S*0.12}] [expr {$b-$S*0.12}] 3 $rgb
-            dot $c $c [expr {$S*0.07}] $rgb
-        }
-        grid {
-            rectout $a $a $b $b 2 $rgb
-            for {set k 1} {$k < 5} {incr k} {
-                set gx [expr {$a + ($b-$a)*$k/5.0}]
-                thline $gx $a $gx $b 1 $rgb
-                set gy [expr {$a + ($b-$a)*$k/5.0}]
-                thline $a $gy $b $gy 1 $rgb
+# ---------------------------------------------------------------------
+#  Raw RGB reader (RAW1 header) + real photo-slice extractor.
+#  RAW1 = "RAW1" | uint32 BE w | uint32 BE h | w*h*3 RGB bytes  (produced
+#  by decode.cjs — the one step pure Tcl can't do: JPEG -> pixels).
+# ---------------------------------------------------------------------
+proc read_raw {path} {
+    set fh [open $path rb]; set d [read $fh]; close $fh
+    binary scan [string range $d 0 3] a4 magic
+    if {$magic ne "RAW1"} { error "not a RAW1 file: $path" }
+    binary scan [string range $d 4 11] II w h
+    binary scan [string range $d 12 end] cu* bytes
+    return [dict create w $w h $h px $bytes]
+}
+
+# Crop the shape's (padded) bounding box straight out of the decoded photo
+# and box-average downscale to a thumbnail, then PNG-encode the real pixels.
+proc slice_png {rawv nx ny nw nh {target 150}} {
+    upvar 1 $rawv RAW
+    set W [dict get $RAW w]; set H [dict get $RAW h]
+    set src [dict get $RAW px]
+    set pad 0.018
+    set x0 [expr {int(max(0,      ($nx      - $pad) * $W))}]
+    set y0 [expr {int(max(0,      ($ny      - $pad) * $H))}]
+    set x1 [expr {int(min($W, ($nx+$nw + $pad) * $W))}]
+    set y1 [expr {int(min($H, ($ny+$nh + $pad) * $H))}]
+    set cw [expr {max(1, $x1 - $x0)}]; set ch [expr {max(1, $y1 - $y0)}]
+    set factor [expr {max(1, int(ceil(double(max($cw,$ch)) / $target)))}]
+    set ow [expr {max(1, $cw / $factor)}]; set oh [expr {max(1, $ch / $factor)}]
+    set inv [expr {1.0 / ($factor * $factor)}]
+    set out [lrepeat [expr {$ow * $oh * 4}] 0]
+    set oi 0
+    for {set oy 0} {$oy < $oh} {incr oy} {
+        set sy0 [expr {$y0 + $oy * $factor}]
+        for {set ox 0} {$ox < $ow} {incr ox} {
+            set sx0 [expr {$x0 + $ox * $factor}]
+            set r 0; set g 0; set bl 0
+            for {set fy 0} {$fy < $factor} {incr fy} {
+                set rb [expr {(($sy0 + $fy) * $W + $sx0) * 3}]
+                for {set fx 0} {$fx < $factor} {incr fx} {
+                    set si [expr {$rb + $fx * 3}]
+                    incr r  [lindex $src $si]
+                    incr g  [lindex $src [expr {$si + 1}]]
+                    incr bl [lindex $src [expr {$si + 2}]]
+                }
             }
+            lset out $oi           [expr {int($r  * $inv)}]
+            lset out [expr {$oi+1}] [expr {int($g  * $inv)}]
+            lset out [expr {$oi+2}] [expr {int($bl * $inv)}]
+            lset out [expr {$oi+3}] 255
+            incr oi 4
         }
-        arrow {
-            thline $a [expr {$S*0.62}] $b [expr {$S*0.38}] 4 $rgb
-            thline $b [expr {$S*0.38}] [expr {$b-$S*0.16}] [expr {$S*0.40}] 4 $rgb
-            thline $b [expr {$S*0.38}] [expr {$b-$S*0.10}] [expr {$S*0.56}] 4 $rgb
-        }
-        wave {
-            set prev {}
-            for {set t 0} {$t <= 40} {incr t} {
-                set yy [expr {$a + ($b-$a)*$t/40.0}]
-                set xx [expr {$c + ($S*0.26)*sin($t/40.0*6.2831*1.5)}]
-                if {$prev ne {}} { thline [lindex $prev 0] [lindex $prev 1] $xx $yy 3 $rgb }
-                set prev [list $xx $yy]
-            }
-        }
-        face {
-            ring $c $c [expr {$c-$m}] 3 $rgb
-            dot [expr {$c-$S*0.14}] [expr {$c-$S*0.06}] [expr {$S*0.03}] $rgb
-            dot [expr {$c+$S*0.14}] [expr {$c-$S*0.06}] [expr {$S*0.03}] $rgb
-            for {set t 0} {$t <= 20} {incr t} {
-                set ang [expr {0.35 + $t/20.0*2.44}]
-                setpx [expr {int($c+$S*0.20*cos($ang))}] [expr {int($c+$S*0.10+$S*0.14*sin($ang))}] $rgb
-                setpx [expr {int($c+$S*0.20*cos($ang))}] [expr {int($c+$S*0.10+$S*0.14*sin($ang))+1}] $rgb
-            }
-        }
-        default  { rectout $a $a $b $b 3 $rgb }
     }
-    return [png_encode $::bw $::bh $::px]
+    return [list $ow $oh [png_encode $ow $oh $out]]
 }
 
 # =====================================================================
@@ -312,7 +314,7 @@ set NOTES {
             {blob       0.470 0.430 0.120 0.150 "#c81e63" "circle-brush blob"}
             {face       0.505 0.560 0.050 0.070 "#c81e63" "brush smiley"}
             {arrow      0.560 0.230 0.080 0.070 "#d81f6f" "A/B/C feed"}
-            {ring       0.150 0.720 0.070 0.110 "#e0207a" "thumb arch"}
+            {ring       0.300 0.520 0.090 0.130 "#e0207a" "thumb arch"}
         }
     }
     {
@@ -394,7 +396,8 @@ foreach note $NOTES {
     lassign [jpeg_dims $jpg] JW JH
     set aspect [expr {$JW>0 ? double($JW)/$JH : 16.0/9}]
     set bgb64 [b64enc $jpg]
-    puts stderr "  \[ingest\] $N(file)  ${JW}x${JH}  jpeg=[string length $jpg]B"
+    set RAW [read_raw [file join $HERE [string map {.jpg .raw} $N(file)]]]
+    puts stderr "  \[ingest\] $N(file)  ${JW}x${JH}  jpeg=[string length $jpg]B  raw=[dict get $RAW w]x[dict get $RAW h]"
 
     # ---- SVG selectable text, placed 1:1 over the handwriting ----
     set VW 1000.0
@@ -410,18 +413,20 @@ foreach note $NOTES {
     }
     append svg "</svg>"
 
-    # ---- platonic-shape PNG chips (from-scratch encoded) ----
+    # ---- real photo-slice PNG chips (sliced + encoded in Tcl) ----
+    # The base64 lives once, in the textarea; the <img> is built from it in
+    # the browser so the payload isn't duplicated.
     set chips ""
     foreach s $N(shapes) {
         lassign $s type nx ny nw nh col label
-        set png [icon_render $type [hex2rgb $col]]
+        lassign [slice_png RAW $nx $ny $nw $nh 150] sw sh png
         set b64 [b64enc $png]
         incr totalShapes
-        puts stderr "    \[raster\] $type ($label)  png=[string length $png]B"
+        puts stderr "    \[slice\] $type ($label)  ${sw}x${sh}  png=[string length $png]B"
         append chips \
           "<figure class=\"chip\">\
-           <img alt=\"[esc $label]\" src=\"data:image/png;base64,$b64\">\
-           <figcaption>[esc $label] · <span class=\"tag\">$type</span></figcaption>\
+           <img alt=\"[esc $label]\" loading=\"lazy\">\
+           <figcaption>[esc $label] · <span class=\"tag\">$type · ${sw}&times;${sh}</span></figcaption>\
            <textarea readonly rows=\"2\" spellcheck=\"false\">data:image/png;base64,$b64</textarea>\
            <button class=\"copy\" onclick=\"cp(this)\">copy PNG</button>\
            </figure>"
@@ -437,7 +442,7 @@ foreach note $NOTES {
             <div class=\"calcium\"></div>\
             $svg\
          </div>\
-         <div class=\"tray\"><div class=\"tray-h\">salient platonic shapes · base64 PNG (click to copy)</div>\
+         <div class=\"tray\"><div class=\"tray-h\">salient shape slices · real photo pixels · base64 PNG (click to copy)</div>\
             <div class=\"chips\">$chips</div></div>\
        </section>"
 }
@@ -450,7 +455,7 @@ set html "<!DOCTYPE html>
 <head>
 <meta charset=\"UTF-8\">
 <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">
-<title>Provenance · platonic-shape feature extraction</title>
+<title>Provenance · shape-slice feature extraction</title>
 <style>
   :root{
     --calcium: 0.5;                 /* Calcium Blur strength, default 50% */
@@ -530,10 +535,9 @@ set html "<!DOCTYPE html>
   .chips{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px}
   .chip{margin:0;background:rgba(255,255,255,.62);border:1px solid rgba(0,0,0,.14);
         border-radius:8px;padding:10px;display:flex;flex-direction:column;gap:7px}
-  .chip img{width:100%;height:96px;object-fit:contain;image-rendering:auto;
-            background:
-              conic-gradient(#0000 90deg,#00000008 0 180deg,#0000 0 270deg,#00000008 0) 0 0/16px 16px;
-            border-radius:5px}
+  .chip img{width:100%;height:104px;object-fit:cover;image-rendering:auto;
+            background:#e9e4d8;border-radius:5px;display:block;
+            box-shadow:inset 0 0 0 1px rgba(0,0,0,.08)}
   .chip figcaption{font-size:11px;line-height:1.3}
   .chip .tag{opacity:.6}
   .chip textarea{width:100%;font:10px/1.3 ui-monospace,monospace;resize:vertical;
@@ -547,9 +551,9 @@ set html "<!DOCTYPE html>
 </head>
 <body>
   <header class=\"top\">
-    <h1>Provenance — platonic-shape feature extraction</h1>
-    <p><span class=\"pill\">pure Tcl pipeline</span><span class=\"pill\">no dependencies</span><span class=\"pill\">no network</span><span class=\"pill\">$totalShapes shapes rasterized</span></p>
-    <p>Three field notes run through a from-scratch Tcl pipeline: real JPEG dimensions parsed from file bytes, salient shapes re-drawn as <em>platonic</em> RGBA rasters and hand-encoded to base64 PNG (from-scratch DEFLATE / Adler-32 / CRC-32 / Base64), and selectable SVG text laid 1:1 over the ink. Backgrounds wear a <b>Calcium&nbsp;Blur</b> on a CSS-3D plane.</p>
+    <h1>Provenance — shape-slice feature extraction</h1>
+    <p><span class=\"pill\">pure Tcl pipeline</span><span class=\"pill\">no dependencies</span><span class=\"pill\">no network</span><span class=\"pill\">$totalShapes shapes sliced</span></p>
+    <p>Three field notes run through a from-scratch Tcl pipeline: real JPEG dimensions parsed from file bytes, each salient shape <em>sliced straight out of the photo</em> (real pixels, box-averaged) and hand-encoded to base64 PNG (from-scratch DEFLATE / Adler-32 / CRC-32 / Base64), with selectable SVG text laid 1:1 over the ink. Backgrounds wear a <b>Calcium&nbsp;Blur</b> on a CSS-3D plane.</p>
   </header>
   <div class=\"controls\">
     <label for=\"cal\">Calcium&nbsp;Blur</label>
@@ -561,6 +565,10 @@ set html "<!DOCTYPE html>
     Generated by <code>provenance/extract.tcl</code> · Calcium&nbsp;Blur = Gaussian blur + bone-white bloom, driven in CSS 3D · select the SVG text, or click any chip to copy its base64 PNG.
   </footer>
 <script>
+  // build each chip image from its (single-source) base64 textarea
+  document.querySelectorAll('.chip').forEach(function(c){
+    c.querySelector('img').src = c.querySelector('textarea').value;
+  });
   // click-to-copy for the base64 PNG chips
   function cp(btn){
     var ta = btn.parentNode.querySelector('textarea');
