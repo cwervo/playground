@@ -1,0 +1,128 @@
+Claim $this has title "SoundCloud QR Player"
+
+set ::dir [file dirname [dict get [info frame 0] file]]
+file mkdir "$::dir/downloads"
+
+if {![info exists ::soundcloudWorkerFd]} {
+    set ::soundcloudWorkerFd [open "|uv run --with opencv-python --with yt-dlp --with numpy python3 $::dir/soundcloudWorker.py daemon" r+]
+    fconfigure $::soundcloudWorkerFd -blocking 0 -buffering line
+    proc processWorkerOutput {fd} {
+        if {[eof $fd]} {
+            close $fd
+            catch {unset ::soundcloudWorkerFd}
+            return
+        }
+        set line [gets $fd]
+        if {$line ne ""} {
+            if {[regexp {^QR_FOUND (\S+)} $line match url]} {
+                Claim soundcloud qr detected with url $url
+            }
+            if {[regexp {^FETCHED (\S+) (.*)} $line match url jsonStr]} {
+                Claim soundcloud url $url has data $jsonStr
+            }
+        }
+    }
+    fileevent $::soundcloudWorkerFd readable [list processWorkerOutput $::soundcloudWorkerFd]
+    
+    On unmatch {
+        if {[info exists ::soundcloudWorkerFd]} {
+            close $::soundcloudWorkerFd
+            unset ::soundcloudWorkerFd
+        }
+    }
+}
+
+When $this has camera slice /slice/ {
+    set now [clock milliseconds]
+    if {![info exists ::lastQRScan] || ($now - $::lastQRScan) > 1000} {
+        set ::lastQRScan $now
+        set tmp "/tmp/folk_slice_$this.jpg"
+        image saveAsJpeg $slice $tmp
+        puts $::soundcloudWorkerFd "SCAN $tmp"
+        flush $::soundcloudWorkerFd
+    }
+}
+
+When soundcloud qr detected with url /url/ {
+    Wish $this is labelled "Found Soundcloud QR!"
+    
+    if {![info exists ::fetchedUrls($url)]} {
+        set ::fetchedUrls($url) 1
+        puts $::soundcloudWorkerFd "FETCH $url $::dir/downloads"
+        flush $::soundcloudWorkerFd
+    }
+    Claim $this is playing soundcloud url $url
+}
+
+When $this is playing soundcloud url /url/ &\
+     soundcloud url /url/ has data /data/ {
+     
+    set wav [dict get $data wav]
+    Wish to play audio $wav
+    
+    set thumb [dict get $data thumb]
+    if {$thumb ne "none"} {
+        Claim $this has cover $thumb
+    }
+}
+
+When $this has cover /thumb/ & the image loader is /loadImage/ {
+    fn loadImage
+    set im [loadImage $thumb]
+    Wish $this displays image $im
+}
+
+When $this is playing soundcloud url /url/ &\
+     soundcloud url /url/ has data /data/ &\
+     the clock time is /t/ {
+     
+    set duration [dict get $data duration]
+    set sparkline [dict get $data sparkline]
+    
+    if {![info exists ::playStart($url)]} {
+        set ::playStart($url) $t
+    }
+    set elapsed [expr {$t - $::playStart($url)}]
+    set progress 0
+    if {$duration > 0} {
+        set progress [expr {$elapsed / $duration}]
+    }
+    if {$progress > 1.0} { set progress 1.0 }
+    
+    When $this has region /r/ {
+        set path {}
+        set n [llength $sparkline]
+        
+        set p0 [lindex $r 0]
+        set p1 [lindex $r 1]
+        set p2 [lindex $r 2]
+        set p3 [lindex $r 3]
+        
+        set dx [expr {[lindex $p2 0] - [lindex $p3 0]}]
+        set dy [expr {[lindex $p2 1] - [lindex $p3 1]}]
+        set ux [expr {[lindex $p0 0] - [lindex $p3 0]}]
+        set uy [expr {[lindex $p0 1] - [lindex $p3 1]}]
+        
+        # draw playhead
+        set hx [expr {[lindex $p3 0] + $progress * $dx}]
+        set hy [expr {[lindex $p3 1] + $progress * $dy}]
+        Wish $this draws a polyline [list [list $hx $hy] [list [expr {$hx + $ux}] [expr {$hy + $uy}]]] \
+            with color blue thickness 5
+            
+        # draw sparkline
+        for {set i 0} {$i < $n} {incr i} {
+            set val [lindex $sparkline $i]
+            set val [expr {$val * 0.4}]
+            
+            set frac [expr {double($i) / ($n - 1)}]
+            set bx [expr {[lindex $p3 0] + $frac * $dx}]
+            set by [expr {[lindex $p3 1] + $frac * $dy}]
+            
+            set px [expr {$bx + $val * $ux}]
+            set py [expr {$by + $val * $uy}]
+            
+            lappend path [list $px $py]
+        }
+        Wish $this draws a polyline $path with color red thickness 3
+    }
+}

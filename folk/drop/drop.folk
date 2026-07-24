@@ -165,41 +165,43 @@ Wish the web server handles route "/drop" with nav "<button>Drop files</button>"
                     const base64 = event.target.result.split(',')[1];
                     const uuid = uuidv4();
                     
-                    const tclScript = tcl`
-                        set imgDir [file join $::env(HOME) "folk-data" "images"]
+                    const tclScript = tcl`apply {{this file_name base64 uuid} {
+                        set imgDir [file join $::env(HOME) {folk-data} {images}]
                         file mkdir $imgDir
-                        set imgPath [file join $imgDir ${file.name}]
+                        set imgPath [file join $imgDir $file_name]
                         set fp [open $imgPath w]
                         fconfigure $fp -translation binary
-                        puts -nonewline $fp [binary decode base64 ${base64}]
+                        puts -nonewline $fp [binary decode base64 $base64]
                         close $fp
 
-                        set progDir [file join $::env(HOME) "folk-data" "program"]
+                        set progDir [file join $::env(HOME) {folk-data} {program}]
                         file mkdir $progDir
                         
                         set spawnPoints [Query! /spawn/ has quad /q/ & /someone/ wishes /spawn/ is a /drop spawn]
                         set results [list]
                         
                         if {[llength $spawnPoints] == 0} {
-                            set uid "drop-${uuid}"
-                            set fp [open [file join $progDir "$uid.folk"] w]
-                            puts $fp "Wish \\$this is titled {${file.name}}"
-                            puts $fp "Wish \\$this displays image {$imgPath}"
+                            set uid drop-$uuid
+                            set fp [open [file join $progDir $uid.folk] w]
+                            puts $fp [format {Wish $this is titled {%s}} $file_name]
+                            puts $fp [format {Wish $this displays image {%s}} $imgPath]
                             close $fp
                             
-                            Hold! -save -key load-$uid "[list Claim $uid has a program]\\n[list Claim $uid is a tag]"
+                            Hold! -save -key load-$uid [format {Claim %s has a program
+Claim %s is a tag} $uid $uid]
                             lappend results [list id $uid]
                         } else {
                             for {set i 0} {$i < [llength $spawnPoints]} {incr i} {
-                                set uid "drop-${uuid}-$i"
+                                set uid drop-$uuid-$i
                                 set q [dict get [lindex $spawnPoints $i] q]
                                 
-                                set fp [open [file join $progDir "$uid.folk"] w]
-                                puts $fp "Wish \\$this is titled {${file.name}}"
-                                puts $fp "Wish \\$this displays image {$imgPath}"
+                                set fp [open [file join $progDir $uid.folk] w]
+                                puts $fp [format {Wish $this is titled {%s}} $file_name]
+                                puts $fp [format {Wish $this displays image {%s}} $imgPath]
                                 close $fp
                                 
-                                Hold! -save -key load-$uid "[list Claim $uid has a program]\\n[list Claim $uid is a tag]"
+                                Hold! -save -key load-$uid [format {Claim %s has a program
+Claim %s is a tag} $uid $uid]
                                 # Bake in the initial quad from the spawn point
                                 Hold! -save -key geom-$uid [list Claim $uid has quad $q]
                                 
@@ -207,16 +209,16 @@ Wish the web server handles route "/drop" with nav "<button>Drop files</button>"
                             }
                         }
                         
-                        set json "\["
+                        set json {[}
                         set first 1
                         foreach res $results {
-                            if {!$first} { append json "," }
+                            if {!$first} { append json {,} }
                             set first 0
-                            append json "{\\"id\\":\\"[dict get $res id]\\"}"
+                            append json [format {{"id":"%s"}} [dict get $res id]]
                         }
-                        append json "\]"
+                        append json {]}
                         return $json
-                    `;
+                    }} "drop-upload" {${file.name}} {${base64}} {${uuid}}`;
                     
                     // TODO: Use a proper multipart form upload in the future
                     // instead of evaluating Tcl POST bodies directly, to handle large files better.
@@ -230,9 +232,9 @@ Wish the web server handles route "/drop" with nav "<button>Drop files</button>"
                         const thumb = document.createElement('div');
                         thumb.className = 'gallery-item active';
                         if (file.type.startsWith('image/')) {
-                            thumb.innerHTML = `<img src="\${URL.createObjectURL(file)}" style="max-width: 100px; max-height: 100px; border-radius: 8px;">`;
+                            thumb.innerHTML = `<img src="${URL.createObjectURL(file)}" style="max-width: 100px; max-height: 100px; border-radius: 8px;">`;
                         } else {
-                            thumb.innerHTML = `<span>\${file.name}</span>`;
+                            thumb.innerHTML = `<span>${file.name}</span>`;
                         }
                         
                         thumb.addEventListener('click', (e) => {
@@ -241,7 +243,7 @@ Wish the web server handles route "/drop" with nav "<button>Drop files</button>"
                                 thumb.classList.remove('active');
                                 thumb.classList.add('inactive');
                                 ids.forEach(id => {
-                                    ws.send(tcl\`Hold! -save -key load-\${id} ""\`);
+                                    ws.send(tcl`Hold! -save -key load-${id} ""`);
                                     document.querySelectorAll('.dragme').forEach(el => {
                                         if (el.dataset.id === id) el.style.display = 'none';
                                     });
@@ -250,7 +252,7 @@ Wish the web server handles route "/drop" with nav "<button>Drop files</button>"
                                 thumb.classList.add('active');
                                 thumb.classList.remove('inactive');
                                 ids.forEach(id => {
-                                    ws.send(tcl\`Hold! -save -key load-\${id} "[list Claim \${id} has a program]\\n[list Claim \${id} is a tag]"\`);
+                                    ws.send(tcl`Hold! -save -key load-${id} "[list Claim ${id} has a program]\n[list Claim ${id} is a tag]"`);
                                     document.querySelectorAll('.dragme').forEach(el => {
                                         if (el.dataset.id === id) el.style.display = 'block';
                                     });

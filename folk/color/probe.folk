@@ -1,0 +1,25 @@
+When the image library is /imageLib/ {
+    set cc [C]
+    $cc extend $imageLib
+    $cc proc probe {Image im int x int y} Jim_Obj* {
+        int i = y * im.bytesPerRow + x * im.components;
+        uint8_t r = im.data[i];
+        uint8_t g = im.data[i + 1];
+        uint8_t b = im.data[i + 2];
+        return Jim_ObjPrintf("%g %g %g",
+        (double)r / 255.0,
+        (double)g / 255.0,
+        (double)b / 255.0);
+    }
+    set probeLib [$cc compile]
+    Claim the probe library is $probeLib
+    When $this has camera slice /slice/ {
+        #  Maybe we display camera slice somewhere else? Below the page? Then\
+        #  it's kind of like a color microscope !
+        #  Wish $this displays camera slice $slice
+        lassign [$probeLib probe $slice 0 0] r g b
+        Wish $this draws a circle with \
+            color [list [* 2 $r] [* 2 $g] [* 2 $b] 1] \
+            filled true
+    }
+}

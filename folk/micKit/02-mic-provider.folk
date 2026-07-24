@@ -1,0 +1,14 @@
+# Microphone Provider
+# Handles wishes for voice input by opening a microphone port.
+
+Claim $this has title "Mic Provider"
+
+When $program wishes $thing receives voice input {
+    # open microphone port … USB-A microphone I guess???
+    
+    # Placeholder for actual microphone reading logic.
+    # In a real Folk system, this might use a tcl audio extension 
+    # or an external process to capture audio and pipe it to speech-to-text.
+    
+    Claim $thing is listening to microphone
+}
