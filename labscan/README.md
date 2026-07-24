@@ -60,6 +60,26 @@ Requires a real device (camera). iOS 17+.
 A decode is only reported after the same value is seen on several
 consecutive frames — the classic wand-scanner debounce.
 
+## V3: the full offline read
+
+Every capture now gets a second pass, still with zero network:
+
+- **OCR + barcodes** — Vision's on-device `VNRecognizeTextRequest` and
+  `VNDetectBarcodesRequest` (QR, Micro QR, DataMatrix, Aztec, PDF417,
+  EAN, UPC-E, Code 39/93/128, ITF-14, Codabar).
+- **AprilTags (tag36h11)** — Apple's classic rectangle detector proposes
+  square quads; a square→quad homography samples the 8×8 cell grid and
+  the 36 data bits are matched against the family codebook (587
+  codewords, ≤2-bit correction, all four rotations). Codebook data from
+  BSD-licensed [AprilRobotics/apriltag](https://github.com/AprilRobotics/apriltag);
+  the decoder is ours, in the same table-driven spirit as the 1-D pass.
+
+Results live in each scan's JSON sidecar. In the gallery, tap a scan to
+page through the original captures; tap a highlighted region for its
+image slice + metadata (text, links, numbers — links detected offline
+with `NSDataDetector`), or tap anywhere undetected for the raw slice:
+the crop, its R/G/B channel separations, and the patch's mean CIELAB.
+
 ## V2: the app icon is a Metal shader
 
 `GenerateIcon.swift` is a single-file, reproducible icon generator —

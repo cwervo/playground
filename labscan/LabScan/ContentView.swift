@@ -94,33 +94,18 @@ struct ContentView: View {
 struct GalleryView: View {
     @ObservedObject var store: ScanStore
     @Environment(\.dismiss) private var dismiss
+    @State private var opened: ScanRecord?
 
     var body: some View {
         NavigationStack {
             List {
                 ForEach(store.records) { record in
-                    HStack(spacing: 12) {
-                        if let img = store.image(for: record) {
-                            Image(uiImage: img)
-                                .resizable().scaledToFill()
-                                .frame(width: 64, height: 64)
-                                .clipShape(RoundedRectangle(cornerRadius: 8))
-                        }
-                        VStack(alignment: .leading, spacing: 2) {
-                            if let decode = record.decode {
-                                Text(decode).font(.body.monospaced())
-                                Text(record.symbology ?? "")
-                                    .font(.caption).foregroundStyle(.secondary)
-                            } else {
-                                Text("no decode").font(.caption).foregroundStyle(.secondary)
-                            }
-                            if !record.quadLabels.isEmpty {
-                                Text(record.quadLabels.joined(separator: ", "))
-                                    .font(.caption2).foregroundStyle(.secondary)
-                            }
-                            Text(record.date, style: .date).font(.caption2).foregroundStyle(.tertiary)
-                        }
+                    Button {
+                        opened = record
+                    } label: {
+                        row(for: record)
                     }
+                    .foregroundStyle(.primary)
                 }
                 .onDelete { idx in
                     idx.map { store.records[$0] }.forEach(store.delete)
@@ -140,6 +125,49 @@ struct GalleryView: View {
                     Button("Done") { dismiss() }
                 }
             }
+            .fullScreenCover(item: $opened) { record in
+                ScanDetailView(store: store, initialID: record.id)
+            }
         }
+    }
+
+    private func row(for record: ScanRecord) -> some View {
+        HStack(spacing: 12) {
+            if let img = store.image(for: record) {
+                Image(uiImage: img)
+                    .resizable().scaledToFill()
+                    .frame(width: 64, height: 64)
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
+            }
+            VStack(alignment: .leading, spacing: 2) {
+                if let decode = record.decode {
+                    Text(decode).font(.body.monospaced())
+                    Text(record.symbology ?? "")
+                        .font(.caption).foregroundStyle(.secondary)
+                } else {
+                    Text("no decode").font(.caption).foregroundStyle(.secondary)
+                }
+                if let summary = detectionSummary(record) {
+                    Text(summary).font(.caption2).foregroundStyle(.secondary)
+                } else if !record.quadLabels.isEmpty {
+                    Text(record.quadLabels.joined(separator: ", "))
+                        .font(.caption2).foregroundStyle(.secondary)
+                }
+                Text(record.date, style: .date).font(.caption2).foregroundStyle(.tertiary)
+            }
+        }
+    }
+
+    /// "4 text · 1 QR · tag36h11 #17" — what the offline read found.
+    private func detectionSummary(_ record: ScanRecord) -> String? {
+        guard let dets = record.detections, !dets.isEmpty else { return nil }
+        var parts: [String] = []
+        let count = { (k: Detection.Kind) in dets.filter { $0.kind == k }.count }
+        if count(.text) > 0 { parts.append("\(count(.text)) text") }
+        if count(.qr) > 0 { parts.append("\(count(.qr)) QR") }
+        if count(.dataMatrix) > 0 { parts.append("\(count(.dataMatrix)) DataMatrix") }
+        if count(.barcode) > 0 { parts.append("\(count(.barcode)) barcode") }
+        parts += dets.filter { $0.kind == .aprilTag }.map(\.payload)
+        return parts.joined(separator: " · ")
     }
 }

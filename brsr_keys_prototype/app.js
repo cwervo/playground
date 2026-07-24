@@ -92,7 +92,6 @@ const MOCK_PAGES = {
         <div class="newtab-favorites-grid">
           ${state.favorites.map(fav => `
             <div class="newtab-fav-card" data-url="${fav.url}">
-              <span class="fav-badge">${fav.key}</span>
               <div class="newtab-fav-icon">${fav.favicon}</div>
               <div class="newtab-fav-name">${fav.name}</div>
             </div>
@@ -105,7 +104,8 @@ const MOCK_PAGES = {
           <ol>
             <li>Press <strong>d</strong> to toggle between Light and Dark mode.</li>
             <li>Highlight any text in the Wikipedia page and tap <strong>c</strong> to copy it.</li>
-            <li>Press <strong>1, 2, 3... 0</strong> to instantly open favorite sites in the current tab.</li>
+            <li>Press <strong>1-9</strong> to switch to tabs 1-9, or <strong>0</strong> to switch to the last tab.</li>
+            <li>Press <strong>w</strong> to close the current tab.</li>
             <li>Press <strong>Esc</strong> to toggle the Spaces Tab Overview grid.</li>
             <li>Tap <strong>Shift</strong> to scroll the page downwards exactly 1 pixel.</li>
           </ol>
@@ -144,315 +144,6 @@ const MOCK_PAGES = {
         </div>
       `;
     }
-  },
-
-  'https://google.com': {
-    title: 'Google',
-    generate: (query = '') => {
-      if (query) {
-        return `
-          <div class="mock-google">
-            <h1 class="google-logo" style="font-size: 2.2rem; cursor:pointer;" data-url="https://google.com">
-              <span>G</span><span>o</span><span>o</span><span>g</span><span>l</span><span>e</span>
-            </h1>
-            
-            <div class="google-search-form">
-              <div class="google-search-box" style="max-width: 100%;">
-                <input type="text" id="googleSearchInput" value="${escapeHtml(query)}">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-              </div>
-            </div>
-
-            <div class="google-results">
-              <div class="google-result-item">
-                <span class="google-result-cite">https://github.com › cwervo</span>
-                <span class="google-result-link" data-url="https://github.com">GitHub Repository - cwervo/brsr_keys_prototype</span>
-                <p class="google-result-snippet">Build and test keyboard shortcuts in a plain HTML prototype. Emulate spaces, tab closing, copying selections, printing as PDF and dark mode.</p>
-              </div>
-
-              <div class="google-result-item">
-                <span class="google-result-cite">https://wikipedia.org › wiki › Keyboard_shortcut</span>
-                <span class="google-result-link" data-url="https://wikipedia.org">Keyboard shortcut - Wikipedia</span>
-                <p class="google-result-snippet">A keyboard shortcut is a series of one or more keys that invoke a software or operating system action. Modern interfaces utilize them heavily for expert workflows.</p>
-              </div>
-
-              <div class="google-result-item">
-                <span class="google-result-cite">https://news.ycombinator.com</span>
-                <span class="google-result-link" data-url="https://news.ycombinator.com">Hacker News</span>
-                <p class="google-result-snippet">Startup and technology news. Simple HTML layout designed for rapid reading and minimal bandwidth consumption. A favorite of software developers worldwide.</p>
-              </div>
-
-              <div class="google-result-item">
-                <span class="google-result-cite">https://reddit.com › r › webdev</span>
-                <span class="google-result-link" data-url="https://reddit.com">Web Development on Reddit</span>
-                <p class="google-result-snippet">A community of developers discussing techniques, UX frameworks, styling paradigms, and showing off experimental side projects.</p>
-              </div>
-            </div>
-          </div>
-        `;
-      }
-
-      return `
-        <div class="mock-google">
-          <h1 class="google-logo">
-            <span>G</span><span>o</span><span>o</span><span>g</span><span>l</span><span>e</span>
-          </h1>
-          <div class="google-search-form">
-            <div class="google-search-box">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-              <input type="text" id="googleSearchInput" placeholder="Search Google or type URL...">
-            </div>
-            <div class="google-buttons">
-              <button class="google-btn" id="btnGoogleSearch">Google Search</button>
-              <button class="google-btn" id="btnGoogleLucky">I'm Feeling Lucky</button>
-            </div>
-          </div>
-        </div>
-      `;
-    }
-  },
-
-  'https://wikipedia.org': {
-    title: 'Wikipedia, the free encyclopedia',
-    generate: () => `
-      <div class="mock-wikipedia">
-        <aside class="wiki-sidebar">
-          <div class="wiki-logo-area">
-            <span>W</span>
-            <small>WIKIPEDIA</small>
-          </div>
-          <h4>Navigation</h4>
-          <ul>
-            <li><a href="#" data-url="https://wikipedia.org">Main page</a></li>
-            <li><a href="#" data-url="brsr://newtab">Home Portal</a></li>
-            <li><a href="#" data-url="brsr://history">History Logs</a></li>
-          </ul>
-          <h4>Contribute</h4>
-          <ul>
-            <li><a href="#">About Wikipedia</a></li>
-            <li><a href="#">Community portal</a></li>
-            <li><a href="#">Recent changes</a></li>
-          </ul>
-        </aside>
-
-        <main class="wiki-content">
-          <p class="wiki-meta">From Wikipedia, the free encyclopedia</p>
-          <h1 class="wiki-title">Keyboard Shortcuts</h1>
-          
-          <div class="wiki-infobox">
-            <h5>Keyboard Shortcuts</h5>
-            <div class="wiki-info-row">
-              <span class="wiki-info-label">Type:</span>
-              <span>Input Method</span>
-            </div>
-            <div class="wiki-info-row">
-              <span class="wiki-info-label">First Used:</span>
-              <span>1960s (Teletype)</span>
-            </div>
-            <div class="wiki-info-row">
-              <span class="wiki-info-label">Purpose:</span>
-              <span>Speed & Accessibility</span>
-            </div>
-          </div>
-
-          <p class="wiki-text">
-            A <strong>keyboard shortcut</strong> is a set of one or more keys that invoke a command in software or an operating system. They are typically an alternate means for invoking commands that would otherwise be accessible only through a menu, a pointing device, or a command-line interface.
-          </p>
-
-          <h3 class="wiki-section-heading">History & Context</h3>
-          <p class="wiki-text">
-            Shortcuts expedite common operations by reducing input sequences to a few keystrokes, hence the term "shortcut". Keyboard shortcuts were first integrated into computer systems with command terminals in the 1960s. In modern software, shortcuts are standardized to improve learning retention. For example, ⌘+C (or Ctrl+C) is universally used for copying highlighted items.
-          </p>
-
-          <h3 class="wiki-section-heading">Single-Key Commands</h3>
-          <p class="wiki-text">
-            While most shortcuts require combining modifier keys (like Control, Alt, or Command), some expert systems employ <em>single-key commands</em>. Vim, an extensively used terminal text editor, is renowned for its single-key command mode. Single-key commands offer unrivaled efficiency because they require no modifier keys, allowing the user's fingers to remain resting on the home row. However, they must be disabled whenever the user enters a text insertion state to prevent capturing regular letters.
-          </p>
-
-          <p class="wiki-text" style="background-color: var(--page-card-bg); padding: 12px; border-radius: 6px; border-left: 3px solid var(--page-accent);">
-            <strong>Try selecting this paragraph</strong> with your mouse, then press the <strong>c</strong> key on your keyboard to test the custom copy shortcut. A toast notification will appear in the corner!
-          </p>
-        </main>
-      </div>
-    `
-  },
-
-  'https://github.com': {
-    title: 'GitHub - cwervo/brsr_keys_prototype',
-    generate: () => `
-      <div class="mock-github">
-        <header class="github-repo-header">
-          <div class="github-repo-title">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/></svg>
-            <a href="#" data-url="https://github.com">cwervo</a>
-            <span>/</span>
-            <a href="#" data-url="https://github.com" style="font-weight: bold;">brsr_keys_prototype</a>
-            <span class="github-badge">Public</span>
-          </div>
-          <div class="github-stats">
-            <button class="github-stat-btn">⭐ Star <span>148</span></button>
-            <button class="github-stat-btn">Fork <span>12</span></button>
-          </div>
-        </header>
-
-        <nav class="github-repo-nav">
-          <span class="github-nav-tab active">Code</span>
-          <span class="github-nav-tab">Issues <span>4</span></span>
-          <span class="github-nav-tab">Pull Requests <span>2</span></span>
-          <span class="github-nav-tab">Actions</span>
-          <span class="github-nav-tab">Projects</span>
-        </nav>
-
-        <div class="github-files-container">
-          <div class="github-files-header">
-            <div>
-              <span class="github-commit-author">cwervo</span>
-              <span class="github-commit-msg">feat: implement single-key shortcuts and Spaces overview</span>
-            </div>
-            <span class="github-commit-time">2 hours ago</span>
-          </div>
-          
-          <div class="github-file-row">
-            <span class="github-file-icon">📄</span>
-            <span class="github-file-name" data-url="https://github.com">index.html</span>
-            <span class="github-file-commit">Initial layout structure for the emulator browser</span>
-            <span class="github-file-date">2 hours ago</span>
-          </div>
-
-          <div class="github-file-row">
-            <span class="github-file-icon">📄</span>
-            <span class="github-file-name" data-url="https://github.com">style.css</span>
-            <span class="github-file-commit">Clean glassmorphism styles and PDF print setups</span>
-            <span class="github-file-date">2 hours ago</span>
-          </div>
-
-          <div class="github-file-row">
-            <span class="github-file-icon">📄</span>
-            <span class="github-file-name" data-url="https://github.com">app.js</span>
-            <span class="github-file-commit">Vim-like routing, shortcut overrides & mock db</span>
-            <span class="github-file-date">2 hours ago</span>
-          </div>
-
-          <div class="github-file-row">
-            <span class="github-file-icon">⚙️</span>
-            <span class="github-file-name" data-url="https://github.com">package.json</span>
-            <span class="github-file-commit">Configure Vite server dependencies</span>
-            <span class="github-file-date">2 hours ago</span>
-          </div>
-        </div>
-
-        <div class="github-readme">
-          <h3>README.md</h3>
-          <p><strong>brsr_keys_prototype</strong> is a web-based UX playground designed to investigate browser keyboard interactions. By taking advantage of <code>event.preventDefault()</code>, this single page application blocks standard browser keys to emulate its own keyboard shortcut profile.</p>
-        </div>
-      </div>
-    `
-  },
-
-  'https://news.ycombinator.com': {
-    title: 'Hacker News',
-    generate: () => `
-      <div class="mock-hn">
-        <header class="hn-header">
-          <span class="hn-logo">Y</span>
-          <span class="hn-title">Hacker News</span>
-          <small style="font-weight: normal; margin-left: 8px;">
-            <a href="#">new</a> | <a href="#">past</a> | <a href="#">comments</a> | <a href="#">ask</a> | <a href="#">show</a> | <a href="#">jobs</a>
-          </small>
-        </header>
-
-        <div class="hn-list">
-          <div class="hn-item">
-            <span class="hn-rank">1.</span>
-            <span class="hn-upvote">▲</span>
-            <div>
-              <a href="#" class="hn-story-title" data-url="https://github.com">Show HN: Brsr Keys - Vim-speed mockup browser</a>
-              <span class="hn-site">(github.com/cwervo)</span>
-              <div class="hn-subtext">87 points by cwervo 2 hours ago | hide | 18 comments</div>
-            </div>
-          </div>
-
-          <div class="hn-item">
-            <span class="hn-rank">2.</span>
-            <span class="hn-upvote">▲</span>
-            <div>
-              <a href="#" class="hn-story-title" data-url="https://wikipedia.org">Keyboard shortcuts: cognitive load and speed efficiency study</a>
-              <span class="hn-site">(wikipedia.org)</span>
-              <div class="hn-subtext">210 points by cognitive_dev 6 hours ago | hide | 45 comments</div>
-            </div>
-          </div>
-
-          <div class="hn-item">
-            <span class="hn-rank">3.</span>
-            <span class="hn-upvote">▲</span>
-            <div>
-              <a href="#" class="hn-story-title" data-url="https://google.com">Google releases open-source accessibility guidelines</a>
-              <span class="hn-site">(google.com)</span>
-              <div class="hn-subtext">52 points by access_first 1 hour ago | hide | 8 comments</div>
-            </div>
-          </div>
-
-          <div class="hn-item">
-            <span class="hn-rank">4.</span>
-            <span class="hn-upvote">▲</span>
-            <div>
-              <a href="#" class="hn-story-title" data-url="https://reddit.com">Why browsers restrict user keyboard intercepts and how to override them</a>
-              <span class="hn-site">(reddit.com)</span>
-              <div class="hn-subtext">145 points by javascript_guy 4 hours ago | hide | 32 comments</div>
-            </div>
-          </div>
-        </div>
-      </div>
-    `
-  },
-
-  'https://reddit.com': {
-    title: 'Reddit - Dive into anything',
-    generate: () => `
-      <div class="mock-reddit">
-        <div class="reddit-post">
-          <div class="reddit-votes">
-            <button class="vote-btn">▲</button>
-            <span>1.2k</span>
-            <button class="vote-btn">▼</button>
-          </div>
-          <div class="reddit-post-content">
-            <div class="reddit-meta">
-              <span class="reddit-sub">r/webdev</span>
-              <span>• Posted by u/ux_innovator 4h ago</span>
-            </div>
-            <h3 class="reddit-post-title">Is anyone else tired of relying on standard multi-key shortcuts? I built a prototype browser that uses single keys!</h3>
-            <p class="reddit-post-text">Imagine being able to just hit 'd' to toggle dark mode instantly, or 'c' to copy selection, without stretching your hand for CMD/CTRL. What are your thoughts on this approach?</p>
-            <div class="reddit-footer">
-              <span class="reddit-action">💬 145 Comments</span>
-              <span class="reddit-action">🔗 Share</span>
-              <span class="reddit-action">🔖 Save</span>
-            </div>
-          </div>
-        </div>
-
-        <div class="reddit-post">
-          <div class="reddit-votes">
-            <button class="vote-btn">▲</button>
-            <span>854</span>
-            <button class="vote-btn">▼</button>
-          </div>
-          <div class="reddit-post-content">
-            <div class="reddit-meta">
-              <span class="reddit-sub">r/javascript</span>
-              <span>• Posted by u/vite_fan 6h ago</span>
-            </div>
-            <h3 class="reddit-post-title">Vite is officially the standard for client-side playground projects</h3>
-            <p class="reddit-post-text">It sets up in seconds, supports ES Modules out of the box, loads instantly, and runs a very lightweight server. I use it for all my interactive prototypes.</p>
-            <div class="reddit-footer">
-              <span class="reddit-action">💬 89 Comments</span>
-              <span class="reddit-action">🔗 Share</span>
-              <span class="reddit-action">🔖 Save</span>
-            </div>
-          </div>
-        </div>
-      </div>
-    `
   }
 };
 
@@ -735,39 +426,66 @@ function registerKeyboardEvents() {
       return;
     }
 
-    // Single key letters routing (case insensitive)
-    const key = e.key.toLowerCase();
+    // Single key letters routing (case sensitive where needed)
+    const rawKey = e.key;
+    const key = rawKey.toLowerCase();
+
+    // l or / - Focus Omnibar (Address Input)
+    if (rawKey === 'l' || rawKey === '/') {
+      e.preventDefault();
+      const omnibar = document.getElementById('addressInput');
+      if (omnibar) {
+        omnibar.focus();
+        omnibar.select();
+        showToast('Omnibar Focused', 'action');
+      }
+      return;
+    }
+
+    // a - Switch to Left Tab (wrap around)
+    if (rawKey === 'a') {
+      e.preventDefault();
+      switchToPrevTab();
+      return;
+    }
+
+    // d - Switch to Right Tab (wrap around)
+    if (rawKey === 'd') {
+      e.preventDefault();
+      switchToNextTab();
+      return;
+    }
+
+    // D - Toggle Dark Mode (Shift+D)
+    if (rawKey === 'D') {
+      e.preventDefault();
+      toggleDarkMode();
+      return;
+    }
 
     // n - Open New Tab
-    if (key === 'n') {
+    if (rawKey === 'n') {
       e.preventDefault();
       createNewTab();
       return;
     }
 
     // s - Suspend current tab
-    if (key === 's') {
+    if (rawKey === 's') {
       e.preventDefault();
       suspendActiveTab();
       return;
     }
 
-    // d - Toggle Dark Mode (Simulated browser theme)
-    if (key === 'd') {
-      e.preventDefault();
-      toggleDarkMode();
-      return;
-    }
-
     // f - Favorite current site (Star icon toggle)
-    if (key === 'f') {
+    if (rawKey === 'f') {
       e.preventDefault();
       toggleFavoriteCurrentSite();
       return;
     }
 
     // h - Access history
-    if (key === 'h') {
+    if (rawKey === 'h') {
       e.preventDefault();
       if (activeTab && activeTab.url === 'brsr://history') {
         showToast('Shortcut disabled: Already in History', 'error');
@@ -779,7 +497,7 @@ function registerKeyboardEvents() {
     }
 
     // c - Copy selected text (Standard selection check)
-    if (key === 'c') {
+    if (rawKey === 'c') {
       // Allow Cmd+C or Ctrl+C to do standard copying
       if (e.metaKey || e.ctrlKey) return;
       
@@ -789,9 +507,16 @@ function registerKeyboardEvents() {
     }
 
     // p - Print Page / Save as PDF Menu
-    if (key === 'p') {
+    if (rawKey === 'p') {
       e.preventDefault();
       openPrintDialog();
+      return;
+    }
+
+    // w - Close active Tab
+    if (rawKey === 'w') {
+      e.preventDefault();
+      closeTab(state.activeTabId);
       return;
     }
 
@@ -802,15 +527,26 @@ function registerKeyboardEvents() {
       return;
     }
 
-    // 0 -> 9 - Load Favorites
-    if (e.key >= '0' && e.key <= '9') {
+    // 1 -> 9 - Switch to Tab 1 -> 9 (1-indexed)
+    if (e.key >= '1' && e.key <= '9') {
       e.preventDefault();
-      const favorite = state.favorites.find(fav => fav.key === e.key);
-      if (favorite) {
-        navigateTo(favorite.url);
-        showToast(`Opened Favorite [${favorite.key}]: ${favorite.name}`, 'success');
+      const tabIndex = parseInt(e.key, 10) - 1;
+      if (tabIndex < state.tabs.length) {
+        switchTab(state.tabs[tabIndex].id);
       } else {
-        showToast(`Favorite slot [${e.key}] is currently empty`, 'error');
+        showToast(`No tab open at index ${tabIndex + 1}`, 'error');
+      }
+      return;
+    }
+
+    // 0 - Switch to Last Tab
+    if (e.key === '0') {
+      e.preventDefault();
+      if (state.tabs.length > 0) {
+        const lastIndex = state.tabs.length - 1;
+        switchTab(state.tabs[lastIndex].id);
+      } else {
+        showToast('No tabs are open', 'error');
       }
       return;
     }
@@ -860,7 +596,6 @@ function registerKeyboardEvents() {
 function toggleDarkMode() {
   state.isDarkMode = !state.isDarkMode;
   const browserWindow = document.getElementById('browserWindow');
-  const body = document.body;
 
   if (state.isDarkMode) {
     browserWindow.classList.add('browser-theme-dark');
@@ -873,7 +608,6 @@ function toggleDarkMode() {
   }
   
   saveState();
-  renderApp();
 }
 
 function toggleFavoriteCurrentSite() {
@@ -907,7 +641,7 @@ function toggleFavoriteCurrentSite() {
         url: currentUrl,
         favicon: getDomainFaviconChar(currentUrl)
       };
-      showToast(`Added to Favorite slot [${state.favorites[freeSlotIdx].key}]`, 'success');
+      showToast(`Added to Favorites`, 'success');
     } else {
       // Overwrite the last favorite (0)
       const lastIdx = state.favorites.length - 1;
@@ -917,7 +651,7 @@ function toggleFavoriteCurrentSite() {
         url: currentUrl,
         favicon: getDomainFaviconChar(currentUrl)
       };
-      showToast(`Favorites full. Overwrote Favorite [0]`, 'action');
+      showToast(`Favorites full. Overwrote last Favorite`, 'action');
     }
   }
   
@@ -1105,6 +839,22 @@ function switchTab(tabId) {
   }
 }
 
+function switchToNextTab() {
+  const activeTabIdx = state.tabs.findIndex(t => t.id === state.activeTabId);
+  if (activeTabIdx !== -1 && state.tabs.length > 1) {
+    const nextIdx = (activeTabIdx + 1) % state.tabs.length;
+    switchTab(state.tabs[nextIdx].id);
+  }
+}
+
+function switchToPrevTab() {
+  const activeTabIdx = state.tabs.findIndex(t => t.id === state.activeTabId);
+  if (activeTabIdx !== -1 && state.tabs.length > 1) {
+    const prevIdx = (activeTabIdx - 1 + state.tabs.length) % state.tabs.length;
+    switchTab(state.tabs[prevIdx].id);
+  }
+}
+
 function suspendActiveTab() {
   const activeTab = getActiveTab();
   if (activeTab) {
@@ -1161,9 +911,20 @@ function renderTabViewGrid(filterText = '') {
 
   grid.innerHTML = filteredTabs.map(tab => {
     const isActive = tab.id === state.activeTabId;
+    const globalIdx = state.tabs.findIndex(t => t.id === tab.id);
+    
+    let badgeText = '';
+    if (state.tabs.length > 1 && globalIdx === state.tabs.length - 1) {
+      badgeText = '0';
+    } else if (globalIdx < 9) {
+      badgeText = (globalIdx + 1).toString();
+    }
+    const indexBadge = badgeText ? `<span class="tab-card-index-badge">${badgeText}</span>` : '';
+    
     return `
       <div class="tab-card ${isActive ? 'active' : ''}" data-tab-id="${tab.id}">
         <div class="tab-card-header">
+          ${indexBadge}
           <div class="tab-card-fav">${tab.url.includes('brsr://') ? '★' : getDomainFaviconChar(tab.url)}</div>
           <span class="tab-card-title">${escapeHtml(tab.title)}</span>
           <button class="tab-card-close-btn" data-tab-id="${tab.id}">&times;</button>
@@ -1327,11 +1088,21 @@ function renderChromeTabs() {
   const container = document.getElementById('tabContainer');
   if (!container) return;
 
-  container.innerHTML = state.tabs.map(tab => {
+  container.innerHTML = state.tabs.map((tab, idx) => {
     const isActive = tab.id === state.activeTabId;
     const isBrsr = tab.url.startsWith('brsr://');
+    
+    let badgeText = '';
+    if (state.tabs.length > 1 && idx === state.tabs.length - 1) {
+      badgeText = '0';
+    } else if (idx < 9) {
+      badgeText = (idx + 1).toString();
+    }
+    const indexBadge = badgeText ? `<span class="tab-index-badge">${badgeText}</span>` : '';
+    
     return `
       <div class="tab ${isActive ? 'active' : ''}" data-tab-id="${tab.id}">
+        ${indexBadge}
         <span class="tab-favicon ${isBrsr ? 'custom-fav' : ''}">${isBrsr ? '★' : getDomainFaviconChar(tab.url)}</span>
         <span class="tab-title" title="${escapeHtml(tab.title)}">${escapeHtml(tab.title)}</span>
         <button class="tab-close-btn" data-tab-id="${tab.id}">&times;</button>
@@ -1348,7 +1119,6 @@ function renderFavoritesBar() {
     const isEmpty = fav.name === 'Empty Slot';
     return `
       <a class="fav-item" data-url="${fav.url}" style="${isEmpty ? 'opacity: 0.5;' : ''}">
-        <span class="fav-key-indicator">${fav.key}</span>
         <span>${escapeHtml(fav.name)}</span>
       </a>
     `;
@@ -1390,21 +1160,37 @@ function renderViewportContent() {
   }
 
   const url = activeTab.url;
+  const wrapper = document.getElementById('pageWrapper');
+  const isInternal = url.startsWith('brsr://');
 
-  let htmlContent = '';
-  // Custom router
-  if (MOCK_PAGES[url]) {
-    htmlContent = MOCK_PAGES[url].generate();
+  // Toggle iframe mode classes
+  if (isInternal) {
+    viewport.classList.remove('iframe-mode');
+    if (wrapper) wrapper.classList.remove('iframe-mode');
   } else {
-    // Generic fallback or Google Search Results page
-    htmlContent = generateFallbackPage(url);
+    viewport.classList.add('iframe-mode');
+    if (wrapper) wrapper.classList.add('iframe-mode');
   }
 
-  viewport.innerHTML = htmlContent;
+  if (MOCK_PAGES[url]) {
+    viewport.innerHTML = MOCK_PAGES[url].generate();
+  } else {
+    // Render iframe for external sites with active focus warning & extension tip
+    viewport.innerHTML = `
+      <div class="iframe-container">
+        <div class="iframe-focus-hint">
+          <span class="hint-shortcuts">⚠️ Shortcuts active unless focused inside page (click chrome to refocus).</span>
+          <span class="hint-divider">|</span>
+          <span class="hint-warning">ℹ️ Some sites block framing. Install a headers-stripping extension (e.g. "Ignore X-Frame-Options") to bypass.</span>
+        </div>
+        <iframe src="${escapeHtml(url)}" class="viewport-iframe"></iframe>
+      </div>
+    `;
+  }
 
   // Scroll viewport container to tab-specific stored offset
   const pageWrapper = document.getElementById('pageWrapper');
-  if (pageWrapper) {
+  if (pageWrapper && isInternal) {
     pageWrapper.scrollTop = activeTab.scrollPos || 0;
   }
 }

@@ -8,6 +8,8 @@ struct ScanRecord: Identifiable, Codable {
     var decode: String?
     var symbology: String?
     var quadLabels: [String]
+    /// Offline OCR / barcode / AprilTag results; nil until analyzed.
+    var detections: [Detection]?
 
     var imageFilename: String { "\(id.uuidString).jpg" }
     var sidecarFilename: String { "\(id.uuidString).json" }
@@ -56,6 +58,29 @@ final class ScanStore: ObservableObject {
             records.insert(record, at: 0)
         } catch {
             // Local disk write failed; nothing else to do offline.
+            return
+        }
+
+        // Full offline read (OCR, codes, AprilTags) off the main thread;
+        // results land back in the sidecar.
+        DispatchQueue.global(qos: .utility).async { [weak self] in
+            let detections = StillAnalyzer.analyze(image)
+            DispatchQueue.main.async {
+                guard let self, var updated = self.records.first(where: { $0.id == record.id }) else { return }
+                updated.detections = detections
+                self.update(updated)
+            }
+        }
+    }
+
+    /// Rewrite a record's sidecar (e.g. after analysis) and republish it.
+    func update(_ record: ScanRecord) {
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        encoder.outputFormatting = .prettyPrinted
+        try? encoder.encode(record).write(to: Self.directory.appendingPathComponent(record.sidecarFilename))
+        if let i = records.firstIndex(where: { $0.id == record.id }) {
+            records[i] = record
         }
     }
 

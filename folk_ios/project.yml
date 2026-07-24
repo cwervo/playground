@@ -1,0 +1,21 @@
+name: FolkApp
+options:
+  bundleIdPrefix: org.folk
+targets:
+  FolkApp:
+    type: application
+    platform: iOS
+    deploymentTarget: "16.0"
+    sources:
+      - FolkApp
+    settings:
+      GENERATE_INFOPLIST_FILE: true
+      SWIFT_OBJC_BRIDGING_HEADER: FolkApp/FolkApp-Bridging-Header.h
+      HEADER_SEARCH_PATHS: "$(SRCROOT)/FolkApp/apriltag $(SRCROOT)/FolkApp/apriltag/common"
+      INFOPLIST_KEY_NSCameraUsageDescription: "Folk needs camera access to detect AprilTags."
+      INFOPLIST_KEY_UIApplicationSceneManifest:
+        UIApplicationSupportsMultipleScenes: true
+        UISceneConfigurations:
+          UIWindowSceneSessionRoleApplication:
+            - UISceneConfigurationName: "Default Configuration"
+              UISceneDelegateClassName: "$(PRODUCT_MODULE_NAME).SceneDelegate"

@@ -1,0 +1,516 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		0105F4B4BDEEF06DE273E588 /* unionfind.c in Sources */ = {isa = PBXBuildFile; fileRef = AEE239B63D41899F63CD6C07 /* unionfind.c */; };
+		01719B058CDC41DBD53D5314 /* g2d.c in Sources */ = {isa = PBXBuildFile; fileRef = EAF21A79268AFC05073C0626 /* g2d.c */; };
+		075D6282EDD778B32C876DF4 /* pnm.c in Sources */ = {isa = PBXBuildFile; fileRef = C8D3E6BF483CEEE0C63593DF /* pnm.c */; };
+		094B5B877B53A8FBF6556825 /* getopt.c in Sources */ = {isa = PBXBuildFile; fileRef = 6174B04E21A8B19EC5DF03E8 /* getopt.c */; };
+		113086F22735E54F45461757 /* image_u8x3.c in Sources */ = {isa = PBXBuildFile; fileRef = 00EC88BD65DA88342F3FDB0B /* image_u8x3.c */; };
+		1F2C995E26221BA3682D6230 /* pam.c in Sources */ = {isa = PBXBuildFile; fileRef = B0616E5097B2FB6663C70E1F /* pam.c */; };
+		2A59C5FFBF5521C9271E5A93 /* pthreads_cross.c in Sources */ = {isa = PBXBuildFile; fileRef = EA3F5EF41900D4E3CF6BEDD6 /* pthreads_cross.c */; };
+		2E11DE767EB31A4620A98EF3 /* Homography.swift in Sources */ = {isa = PBXBuildFile; fileRef = 44AB05866F3EB282177A1BA4 /* Homography.swift */; };
+		2F27DD4D73420F5C8DEDEE3D /* ProjectorDisplayManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 250A72A90E71208E0D350FE5 /* ProjectorDisplayManager.swift */; };
+		41BD51D94067039D38C96D2A /* pjpeg-idct.c in Sources */ = {isa = PBXBuildFile; fileRef = 58A6390F23EC8ECF3F4F3936 /* pjpeg-idct.c */; };
+		42D4DDC9FB1FB6EC3874B1C3 /* svd22.c in Sources */ = {isa = PBXBuildFile; fileRef = 69D59AAE28D510BE55788C59 /* svd22.c */; };
+		49C7B8D0E0BEFE14AED9B8E5 /* image_u8.c in Sources */ = {isa = PBXBuildFile; fileRef = 5E2D550C587833BD5B1CE647 /* image_u8.c */; };
+		524F6DF261FAD05E6447E837 /* AprilTagTracker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 70F798716A91D2C298C35628 /* AprilTagTracker.swift */; };
+		52AB7B00A77D0724B76C7888 /* MainView.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED34933923A4DA3375D3996F /* MainView.swift */; };
+		5366B02484833635B498A671 /* workerpool.c in Sources */ = {isa = PBXBuildFile; fileRef = A855CEF0FD0C7BD67FF3E59D /* workerpool.c */; };
+		54C7BFABD3404DA51A0EFC17 /* tag36h11.c in Sources */ = {isa = PBXBuildFile; fileRef = 475FB0E818F24C21683B9A7F /* tag36h11.c */; };
+		55EF8F256FDDD5E0C707CC1A /* zhash.c in Sources */ = {isa = PBXBuildFile; fileRef = 9D1141AAC8B95D46C1B53C88 /* zhash.c */; };
+		6090F19945E2452EFF4D4D4A /* string_util.c in Sources */ = {isa = PBXBuildFile; fileRef = ACF412F3E08451D994BE708F /* string_util.c */; };
+		63385A017AE48BDE4135A33F /* tagStandard52h13.c in Sources */ = {isa = PBXBuildFile; fileRef = 8C85159E91F7F520F36C411E /* tagStandard52h13.c */; };
+		6B16D02950CAB501D317D171 /* CameraManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59F1BD55AC411B9D89733BDC /* CameraManager.swift */; };
+		6FDA8ABCAB8A347D0024A0B3 /* pjpeg.c in Sources */ = {isa = PBXBuildFile; fileRef = A132BEC4763BB74CFCBE4D65 /* pjpeg.c */; };
+		78C3E24892423A95F1FBB8A2 /* matd.c in Sources */ = {isa = PBXBuildFile; fileRef = FEE2E61D8A56152B4A8DAE33 /* matd.c */; };
+		7F5A0A810E30B847A9B4417D /* homography.c in Sources */ = {isa = PBXBuildFile; fileRef = 0E3FDD5A9622267FE74F8AE3 /* homography.c */; };
+		88F7B9C7643CF51187F2C958 /* zarray.c in Sources */ = {isa = PBXBuildFile; fileRef = C6CCDF8AFF53CB72D78120ED /* zarray.c */; };
+		8F37FF76A8D51B0512E53C53 /* GeometryStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3160614EBFBBA656C1AFD776 /* GeometryStore.swift */; };
+		8F69099DACEE5E28517BA679 /* image_u8x4.c in Sources */ = {isa = PBXBuildFile; fileRef = 398D153FD814F6F8E00D0410 /* image_u8x4.c */; };
+		90D45984974787EA556C9D3F /* image_u8_parallel.c in Sources */ = {isa = PBXBuildFile; fileRef = ACCFE24569507ECAA1187876 /* image_u8_parallel.c */; };
+		A1E2457623A125B54E2C2136 /* CalibrationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B28C3CD80DB0909A328B15DA /* CalibrationView.swift */; };
+		A3D22923EB39473A7EA79680 /* ProjectorScene.swift in Sources */ = {isa = PBXBuildFile; fileRef = 64154F277906DEAFBD4C1DAF /* ProjectorScene.swift */; };
+		B7E1ACA4E918E69AB1CF6350 /* zmaxheap.c in Sources */ = {isa = PBXBuildFile; fileRef = EE50951F383766010EEAB818 /* zmaxheap.c */; };
+		D1E134A3AC17AF1FB293F88B /* apriltag_pose.c in Sources */ = {isa = PBXBuildFile; fileRef = 1AE5C5D830EE4D0117512803 /* apriltag_pose.c */; };
+		D272DD8B14A4530067FBA94F /* SceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0C4B2206DA4005B04CEAD69E /* SceneDelegate.swift */; };
+		DAC9F0955115292D0097076F /* time_util.c in Sources */ = {isa = PBXBuildFile; fileRef = A92F8BA84335F1E8CA39C1F9 /* time_util.c */; };
+		E5EC50E8913437DEBE91B8A4 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5AF9AA044FFBE6269FDDCB3 /* AppDelegate.swift */; };
+		E90E593F9C84067E60CEFEF7 /* FolkEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1434C9F58D1CB1A98CD6090 /* FolkEngine.swift */; };
+		EB317949A36D3B95D67816BF /* apriltag.c in Sources */ = {isa = PBXBuildFile; fileRef = 2318B28FF131B2F2AA9EB282 /* apriltag.c */; };
+		EFA23F7221245B708FB39F63 /* apriltag_quad_thresh.c in Sources */ = {isa = PBXBuildFile; fileRef = CD5D00907FB1E35874F8D13E /* apriltag_quad_thresh.c */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		00EC88BD65DA88342F3FDB0B /* image_u8x3.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = image_u8x3.c; sourceTree = "<group>"; };
+		0C4B2206DA4005B04CEAD69E /* SceneDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SceneDelegate.swift; sourceTree = "<group>"; };
+		0D4D359275ED7298A8D2A002 /* svd22.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = svd22.h; sourceTree = "<group>"; };
+		0DF0A710AC5250B44193683E /* zmaxheap.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = zmaxheap.h; sourceTree = "<group>"; };
+		0E3FDD5A9622267FE74F8AE3 /* homography.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = homography.c; sourceTree = "<group>"; };
+		10C9AEBAF8AFDA925A58FD46 /* tagStandard52h13.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = tagStandard52h13.h; sourceTree = "<group>"; };
+		149E0FBCBBDED468DF57D168 /* unionfind.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = unionfind.h; sourceTree = "<group>"; };
+		1AE5C5D830EE4D0117512803 /* apriltag_pose.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = apriltag_pose.c; sourceTree = "<group>"; };
+		1D6AE00D0E6C3D41987CEBD7 /* homography.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = homography.h; sourceTree = "<group>"; };
+		228DD294A16F10BD1933CBDA /* zhash.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = zhash.h; sourceTree = "<group>"; };
+		2318B28FF131B2F2AA9EB282 /* apriltag.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = apriltag.c; sourceTree = "<group>"; };
+		23EC2B5335D766ECBF4B642A /* time_util.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = time_util.h; sourceTree = "<group>"; };
+		250A72A90E71208E0D350FE5 /* ProjectorDisplayManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectorDisplayManager.swift; sourceTree = "<group>"; };
+		3160614EBFBBA656C1AFD776 /* GeometryStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GeometryStore.swift; sourceTree = "<group>"; };
+		398D153FD814F6F8E00D0410 /* image_u8x4.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = image_u8x4.c; sourceTree = "<group>"; };
+		44AB05866F3EB282177A1BA4 /* Homography.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Homography.swift; sourceTree = "<group>"; };
+		475FB0E818F24C21683B9A7F /* tag36h11.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = tag36h11.c; sourceTree = "<group>"; };
+		525C3E0D334EFDB44C694835 /* doubles.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = doubles.h; sourceTree = "<group>"; };
+		55E4F9ED3DA27A267FE4A0C9 /* doubles_floats_impl.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = doubles_floats_impl.h; sourceTree = "<group>"; };
+		58A6390F23EC8ECF3F4F3936 /* pjpeg-idct.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = "pjpeg-idct.c"; sourceTree = "<group>"; };
+		59F1BD55AC411B9D89733BDC /* CameraManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraManager.swift; sourceTree = "<group>"; };
+		5E2D550C587833BD5B1CE647 /* image_u8.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = image_u8.c; sourceTree = "<group>"; };
+		5E8A4CD058683807A8AF70DF /* pthreads_cross.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = pthreads_cross.h; sourceTree = "<group>"; };
+		6174B04E21A8B19EC5DF03E8 /* getopt.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = getopt.c; sourceTree = "<group>"; };
+		63A3B7783938388C0E139C29 /* postscript_utils.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = postscript_utils.h; sourceTree = "<group>"; };
+		64154F277906DEAFBD4C1DAF /* ProjectorScene.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectorScene.swift; sourceTree = "<group>"; };
+		69D59AAE28D510BE55788C59 /* svd22.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = svd22.c; sourceTree = "<group>"; };
+		6B9B1361F33F548F680C2681 /* apriltag.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = apriltag.h; sourceTree = "<group>"; };
+		6DC89824CF1294E759E17780 /* pam.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = pam.h; sourceTree = "<group>"; };
+		704EA6CAA8AD3F0F36BA7A3F /* workerpool.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = workerpool.h; sourceTree = "<group>"; };
+		70BB50CD41CDCD7E0F55127B /* zarray.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = zarray.h; sourceTree = "<group>"; };
+		70F798716A91D2C298C35628 /* AprilTagTracker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AprilTagTracker.swift; sourceTree = "<group>"; };
+		795C772A7AE58FFEF745F27E /* pjpeg.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = pjpeg.h; sourceTree = "<group>"; };
+		7E24703AC92C3C0CB8D341CF /* debug_print.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = debug_print.h; sourceTree = "<group>"; };
+		7E5DF3F88F6BBD941AE58802 /* tag36h11.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = tag36h11.h; sourceTree = "<group>"; };
+		8C750993A64C95A24BE7A778 /* pnm.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = pnm.h; sourceTree = "<group>"; };
+		8C85159E91F7F520F36C411E /* tagStandard52h13.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = tagStandard52h13.c; sourceTree = "<group>"; };
+		9D1141AAC8B95D46C1B53C88 /* zhash.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = zhash.c; sourceTree = "<group>"; };
+		A132BEC4763BB74CFCBE4D65 /* pjpeg.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = pjpeg.c; sourceTree = "<group>"; };
+		A855CEF0FD0C7BD67FF3E59D /* workerpool.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = workerpool.c; sourceTree = "<group>"; };
+		A92F8BA84335F1E8CA39C1F9 /* time_util.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = time_util.c; sourceTree = "<group>"; };
+		ACCFE24569507ECAA1187876 /* image_u8_parallel.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = image_u8_parallel.c; sourceTree = "<group>"; };
+		ACF412F3E08451D994BE708F /* string_util.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = string_util.c; sourceTree = "<group>"; };
+		AEE239B63D41899F63CD6C07 /* unionfind.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = unionfind.c; sourceTree = "<group>"; };
+		B0616E5097B2FB6663C70E1F /* pam.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = pam.c; sourceTree = "<group>"; };
+		B28C3CD80DB0909A328B15DA /* CalibrationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalibrationView.swift; sourceTree = "<group>"; };
+		B4B7CAFC16C1AEF14641734D /* image_u8x3.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = image_u8x3.h; sourceTree = "<group>"; };
+		C4D85F86F2CF4DD168ACAFBB /* apriltag_pose.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = apriltag_pose.h; sourceTree = "<group>"; };
+		C5AF9AA044FFBE6269FDDCB3 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
+		C68F85FD9427E688446C4BA7 /* timeprofile.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = timeprofile.h; sourceTree = "<group>"; };
+		C6CCDF8AFF53CB72D78120ED /* zarray.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = zarray.c; sourceTree = "<group>"; };
+		C8D3E6BF483CEEE0C63593DF /* pnm.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = pnm.c; sourceTree = "<group>"; };
+		CD5D00907FB1E35874F8D13E /* apriltag_quad_thresh.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = apriltag_quad_thresh.c; sourceTree = "<group>"; };
+		CE793AD88BAB8E8DA9BF6E3B /* image_types.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = image_types.h; sourceTree = "<group>"; };
+		D23B0DCC4D8368E59DEE6112 /* image_u8x4.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = image_u8x4.h; sourceTree = "<group>"; };
+		D7E570D90262186965EFA3BD /* image_u8.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = image_u8.h; sourceTree = "<group>"; };
+		DB4E550D36D816F8E38EFE41 /* getopt.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = getopt.h; sourceTree = "<group>"; };
+		DCF440C9A80CAE5D9D29157E /* string_util.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = string_util.h; sourceTree = "<group>"; };
+		E278A6F7011509EE1FB58AD4 /* FolkApp.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = FolkApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		E2A68F162469BCB5FC7D9DB1 /* math_util.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = math_util.h; sourceTree = "<group>"; };
+		E2F5CE378135E993F3211004 /* g2d.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = g2d.h; sourceTree = "<group>"; };
+		E5189CEB087C83DEFF7B6028 /* image_u8_parallel.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = image_u8_parallel.h; sourceTree = "<group>"; };
+		E7B3A62A42AF83B25EC4CD0E /* FolkApp-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "FolkApp-Bridging-Header.h"; sourceTree = "<group>"; };
+		EA3F5EF41900D4E3CF6BEDD6 /* pthreads_cross.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = pthreads_cross.c; sourceTree = "<group>"; };
+		EAF21A79268AFC05073C0626 /* g2d.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = g2d.c; sourceTree = "<group>"; };
+		ED34933923A4DA3375D3996F /* MainView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainView.swift; sourceTree = "<group>"; };
+		EE50951F383766010EEAB818 /* zmaxheap.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = zmaxheap.c; sourceTree = "<group>"; };
+		EE6B6A574E6EC509F7C61581 /* floats.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = floats.h; sourceTree = "<group>"; };
+		F1434C9F58D1CB1A98CD6090 /* FolkEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FolkEngine.swift; sourceTree = "<group>"; };
+		F1E19FD7928CF3AB74859664 /* apriltag_math.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = apriltag_math.h; sourceTree = "<group>"; };
+		F5F0318D477760B3D5539F17 /* matd.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = matd.h; sourceTree = "<group>"; };
+		FEE2E61D8A56152B4A8DAE33 /* matd.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = matd.c; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXGroup section */
+		1DE9587501D88EA8A3845BE3 /* common */ = {
+			isa = PBXGroup;
+			children = (
+				7E24703AC92C3C0CB8D341CF /* debug_print.h */,
+				55E4F9ED3DA27A267FE4A0C9 /* doubles_floats_impl.h */,
+				525C3E0D334EFDB44C694835 /* doubles.h */,
+				EE6B6A574E6EC509F7C61581 /* floats.h */,
+				EAF21A79268AFC05073C0626 /* g2d.c */,
+				E2F5CE378135E993F3211004 /* g2d.h */,
+				6174B04E21A8B19EC5DF03E8 /* getopt.c */,
+				DB4E550D36D816F8E38EFE41 /* getopt.h */,
+				0E3FDD5A9622267FE74F8AE3 /* homography.c */,
+				1D6AE00D0E6C3D41987CEBD7 /* homography.h */,
+				CE793AD88BAB8E8DA9BF6E3B /* image_types.h */,
+				ACCFE24569507ECAA1187876 /* image_u8_parallel.c */,
+				E5189CEB087C83DEFF7B6028 /* image_u8_parallel.h */,
+				5E2D550C587833BD5B1CE647 /* image_u8.c */,
+				D7E570D90262186965EFA3BD /* image_u8.h */,
+				00EC88BD65DA88342F3FDB0B /* image_u8x3.c */,
+				B4B7CAFC16C1AEF14641734D /* image_u8x3.h */,
+				398D153FD814F6F8E00D0410 /* image_u8x4.c */,
+				D23B0DCC4D8368E59DEE6112 /* image_u8x4.h */,
+				FEE2E61D8A56152B4A8DAE33 /* matd.c */,
+				F5F0318D477760B3D5539F17 /* matd.h */,
+				E2A68F162469BCB5FC7D9DB1 /* math_util.h */,
+				B0616E5097B2FB6663C70E1F /* pam.c */,
+				6DC89824CF1294E759E17780 /* pam.h */,
+				58A6390F23EC8ECF3F4F3936 /* pjpeg-idct.c */,
+				A132BEC4763BB74CFCBE4D65 /* pjpeg.c */,
+				795C772A7AE58FFEF745F27E /* pjpeg.h */,
+				C8D3E6BF483CEEE0C63593DF /* pnm.c */,
+				8C750993A64C95A24BE7A778 /* pnm.h */,
+				63A3B7783938388C0E139C29 /* postscript_utils.h */,
+				EA3F5EF41900D4E3CF6BEDD6 /* pthreads_cross.c */,
+				5E8A4CD058683807A8AF70DF /* pthreads_cross.h */,
+				ACF412F3E08451D994BE708F /* string_util.c */,
+				DCF440C9A80CAE5D9D29157E /* string_util.h */,
+				69D59AAE28D510BE55788C59 /* svd22.c */,
+				0D4D359275ED7298A8D2A002 /* svd22.h */,
+				A92F8BA84335F1E8CA39C1F9 /* time_util.c */,
+				23EC2B5335D766ECBF4B642A /* time_util.h */,
+				C68F85FD9427E688446C4BA7 /* timeprofile.h */,
+				AEE239B63D41899F63CD6C07 /* unionfind.c */,
+				149E0FBCBBDED468DF57D168 /* unionfind.h */,
+				A855CEF0FD0C7BD67FF3E59D /* workerpool.c */,
+				704EA6CAA8AD3F0F36BA7A3F /* workerpool.h */,
+				C6CCDF8AFF53CB72D78120ED /* zarray.c */,
+				70BB50CD41CDCD7E0F55127B /* zarray.h */,
+				9D1141AAC8B95D46C1B53C88 /* zhash.c */,
+				228DD294A16F10BD1933CBDA /* zhash.h */,
+				EE50951F383766010EEAB818 /* zmaxheap.c */,
+				0DF0A710AC5250B44193683E /* zmaxheap.h */,
+			);
+			path = common;
+			sourceTree = "<group>";
+		};
+		A17944EB2E58BDC331B4F15F /* FolkApp */ = {
+			isa = PBXGroup;
+			children = (
+				C5AF9AA044FFBE6269FDDCB3 /* AppDelegate.swift */,
+				70F798716A91D2C298C35628 /* AprilTagTracker.swift */,
+				B28C3CD80DB0909A328B15DA /* CalibrationView.swift */,
+				59F1BD55AC411B9D89733BDC /* CameraManager.swift */,
+				E7B3A62A42AF83B25EC4CD0E /* FolkApp-Bridging-Header.h */,
+				F1434C9F58D1CB1A98CD6090 /* FolkEngine.swift */,
+				3160614EBFBBA656C1AFD776 /* GeometryStore.swift */,
+				44AB05866F3EB282177A1BA4 /* Homography.swift */,
+				ED34933923A4DA3375D3996F /* MainView.swift */,
+				250A72A90E71208E0D350FE5 /* ProjectorDisplayManager.swift */,
+				64154F277906DEAFBD4C1DAF /* ProjectorScene.swift */,
+				0C4B2206DA4005B04CEAD69E /* SceneDelegate.swift */,
+				F30945D19D82176D21D3DBF6 /* apriltag */,
+			);
+			path = FolkApp;
+			sourceTree = "<group>";
+		};
+		AF56C77AD1D50E47ACD2C5D8 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				E278A6F7011509EE1FB58AD4 /* FolkApp.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		F30945D19D82176D21D3DBF6 /* apriltag */ = {
+			isa = PBXGroup;
+			children = (
+				F1E19FD7928CF3AB74859664 /* apriltag_math.h */,
+				1AE5C5D830EE4D0117512803 /* apriltag_pose.c */,
+				C4D85F86F2CF4DD168ACAFBB /* apriltag_pose.h */,
+				CD5D00907FB1E35874F8D13E /* apriltag_quad_thresh.c */,
+				2318B28FF131B2F2AA9EB282 /* apriltag.c */,
+				6B9B1361F33F548F680C2681 /* apriltag.h */,
+				475FB0E818F24C21683B9A7F /* tag36h11.c */,
+				7E5DF3F88F6BBD941AE58802 /* tag36h11.h */,
+				8C85159E91F7F520F36C411E /* tagStandard52h13.c */,
+				10C9AEBAF8AFDA925A58FD46 /* tagStandard52h13.h */,
+				1DE9587501D88EA8A3845BE3 /* common */,
+			);
+			path = apriltag;
+			sourceTree = "<group>";
+		};
+		FE48246EE6B88DEE2B3C46F0 = {
+			isa = PBXGroup;
+			children = (
+				A17944EB2E58BDC331B4F15F /* FolkApp */,
+				AF56C77AD1D50E47ACD2C5D8 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		33FD4E365D64F5ADC85123E4 /* FolkApp */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = C3AE3CC211D35B8529BB0319 /* Build configuration list for PBXNativeTarget "FolkApp" */;
+			buildPhases = (
+				F4E50C49CEFCACE87D280DE4 /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = FolkApp;
+			packageProductDependencies = (
+			);
+			productName = FolkApp;
+			productReference = E278A6F7011509EE1FB58AD4 /* FolkApp.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		272E660FD4D5F52A8A453A0F /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1430;
+				TargetAttributes = {
+				};
+			};
+			buildConfigurationList = E82FCD3E98EC91B2E6964FC3 /* Build configuration list for PBXProject "FolkApp" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = FE48246EE6B88DEE2B3C46F0;
+			minimizedProjectReferenceProxies = 1;
+			preferredProjectObjectVersion = 77;
+			productRefGroup = AF56C77AD1D50E47ACD2C5D8 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				33FD4E365D64F5ADC85123E4 /* FolkApp */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXSourcesBuildPhase section */
+		F4E50C49CEFCACE87D280DE4 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				E5EC50E8913437DEBE91B8A4 /* AppDelegate.swift in Sources */,
+				524F6DF261FAD05E6447E837 /* AprilTagTracker.swift in Sources */,
+				A1E2457623A125B54E2C2136 /* CalibrationView.swift in Sources */,
+				6B16D02950CAB501D317D171 /* CameraManager.swift in Sources */,
+				E90E593F9C84067E60CEFEF7 /* FolkEngine.swift in Sources */,
+				8F37FF76A8D51B0512E53C53 /* GeometryStore.swift in Sources */,
+				2E11DE767EB31A4620A98EF3 /* Homography.swift in Sources */,
+				52AB7B00A77D0724B76C7888 /* MainView.swift in Sources */,
+				2F27DD4D73420F5C8DEDEE3D /* ProjectorDisplayManager.swift in Sources */,
+				A3D22923EB39473A7EA79680 /* ProjectorScene.swift in Sources */,
+				D272DD8B14A4530067FBA94F /* SceneDelegate.swift in Sources */,
+				EB317949A36D3B95D67816BF /* apriltag.c in Sources */,
+				D1E134A3AC17AF1FB293F88B /* apriltag_pose.c in Sources */,
+				EFA23F7221245B708FB39F63 /* apriltag_quad_thresh.c in Sources */,
+				01719B058CDC41DBD53D5314 /* g2d.c in Sources */,
+				094B5B877B53A8FBF6556825 /* getopt.c in Sources */,
+				7F5A0A810E30B847A9B4417D /* homography.c in Sources */,
+				49C7B8D0E0BEFE14AED9B8E5 /* image_u8.c in Sources */,
+				90D45984974787EA556C9D3F /* image_u8_parallel.c in Sources */,
+				113086F22735E54F45461757 /* image_u8x3.c in Sources */,
+				8F69099DACEE5E28517BA679 /* image_u8x4.c in Sources */,
+				78C3E24892423A95F1FBB8A2 /* matd.c in Sources */,
+				1F2C995E26221BA3682D6230 /* pam.c in Sources */,
+				41BD51D94067039D38C96D2A /* pjpeg-idct.c in Sources */,
+				6FDA8ABCAB8A347D0024A0B3 /* pjpeg.c in Sources */,
+				075D6282EDD778B32C876DF4 /* pnm.c in Sources */,
+				2A59C5FFBF5521C9271E5A93 /* pthreads_cross.c in Sources */,
+				6090F19945E2452EFF4D4D4A /* string_util.c in Sources */,
+				42D4DDC9FB1FB6EC3874B1C3 /* svd22.c in Sources */,
+				54C7BFABD3404DA51A0EFC17 /* tag36h11.c in Sources */,
+				63385A017AE48BDE4135A33F /* tagStandard52h13.c in Sources */,
+				DAC9F0955115292D0097076F /* time_util.c in Sources */,
+				0105F4B4BDEEF06DE273E588 /* unionfind.c in Sources */,
+				5366B02484833635B498A671 /* workerpool.c in Sources */,
+				88F7B9C7643CF51187F2C958 /* zarray.c in Sources */,
+				55EF8F256FDDD5E0C707CC1A /* zhash.c in Sources */,
+				B7E1ACA4E918E69AB1CF6350 /* zmaxheap.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		27B012136DC538A0E91DE383 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				GENERATE_INFOPLIST_FILE = YES;
+				HEADER_SEARCH_PATHS = "$(SRCROOT)/FolkApp/apriltag $(SRCROOT)/FolkApp/apriltag/common";
+				INFOPLIST_KEY_NSCameraUsageDescription = "Folk needs camera access to detect AprilTags.";
+				INFOPLIST_KEY_UIApplicationSceneManifest = "[\"UISceneConfigurations\": [\"UIWindowSceneSessionRoleApplication\": [[\"UISceneDelegateClassName\": \"$(PRODUCT_MODULE_NAME).SceneDelegate\", \"UISceneConfigurationName\": \"Default Configuration\"]]], \"UIApplicationSupportsMultipleScenes\": true]";
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = org.folk.FolkApp;
+				SDKROOT = iphoneos;
+				SWIFT_OBJC_BRIDGING_HEADER = "FolkApp/FolkApp-Bridging-Header.h";
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		3613B2549AFC5DE02B528260 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				GENERATE_INFOPLIST_FILE = YES;
+				HEADER_SEARCH_PATHS = "$(SRCROOT)/FolkApp/apriltag $(SRCROOT)/FolkApp/apriltag/common";
+				INFOPLIST_KEY_NSCameraUsageDescription = "Folk needs camera access to detect AprilTags.";
+				INFOPLIST_KEY_UIApplicationSceneManifest = "[\"UISceneConfigurations\": [\"UIWindowSceneSessionRoleApplication\": [[\"UISceneDelegateClassName\": \"$(PRODUCT_MODULE_NAME).SceneDelegate\", \"UISceneConfigurationName\": \"Default Configuration\"]]], \"UIApplicationSupportsMultipleScenes\": true]";
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = org.folk.FolkApp;
+				SDKROOT = iphoneos;
+				SWIFT_OBJC_BRIDGING_HEADER = "FolkApp/FolkApp-Bridging-Header.h";
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		881AC8F226B30BCE2BD73C26 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		DE228BEFF5A9AD04463C6590 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		C3AE3CC211D35B8529BB0319 /* Build configuration list for PBXNativeTarget "FolkApp" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				3613B2549AFC5DE02B528260 /* Debug */,
+				27B012136DC538A0E91DE383 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		E82FCD3E98EC91B2E6964FC3 /* Build configuration list for PBXProject "FolkApp" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				881AC8F226B30BCE2BD73C26 /* Debug */,
+				DE228BEFF5A9AD04463C6590 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 272E660FD4D5F52A8A453A0F /* Project object */;
+}
