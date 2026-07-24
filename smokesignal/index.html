@@ -8,7 +8,6 @@
   :root{
     --bg:#0b0d12; --panel:#141821; --panel2:#1b202b; --edge:#28303f;
     --ink:#e8ecf4; --dim:#8b95a7; --accent:#e9a15a; --accent2:#5ad1c9; --bad:#ff6b6b;
-    --r-chan:#ff6b6b; --g-chan:#6bff9e; --b-chan:#6ba8ff;
     font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
   }
   *{box-sizing:border-box}
@@ -27,12 +26,11 @@
   .card{background:var(--panel);border:1px solid var(--edge);border-radius:12px;padding:16px}
   .card h2{font-size:12px;text-transform:uppercase;letter-spacing:1.5px;color:var(--dim);margin:0 0 12px}
   label{display:block;font-size:11.5px;color:var(--dim);margin:12px 0 5px;text-transform:uppercase;letter-spacing:.8px}
-  textarea,input[type=text]{width:100%;background:#0c0f16;border:1px solid var(--edge);color:var(--ink);
+  textarea,input[type=text],select{width:100%;background:#0c0f16;border:1px solid var(--edge);color:var(--ink);
        border-radius:8px;padding:10px;font-family:inherit;font-size:13px;resize:vertical}
   textarea{min-height:120px}
   .row{display:flex;gap:10px}
   .row>div{flex:1}
-  input[type=range]{width:100%}
   button{background:var(--accent);color:#0b0d12;border:0;padding:11px 14px;border-radius:9px;
        font-family:inherit;font-weight:700;font-size:13px;cursor:pointer;width:100%}
   button.ghost{background:transparent;color:var(--ink);border:1px solid var(--edge);font-weight:500}
@@ -42,10 +40,9 @@
   canvas{image-rendering:pixelated;max-width:100%;border-radius:8px;background:#000;display:block}
   .signal-wrap{display:flex;justify-content:center;padding:8px;background:#05070b;border:1px solid var(--edge);border-radius:12px}
   #signal{width:min(520px,100%);height:auto}
-  .planes{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+  .planes{display:grid;gap:12px}
   .plane{background:var(--panel2);border:1px solid var(--edge);border-radius:10px;padding:10px}
   .plane b{font-size:11px;letter-spacing:1px}
-  .plane .r{color:var(--r-chan)} .plane .g{color:var(--g-chan)} .plane .b{color:var(--b-chan)}
   .plane canvas{width:100%;height:54px;margin-top:8px;background:#05070b}
   .meta{display:flex;flex-wrap:wrap;gap:8px;margin-top:6px}
   .chip{background:var(--panel2);border:1px solid var(--edge);border-radius:20px;padding:5px 11px;font-size:11.5px;color:var(--dim)}
@@ -64,16 +61,26 @@
   .hidden{display:none}
   .foot{color:#4a5468;font-size:11px;margin-top:26px;text-align:center;line-height:1.7}
   code{color:var(--accent2)}
+
+  /* 3-way color-model toggle */
+  .toggle-bar{margin-top:30px;display:flex;flex-direction:column;align-items:center;gap:10px}
+  .toggle-bar .cap{font-size:11px;letter-spacing:1.5px;text-transform:uppercase;color:var(--dim)}
+  .seg{display:inline-flex;background:var(--panel);border:1px solid var(--edge);border-radius:12px;padding:5px;gap:4px}
+  .seg button{width:auto;background:transparent;color:var(--dim);font-weight:600;padding:10px 22px;border-radius:8px;
+       font-size:13px;letter-spacing:.5px;transition:.15s}
+  .seg button.on{background:var(--panel2);color:var(--ink);box-shadow:0 0 0 1px var(--accent) inset}
+  .seg button .bpp{display:block;font-size:9.5px;font-weight:400;color:var(--dim);margin-top:2px;letter-spacing:.5px}
+  .seg button.on .bpp{color:var(--accent2)}
 </style>
 </head>
 <body>
 <header>
   <h1>◍ <span class="glow">SMOKE SIGNAL</span> — steganographic barcode encoder</h1>
   <div class="sub">
-    Your message becomes three per-channel barcodes (R / G / B), packed as 16-bit hex pixel marks and
-    steganographically dissolved into a procedurally generated smoke plume. The carrier looks like drifting smoke;
-    the payload rides in the least-significant bits. Save the PNG, then recover it in the <b>Decode</b> tab —
-    a lossless round-trip.
+    Your message becomes per-channel barcodes, packed as 16-bit hex pixel marks and steganographically
+    dissolved into a procedurally generated smoke plume. The carrier looks like drifting smoke; the payload
+    rides in the least-significant bits. Pick a color model below, save the PNG, then recover it in the
+    <b>Decode</b> tab — the decoder auto-detects the model, so round-trips are lossless.
   </div>
 </header>
 
@@ -103,7 +110,7 @@
         </div>
 
         <label for="pal">Palette</label>
-        <select id="pal" style="width:100%;background:#0c0f16;border:1px solid var(--edge);color:var(--ink);border-radius:8px;padding:9px;font-family:inherit;font-size:13px">
+        <select id="pal">
           <option value="dusk">Dusk ember</option>
           <option value="ash">Cold ash</option>
           <option value="signal">Signal green</option>
@@ -124,11 +131,7 @@
 
         <div class="card">
           <h2>Per-channel barcodes · LSB planes</h2>
-          <div class="planes">
-            <div class="plane"><b class="r">R — RED</b><canvas class="planeC" data-ch="0"></canvas></div>
-            <div class="plane"><b class="g">G — GREEN</b><canvas class="planeC" data-ch="1"></canvas></div>
-            <div class="plane"><b class="b">B — BLUE</b><canvas class="planeC" data-ch="2"></canvas></div>
-          </div>
+          <div class="planes" id="planes"></div>
           <div class="meta" id="encMeta"></div>
         </div>
 
@@ -145,7 +148,7 @@
     <div class="grid">
       <div class="card">
         <h2>Decoder</h2>
-        <div class="sub" style="margin:0 0 12px">Drop a smoke-signal PNG to read the hidden payload from its LSB planes.</div>
+        <div class="sub" style="margin:0 0 12px">Drop a smoke-signal PNG. The color model (B/W · RGB · CMYK) is detected automatically.</div>
         <div class="drop" id="drop">⬆ Drop PNG here<br>or click to choose a file</div>
         <input type="file" id="file" accept="image/png,image/*" class="hidden">
         <div class="status" id="decStatus"></div>
@@ -165,9 +168,20 @@
     </div>
   </section>
 
+  <!-- 3-way color model toggle -->
+  <div class="toggle-bar">
+    <div class="cap">Carrier color model</div>
+    <div class="seg" id="modeSeg">
+      <button data-mode="bw">B/W<span class="bpp">1 bit / px</span></button>
+      <button data-mode="rgb" class="on">RGB<span class="bpp">3 bits / px</span></button>
+      <button data-mode="cmyk">CMYK<span class="bpp">4 bits / px</span></button>
+    </div>
+  </div>
+
   <div class="foot">
-    Format <code>SMK1</code> · magic(4) + length(4, big-endian) + UTF-8 payload · 1 bit per channel (R,G,B), row-major ·
-    lossless PNG required (JPEG destroys the signal). Self-contained · no network.
+    Format <code>SMK1</code> · magic(4) + length(4, big-endian) + UTF-8 payload · carried in RGB(A) least-significant
+    bits, row-major · color model auto-detected on decode (B/W → luma LSB · RGB → R,G,B LSB · CMYK → R,G,B LSB + blue 2nd-LSB as Key) ·
+    lossless PNG required (JPEG destroys the signal) · self-contained, no network.
   </div>
 </main>
 
@@ -176,19 +190,39 @@
 /* ============================================================
    SMOKE SIGNAL — steganographic barcode encoder / decoder
    ------------------------------------------------------------
-   Wire format embedded in the RGB least-significant bits,
-   iterating pixels row-major, writing R then G then B (alpha
-   untouched, always 255 so PNG stays lossless & un-premultiplied):
+   Wire format embedded in the RGB(A) least-significant bits,
+   iterating pixels row-major over a per-mode list of "planes"
+   (a plane = a [channelIndex, bitIndex] slot in a pixel):
 
      [ 'S''M''K''1' ]  4 bytes  magic
      [ len32 BE     ]  4 bytes  payload length in bytes
      [ payload      ]  N bytes  UTF-8
 
-   Each byte is written MSB-first as 8 bits across successive
-   channel LSBs. Capacity = width*height*3 bits.
+   Color models (planes per pixel):
+     B/W  : [R:bit0]                          -> 1 bit / px  (grayscale carrier)
+     RGB  : [R:bit0, G:bit0, B:bit0]          -> 3 bits / px
+     CMYK : [R:bit0, G:bit0, B:bit0, B:bit1]  -> 4 bits / px (blue's 2nd LSB = Key)
+
+   The model isn't stored in the file — the decoder tries each
+   plane layout and the 4-byte magic disambiguates (the layouts
+   interleave bits differently, so only the true model rebuilds
+   the magic). Alpha is left at 255 so PNG stays lossless.
    ============================================================ */
 
 const MAGIC = [0x53,0x4d,0x4b,0x31]; // "SMK1"
+
+// plane = [channelIndex(0=R,1=G,2=B), bitIndex]
+const PLANES = {
+  bw:   [[0,0]],
+  rgb:  [[0,0],[1,0],[2,0]],
+  cmyk: [[0,0],[1,0],[2,0],[2,1]],
+};
+const PANELS = {
+  bw:   { labels:['K · LUMA'], colors:['#d7dde8'] },
+  rgb:  { labels:['R — RED','G — GREEN','B — BLUE'], colors:['#ff6b6b','#6bff9e','#6ba8ff'] },
+  cmyk: { labels:['C — CYAN','M — MAGENTA','Y — YELLOW','K — KEY'], colors:['#4dd6e6','#ff6bd6','#ffe066','#c9d2e0'] },
+};
+const MODE_ORDER = ['bw','rgb','cmyk'];
 
 /* ---------- bit helpers ---------- */
 function bytesToBits(bytes){
@@ -235,7 +269,6 @@ function fbm(x,y,seed){
   for(let o=0;o<6;o++){ val+=amp*valueNoise(x*freq,y*freq,seed+o*97); freq*=2; amp*=0.5; }
   return val;
 }
-
 const PALETTES = {
   dusk:  [[8,9,15],[38,28,46],[92,58,74],[200,110,74],[240,180,120],[250,240,225]],
   ash:   [[6,8,12],[26,32,42],[64,74,90],[120,132,150],[190,200,214],[240,244,250]],
@@ -247,8 +280,9 @@ function paletteColor(stops,t){
   const a=stops[i], b=stops[i+1];
   return [ lerp(a[0],b[0],k), lerp(a[1],b[1],k), lerp(a[2],b[2],k) ];
 }
+const clamp255 = v => v<0?0:v>255?255:v|0;
 
-function generateSmoke(w,h,seed,palName){
+function generateSmoke(w,h,seed,palName,mode){
   const stops = PALETTES[palName]||PALETTES.dusk;
   const img = new ImageData(w,h);
   const d = img.data;
@@ -256,18 +290,19 @@ function generateSmoke(w,h,seed,palName){
   for(let y=0;y<h;y++){
     for(let x=0;x<w;x++){
       const nx=x/w, ny=y/h;
-      // domain warp for wispy smoke curls
-      const wx = fbm(nx*3+5.2, ny*3+1.3, s+11);
+      const wx = fbm(nx*3+5.2, ny*3+1.3, s+11);   // domain warp -> wispy curls
       const wy = fbm(nx*3+9.7, ny*3+4.4, s+23);
       let n = fbm(nx*4 + wx*2.2, ny*4 + wy*2.2, s);
-      // lift the plume: brighter toward the top, fade at edges
-      const plume = Math.pow(1-ny,1.3);
-      const edge = Math.sin(nx*Math.PI);
+      const plume = Math.pow(1-ny,1.3);            // brighter toward the top
+      const edge  = Math.sin(nx*Math.PI);          // fade at the sides
       n = n*0.75 + plume*0.35;
       n *= (0.55 + 0.45*edge);
-      const col = paletteColor(stops, n);
-      // subtle grain so LSB tweaks vanish
-      const grain = (hash2(x,y,s+777)-0.5)*6;
+      let col = paletteColor(stops, n);
+      if(mode==='bw'){                             // grayscale carrier
+        const luma = 0.30*col[0]+0.59*col[1]+0.11*col[2];
+        col = [luma,luma,luma];
+      }
+      const grain = (hash2(x,y,s+777)-0.5)*6;      // grain hides LSB tweaks
       const i=(y*w+x)*4;
       d[i]   = clamp255(col[0]+grain);
       d[i+1] = clamp255(col[1]+grain);
@@ -277,70 +312,83 @@ function generateSmoke(w,h,seed,palName){
   }
   return img;
 }
-const clamp255 = v => v<0?0:v>255?255:v|0;
 
-/* ---------- embed / extract ---------- */
-function embed(img, stream){
+/* ---------- embed / extract over a plane list ---------- */
+function embed(img, stream, planes){
   const bits = bytesToBits(stream);
-  const cap = img.width*img.height*3;
-  if(bits.length>cap) throw new Error(`Payload needs ${bits.length} bits but plume holds only ${cap}. Enlarge the plume or shorten the message.`);
+  const cap = img.width*img.height*planes.length;
+  if(bits.length>cap) throw new Error(`Payload needs ${bits.length} bits but this plume/model holds only ${cap}. Enlarge the plume, shorten the message, or pick a higher-capacity model.`);
   const d = img.data;
   let bi=0;
   for(let p=0; p<d.length && bi<bits.length; p+=4){
-    for(let c=0;c<3 && bi<bits.length;c++){
-      d[p+c] = (d[p+c] & 0xFE) | bits[bi++];
+    for(let pl=0; pl<planes.length && bi<bits.length; pl++){
+      const [c,bit]=planes[pl], mask=1<<bit;
+      d[p+c] = (d[p+c] & ~mask) | (bits[bi++]<<bit);
     }
   }
   return {bitsUsed:bits.length, capacity:cap};
 }
-function extractBits(img, maxBits){
+function extractBits(img, maxBits, planes){
   const d = img.data;
-  const total = img.width*img.height*3;
+  const total = img.width*img.height*planes.length;
   const n = Math.min(maxBits, total);
   const bits = new Uint8Array(n);
   let bi=0;
   for(let p=0;p<d.length && bi<n;p+=4){
-    for(let c=0;c<3 && bi<n;c++) bits[bi++] = d[p+c]&1;
+    for(let pl=0; pl<planes.length && bi<n; pl++){
+      const [c,bit]=planes[pl];
+      bits[bi++] = (d[p+c]>>bit)&1;
+    }
   }
   return bits;
 }
-function extractPayload(img){
-  // read 8-byte header first
-  const headerBits = extractBits(img, 64);
-  const header = bitsToBytes(headerBits);
-  for(let i=0;i<4;i++) if(header[i]!==MAGIC[i])
-    throw new Error("No SMK1 signal found in this image — not a smoke signal, or it was re-compressed (e.g. saved as JPEG).");
+function extractPayload(img, planes){
+  const header = bitsToBytes(extractBits(img, 64, planes));
+  for(let i=0;i<4;i++) if(header[i]!==MAGIC[i]) throw new Error("nomagic");
   const len = (header[4]<<24)|(header[5]<<16)|(header[6]<<8)|header[7];
-  const cap = img.width*img.height*3;
-  if(len<0 || (8+len)*8 > cap) throw new Error("Corrupt header: declared length exceeds image capacity.");
-  const allBits = extractBits(img, (8+len)*8);
-  const all = bitsToBytes(allBits);
+  const cap = img.width*img.height*planes.length;
+  if(len<0 || (8+len)*8 > cap) throw new Error("badlen");
+  const all = bitsToBytes(extractBits(img, (8+len)*8, planes));
   return { payload: all.slice(8, 8+len), streamBytes: all };
+}
+function detectAndDecode(img){
+  for(const mode of MODE_ORDER){
+    try{ const r = extractPayload(img, PLANES[mode]); return {mode, ...r}; }
+    catch(e){ /* try next model */ }
+  }
+  throw new Error("No SMK1 signal found in any color model — not a smoke signal, or it was re-compressed (e.g. saved as JPEG).");
 }
 
 /* ---------- rendering: per-channel LSB barcodes ---------- */
-function drawChannelBarcode(canvas, stream, channel){
-  // pull the LSB bit-stream that lands in this channel (every 3rd bit,
-  // matching the R,G,B write order), render as a 1-D barcode.
+function drawChannelBarcode(canvas, stream, planeIndex, planeCount, color){
   const bits = bytesToBits(stream);
   const chBits=[];
-  for(let i=channel;i<bits.length;i+=3) chBits.push(bits[i]);
+  for(let i=planeIndex;i<bits.length;i+=planeCount) chBits.push(bits[i]);
   const ctx = canvas.getContext('2d');
-  const W = canvas.width  = canvas.clientWidth*2 || 300;
+  const W = canvas.width  = (canvas.clientWidth*2)||300;
   const H = canvas.height = 108;
-  const cols = ['#ff6b6b','#6bff9e','#6ba8ff'][channel];
   ctx.fillStyle='#05070b'; ctx.fillRect(0,0,W,H);
   const n = Math.min(chBits.length, 220);
-  const bw = W/n;
+  const bw = W/Math.max(1,n);
   for(let i=0;i<n;i++){
-    if(chBits[i]){
-      ctx.fillStyle=cols;
-      ctx.fillRect(i*bw, 0, Math.max(1,bw-0.4), H);
-    }
+    if(chBits[i]){ ctx.fillStyle=color; ctx.fillRect(i*bw, 0, Math.max(1,bw-0.4), H); }
   }
-  // faint scanline shimmer
   ctx.fillStyle='rgba(255,255,255,.04)';
   for(let y=0;y<H;y+=3) ctx.fillRect(0,y,W,1);
+}
+function buildPanels(mode, stream){
+  const cfg = PANELS[mode];
+  const cont = $('#planes');
+  cont.style.gridTemplateColumns = `repeat(${Math.min(cfg.labels.length,4)},1fr)`;
+  cont.innerHTML='';
+  cfg.labels.forEach((lab,idx)=>{
+    const div=document.createElement('div'); div.className='plane';
+    const b=document.createElement('b'); b.textContent=lab; b.style.color=cfg.colors[idx];
+    const c=document.createElement('canvas'); c.className='planeC';
+    div.appendChild(b); div.appendChild(c); cont.appendChild(div);
+  });
+  cont.querySelectorAll('.planeC').forEach((c,idx)=>
+    drawChannelBarcode(c, stream, idx, cfg.labels.length, cfg.colors[idx]));
 }
 
 /* ---------- hex readout (16-bit words) ---------- */
@@ -365,6 +413,7 @@ const $ = s => document.querySelector(s);
 const enc = new TextEncoder();
 const dec = new TextDecoder();
 let lastCanvas = null;
+let currentMode = 'rgb';
 
 // tabs
 document.querySelectorAll('.tab').forEach(t=>t.addEventListener('click',()=>{
@@ -375,7 +424,16 @@ document.querySelectorAll('.tab').forEach(t=>t.addEventListener('click',()=>{
   $('#decode').classList.toggle('hidden',tab!=='decode');
 }));
 
+// color-model toggle
+$('#modeSeg').querySelectorAll('button').forEach(b=>b.addEventListener('click',()=>{
+  $('#modeSeg').querySelectorAll('button').forEach(x=>x.classList.remove('on'));
+  b.classList.add('on');
+  currentMode = b.dataset.mode;
+  runEncode();
+}));
+
 function setStatus(el,msg,kind){ el.className='status '+kind; el.textContent=msg; }
+const MODE_LABEL = {bw:'B/W',rgb:'RGB',cmyk:'CMYK'};
 
 // ENCODE
 function runEncode(){
@@ -387,42 +445,46 @@ function runEncode(){
     const h = w;
     const seed = (parseInt($('#seed').value,10)||0)>>>0;
     const pal = $('#pal').value;
+    const planes = PLANES[currentMode];
 
     const payload = enc.encode(msg);
     const stream = buildStream(payload);
 
-    const img = generateSmoke(w,h,seed,pal);
-    const info = embed(img, stream);
+    const img = generateSmoke(w,h,seed,pal,currentMode);
+    const info = embed(img, stream, planes);
 
     const cv = $('#signal');
     cv.width=w; cv.height=h;
     cv.getContext('2d').putImageData(img,0,0);
     lastCanvas = cv;
 
-    document.querySelectorAll('.planeC').forEach(c=>drawChannelBarcode(c, stream, +c.dataset.ch));
+    buildPanels(currentMode, stream);
     renderHex($('#encHex'), stream);
 
     const fill = (100*info.bitsUsed/info.capacity).toFixed(1);
     $('#encMeta').innerHTML =
+      `<span class="chip">model <b>${MODE_LABEL[currentMode]}</b></span>`+
+      `<span class="chip">rate <b>${planes.length} bit/px</b></span>`+
       `<span class="chip">payload <b>${payload.length} B</b></span>`+
-      `<span class="chip">stream <b>${stream.length} B</b></span>`+
       `<span class="chip">plume <b>${w}×${h}</b></span>`+
       `<span class="chip">capacity <b>${(info.capacity/8|0)} B</b></span>`+
       `<span class="chip">fill <b>${fill}%</b></span>`;
 
     $('#download').disabled=false;
-    setStatus(st, `Signal raised — ${payload.length} bytes hidden across ${info.bitsUsed} pixel marks.`, 'ok');
+    setStatus(st, `Signal raised — ${payload.length} bytes hidden in ${MODE_LABEL[currentMode]} across ${info.bitsUsed} pixel marks.`, 'ok');
   }catch(e){
     $('#download').disabled=true;
     setStatus(st, e.message, 'err');
   }
 }
 $('#doEncode').addEventListener('click', runEncode);
+$('#msg').addEventListener('input', ()=>{ if(lastCanvas) runEncode(); });
+$('#pal').addEventListener('change', runEncode);
 $('#reroll').addEventListener('click', ()=>{ $('#seed').value = (Math.random()*99999|0); runEncode(); });
 $('#download').addEventListener('click', ()=>{
   if(!lastCanvas) return;
   const a=document.createElement('a');
-  a.download=`smoke-signal-${$('#seed').value}.png`;
+  a.download=`smoke-signal-${MODE_LABEL[currentMode].toLowerCase()}-${$('#seed').value}.png`;
   a.href=lastCanvas.toDataURL('image/png');
   a.click();
 });
@@ -446,18 +508,18 @@ function handleFile(file){
     ctx.drawImage(im,0,0);
     try{
       const img=ctx.getImageData(0,0,im.width,im.height);
-      const {payload, streamBytes}=extractPayload(img);
+      const {mode, payload, streamBytes}=detectAndDecode(img);
       $('#decOut').textContent = dec.decode(payload) || '(empty message)';
       renderHex($('#decHex'), streamBytes);
       $('#decMeta').innerHTML =
+        `<span class="chip">model <b>${MODE_LABEL[mode]} ✓</b></span>`+
         `<span class="chip">recovered <b>${payload.length} B</b></span>`+
         `<span class="chip">image <b>${im.width}×${im.height}</b></span>`+
         `<span class="chip">magic <b>SMK1 ✓</b></span>`;
-      setStatus(st, `Decoded ${payload.length} bytes from the plume.`, 'ok');
+      setStatus(st, `Decoded ${payload.length} bytes — color model auto-detected as ${MODE_LABEL[mode]}.`, 'ok');
     }catch(err){
       $('#decOut').textContent='—';
-      $('#decHex').innerHTML='';
-      $('#decMeta').innerHTML='';
+      $('#decHex').innerHTML=''; $('#decMeta').innerHTML='';
       setStatus(st, err.message, 'err');
     }
   };
