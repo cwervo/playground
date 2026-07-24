@@ -1,0 +1,755 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>folkWallet — NFC Device Identity</title>
+<style>
+  :root {
+    --bg: #05060a;
+    --panel: rgba(22, 24, 34, 0.72);
+    --panel-solid: #14161f;
+    --stroke: rgba(255, 255, 255, 0.09);
+    --stroke-strong: rgba(255, 255, 255, 0.16);
+    --text: #f2f4f8;
+    --muted: #8b92a5;
+    --faint: #5b6070;
+    --accent: #5b8cff;
+    --accent-2: #b06bff;
+    --nfc: #37d6a6;
+    --ble: #4aa8ff;
+    --danger: #ff5d6c;
+    --radius: 22px;
+    --safe-top: env(safe-area-inset-top, 0px);
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Helvetica Neue", system-ui, sans-serif;
+  }
+
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+  html, body {
+    margin: 0; padding: 0;
+    height: 100%;
+    background: #000;
+    color: var(--text);
+    overscroll-behavior: none;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ---- Device framing so the mockup reads as an iOS app on any screen ---- */
+  body {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    background:
+      radial-gradient(1200px 800px at 20% -10%, #1a2140 0%, transparent 55%),
+      radial-gradient(1000px 700px at 100% 110%, #2a1436 0%, transparent 55%),
+      #05060a;
+    padding: 24px;
+  }
+
+  .device {
+    position: relative;
+    width: min(430px, 100vw);
+    height: min(932px, calc(100vh - 48px));
+    max-height: 932px;
+    background: var(--bg);
+    border-radius: 46px;
+    box-shadow:
+      0 0 0 2px rgba(255,255,255,0.06),
+      0 0 0 12px #0b0c12,
+      0 40px 120px rgba(0,0,0,0.7);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+  @media (max-width: 480px) {
+    body { padding: 0; }
+    .device {
+      width: 100vw; height: 100vh; max-height: none;
+      border-radius: 0;
+      box-shadow: none;
+    }
+  }
+
+  /* ---- Dynamic Island / status bar ---- */
+  .statusbar {
+    position: relative;
+    z-index: 40;
+    height: calc(54px + var(--safe-top));
+    padding: var(--safe-top) 30px 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+    flex: 0 0 auto;
+  }
+  .island {
+    position: absolute;
+    top: calc(12px + var(--safe-top));
+    left: 50%;
+    transform: translateX(-50%);
+    width: 118px; height: 34px;
+    background: #000;
+    border-radius: 20px;
+  }
+  .sb-right { display: flex; align-items: center; gap: 7px; }
+  .sb-right svg { display: block; }
+
+  /* ---- Screen scroll area ---- */
+  .screen {
+    position: relative;
+    flex: 1 1 auto;
+    overflow: hidden;
+  }
+  .page {
+    position: absolute; inset: 0;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    padding: 4px 20px calc(108px + var(--safe-bottom));
+    opacity: 0;
+    transform: translateY(8px);
+    pointer-events: none;
+    transition: opacity .32s ease, transform .32s ease;
+  }
+  .page.active { opacity: 1; transform: none; pointer-events: auto; }
+  .page::-webkit-scrollbar { width: 0; }
+
+  h1.title { font-size: 30px; font-weight: 800; letter-spacing: -0.5px; margin: 6px 0 2px; }
+  .subtitle { color: var(--muted); font-size: 14px; margin: 0 0 20px; line-height: 1.4; }
+
+  .eyebrow {
+    font-size: 12px; font-weight: 700; letter-spacing: 1.4px;
+    text-transform: uppercase; color: var(--faint); margin: 22px 2px 10px;
+  }
+
+  /* ---- Cards ---- */
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--stroke);
+    border-radius: var(--radius);
+    backdrop-filter: blur(24px) saturate(140%);
+    -webkit-backdrop-filter: blur(24px) saturate(140%);
+    padding: 18px;
+    margin-bottom: 14px;
+  }
+
+  /* ---- Hero device-identity card ---- */
+  .id-card {
+    position: relative;
+    border-radius: 26px;
+    padding: 22px 22px 20px;
+    overflow: hidden;
+    border: 1px solid var(--stroke-strong);
+    background:
+      linear-gradient(135deg, rgba(91,140,255,0.22), rgba(176,107,255,0.18) 60%, rgba(55,214,166,0.14));
+    box-shadow: 0 20px 50px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.14);
+  }
+  .id-card::after {
+    content: "";
+    position: absolute; inset: 0;
+    background: radial-gradient(600px 200px at 80% -20%, rgba(255,255,255,0.16), transparent 70%);
+    pointer-events: none;
+  }
+  .id-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 22px; }
+  .folk-mark { display: flex; align-items: center; gap: 10px; font-weight: 800; font-size: 16px; letter-spacing: -0.2px; }
+  .folk-glyph {
+    width: 30px; height: 30px; border-radius: 9px;
+    background: linear-gradient(140deg, #fff, #cfe0ff);
+    display: grid; place-items: center; color: #0b1030; font-size: 17px; font-weight: 900;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+  }
+  .chip-badge {
+    font-size: 11px; font-weight: 700; letter-spacing: 0.6px;
+    padding: 5px 10px; border-radius: 999px;
+    background: rgba(0,0,0,0.28); border: 1px solid rgba(255,255,255,0.18);
+    color: #eaf0ff;
+  }
+  .id-label { font-size: 12px; font-weight: 700; letter-spacing: 1.4px; text-transform: uppercase; color: rgba(255,255,255,0.7); }
+  .id-value {
+    font-family: "SF Mono", ui-monospace, "JetBrains Mono", Menlo, monospace;
+    font-size: 21px; font-weight: 600; letter-spacing: 1px;
+    margin: 6px 0 2px; color: #fff;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .id-sub { font-size: 13px; color: rgba(255,255,255,0.72); margin-top: 12px; display: flex; gap: 16px; }
+  .id-sub b { color:#fff; font-weight:700; }
+  .copy-btn {
+    margin-left: auto; background: rgba(255,255,255,0.14); border: 1px solid rgba(255,255,255,0.2);
+    color: #fff; font-size: 12px; font-weight: 600; padding: 5px 11px; border-radius: 999px; cursor: pointer;
+  }
+  .copy-btn:active { transform: scale(0.95); }
+
+  /* ---- Radio / broadcast toggles ---- */
+  .radio-row { display: flex; align-items: center; gap: 14px; padding: 4px 2px; }
+  .radio-row + .radio-row { margin-top: 4px; border-top: 1px solid var(--stroke); padding-top: 16px; }
+  .radio-icon {
+    width: 44px; height: 44px; border-radius: 13px; flex: 0 0 auto;
+    display: grid; place-items: center;
+    background: rgba(255,255,255,0.05); border: 1px solid var(--stroke);
+    position: relative;
+  }
+  .radio-meta { flex: 1 1 auto; min-width: 0; }
+  .radio-meta h3 { margin: 0; font-size: 16px; font-weight: 600; }
+  .radio-meta p { margin: 3px 0 0; font-size: 13px; color: var(--muted); }
+  .radio-meta .live { color: var(--nfc); font-weight: 600; }
+
+  /* iOS switch */
+  .switch { position: relative; width: 52px; height: 32px; flex: 0 0 auto; cursor: pointer; }
+  .switch input { display: none; }
+  .switch .track {
+    position: absolute; inset: 0; border-radius: 999px;
+    background: rgba(255,255,255,0.16); transition: background .25s ease;
+  }
+  .switch .thumb {
+    position: absolute; top: 3px; left: 3px; width: 26px; height: 26px; border-radius: 50%;
+    background: #fff; transition: transform .25s cubic-bezier(.3,1.4,.5,1);
+    box-shadow: 0 2px 6px rgba(0,0,0,0.35);
+  }
+  .switch.nfc input:checked ~ .track { background: var(--nfc); }
+  .switch.ble input:checked ~ .track { background: var(--ble); }
+  .switch input:checked ~ .thumb { transform: translateX(20px); }
+
+  /* pulsing broadcast dot */
+  .pulse::before, .pulse::after {
+    content:""; position:absolute; inset:0; border-radius:inherit;
+    border: 2px solid currentColor; opacity: 0;
+  }
+  .pulse.on::before { animation: ring 2s ease-out infinite; }
+  .pulse.on::after { animation: ring 2s ease-out infinite 1s; }
+  @keyframes ring { 0%{opacity:.5; transform:scale(1);} 100%{opacity:0; transform:scale(1.5);} }
+
+  /* ---- Connected peers ---- */
+  .peer { display:flex; align-items:center; gap:12px; padding:12px 2px; }
+  .peer + .peer { border-top: 1px solid var(--stroke); }
+  .peer-dot { width:9px; height:9px; border-radius:50%; background: var(--nfc); box-shadow:0 0 10px var(--nfc); flex:0 0 auto;}
+  .peer-dot.idle { background: var(--faint); box-shadow:none; }
+  .peer-name { font-size:15px; font-weight:600; }
+  .peer-meta { font-size:12px; color: var(--muted); margin-top:2px; }
+  .peer-rssi { margin-left:auto; font-size:12px; color:var(--muted); font-family:"SF Mono",ui-monospace,monospace;}
+  .peer-tag { font-size:11px; padding:3px 8px; border-radius:999px; background: rgba(74,168,255,0.14); color: var(--ble); border:1px solid rgba(74,168,255,0.25); }
+
+  /* =========================================================
+     QR / METAL-SHADER PAGE
+  ========================================================= */
+  .qr-stage {
+    position: relative;
+    margin: 8px 0 16px;
+    border-radius: 26px;
+    overflow: hidden;
+    border: 1px solid var(--stroke);
+    aspect-ratio: 1 / 1;
+    background: #0a0b11;
+  }
+  #qrShader { position:absolute; inset:0; width:100%; height:100%; display:block; }
+  .qr-hint {
+    position:absolute; left:14px; bottom:14px; right:14px;
+    display:flex; align-items:center; gap:8px;
+    font-size:12px; color: rgba(255,255,255,0.82);
+    background: rgba(0,0,0,0.35); backdrop-filter: blur(10px);
+    border:1px solid rgba(255,255,255,0.12);
+    padding:9px 12px; border-radius:14px;
+  }
+  .qr-hint svg { flex:0 0 auto; }
+
+  .seg {
+    display:flex; background: rgba(255,255,255,0.06); border:1px solid var(--stroke);
+    border-radius: 13px; padding: 3px; gap:3px; margin-bottom: 16px;
+  }
+  .seg button {
+    flex:1; border:none; background:transparent; color: var(--muted);
+    font-size:13px; font-weight:600; padding:9px 6px; border-radius:10px; cursor:pointer;
+    transition: all .2s ease;
+  }
+  .seg button.active { background: rgba(255,255,255,0.12); color:#fff; box-shadow:0 1px 3px rgba(0,0,0,0.3); }
+
+  .slider-row { display:flex; align-items:center; gap:14px; }
+  .slider-row label { font-size:13px; color:var(--muted); width:88px; flex:0 0 auto;}
+  input[type=range] {
+    -webkit-appearance:none; appearance:none; flex:1; height:4px; border-radius:999px;
+    background: rgba(255,255,255,0.16); outline:none;
+  }
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance:none; width:22px; height:22px; border-radius:50%;
+    background:#fff; box-shadow:0 2px 6px rgba(0,0,0,0.4); cursor:pointer;
+  }
+  .swatches { display:flex; gap:10px; margin-top:4px; }
+  .swatch { width:34px; height:34px; border-radius:10px; cursor:pointer; border:2px solid transparent; }
+  .swatch.sel { border-color:#fff; }
+
+  /* ---- Generic list rows (settings) ---- */
+  .list { padding:4px 4px; }
+  .lrow { display:flex; align-items:center; gap:14px; padding:14px 4px; }
+  .lrow + .lrow { border-top:1px solid var(--stroke); }
+  .lrow .li {
+    width:34px; height:34px; border-radius:9px; display:grid; place-items:center; flex:0 0 auto;
+    background: rgba(255,255,255,0.06); border:1px solid var(--stroke); font-size:16px;
+  }
+  .lrow .lt { flex:1; font-size:15px; }
+  .lrow .lv { color: var(--muted); font-size:14px; font-family:"SF Mono",ui-monospace,monospace; }
+  .chev { color: var(--faint); }
+
+  /* ---- Tab bar ---- */
+  .tabbar {
+    position:absolute; left:0; right:0; bottom:0; z-index:50;
+    height: calc(84px + var(--safe-bottom));
+    padding-bottom: var(--safe-bottom);
+    display:flex; align-items:flex-start; padding-top:10px;
+    background: rgba(10,11,17,0.72);
+    backdrop-filter: blur(28px) saturate(140%);
+    -webkit-backdrop-filter: blur(28px) saturate(140%);
+    border-top:1px solid var(--stroke);
+  }
+  .tab {
+    flex:1; display:flex; flex-direction:column; align-items:center; gap:5px;
+    color: var(--faint); font-size:10.5px; font-weight:600; cursor:pointer; letter-spacing:0.2px;
+    background:none; border:none;
+  }
+  .tab svg { width:26px; height:26px; }
+  .tab.active { color: var(--accent); }
+  .tab.active svg { filter: drop-shadow(0 0 8px rgba(91,140,255,0.5)); }
+
+  .foot { text-align:center; color:var(--faint); font-size:11px; margin:18px 0 4px; letter-spacing:0.3px; }
+
+  .toast {
+    position:absolute; left:50%; bottom:120px; transform:translate(-50%,20px);
+    background: rgba(30,32,42,0.94); color:#fff; font-size:13px; font-weight:600;
+    padding:11px 18px; border-radius:999px; border:1px solid var(--stroke-strong);
+    opacity:0; pointer-events:none; transition:all .3s ease; z-index:60;
+    box-shadow:0 12px 30px rgba(0,0,0,0.5);
+  }
+  .toast.show { opacity:1; transform:translate(-50%,0); }
+</style>
+</head>
+<body>
+<div class="device">
+
+  <!-- Status bar -->
+  <div class="statusbar">
+    <span id="clock">9:41</span>
+    <div class="island"></div>
+    <span class="sb-right">
+      <svg width="18" height="12" viewBox="0 0 18 12" fill="none"><rect x="0" y="7" width="3" height="5" rx="1" fill="#f2f4f8"/><rect x="4.5" y="4.5" width="3" height="7.5" rx="1" fill="#f2f4f8"/><rect x="9" y="2" width="3" height="10" rx="1" fill="#f2f4f8"/><rect x="13.5" y="0" width="3" height="12" rx="1" fill="#f2f4f8"/></svg>
+      <svg width="17" height="12" viewBox="0 0 17 12" fill="none"><path d="M8.5 2.4c2.3 0 4.4.9 6 2.4l1.2-1.3C13.8 1.6 11.3.5 8.5.5S3.2 1.6 1.3 3.5L2.5 4.8c1.6-1.5 3.7-2.4 6-2.4z" fill="#f2f4f8"/><path d="M8.5 6c1.2 0 2.3.5 3.1 1.3l1.2-1.3C11.6 4.8 10.1 4.2 8.5 4.2S5.4 4.8 4.2 6l1.2 1.3C6.2 6.5 7.3 6 8.5 6z" fill="#f2f4f8"/><circle cx="8.5" cy="9.6" r="1.6" fill="#f2f4f8"/></svg>
+      <svg width="26" height="12" viewBox="0 0 26 12" fill="none"><rect x="0.5" y="0.5" width="22" height="11" rx="3" stroke="#f2f4f8" opacity="0.5"/><rect x="2" y="2" width="18" height="8" rx="1.6" fill="#f2f4f8"/><rect x="23.5" y="4" width="1.6" height="4" rx="0.8" fill="#f2f4f8" opacity="0.6"/></svg>
+    </span>
+  </div>
+
+  <div class="screen">
+
+    <!-- ============ IDENTITY PAGE ============ -->
+    <section class="page active" id="page-identity">
+      <h1 class="title">folkWallet</h1>
+      <p class="subtitle">Your device's identity, broadcast on your terms.</p>
+
+      <div class="id-card">
+        <div class="id-top">
+          <div class="folk-mark"><span class="folk-glyph">f</span> folkDevice</div>
+          <span class="chip-badge">SE&nbsp;·&nbsp;Secure Enclave</span>
+        </div>
+        <div class="id-label">Hardware Identifier</div>
+        <div class="id-value">
+          <span id="folkId">fD·7K4Q·A19F·E2C8</span>
+        </div>
+        <div class="id-sub">
+          <span>Model <b>folkDevice&nbsp;M2</b></span>
+          <span>Rev <b>0x0A</b></span>
+          <button class="copy-btn" onclick="copyId()">Copy</button>
+        </div>
+      </div>
+
+      <div class="eyebrow">Broadcast Radios</div>
+      <div class="card">
+        <div class="radio-row">
+          <div class="radio-icon pulse on" id="nfcPulse" style="color:var(--nfc)">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#37d6a6" stroke-width="1.8" stroke-linecap="round"><path d="M5 8a10 10 0 0 1 0 8"/><path d="M9 6a15 15 0 0 1 0 12"/><path d="M13 4.5a20 20 0 0 1 0 15"/><circle cx="18" cy="12" r="1.6" fill="#37d6a6" stroke="none"/></svg>
+          </div>
+          <div class="radio-meta">
+            <h3>NFC Tap</h3>
+            <p><span class="live">Broadcasting</span> · Hold near a reader</p>
+          </div>
+          <label class="switch nfc"><input type="checkbox" checked onchange="toggleNfc(this)"><span class="track"></span><span class="thumb"></span></label>
+        </div>
+
+        <div class="radio-row">
+          <div class="radio-icon pulse on" id="blePulse" style="color:var(--ble)">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#4aa8ff" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"><path d="M7 8l10 8-5 4V4l5 4L7 16"/></svg>
+          </div>
+          <div class="radio-meta">
+            <h3>Bluetooth LE</h3>
+            <p><span class="live" style="color:var(--ble)">Advertising</span> · 2 devices in range</p>
+          </div>
+          <label class="switch ble"><input type="checkbox" checked onchange="toggleBle(this)"><span class="track"></span><span class="thumb"></span></label>
+        </div>
+      </div>
+
+      <div class="eyebrow">Nearby Peers</div>
+      <div class="card" style="padding:6px 16px;">
+        <div class="peer">
+          <span class="peer-dot"></span>
+          <div><div class="peer-name">folkHub · Studio</div><div class="peer-meta">Paired · GATT connected</div></div>
+          <span class="peer-rssi">−48 dBm</span>
+        </div>
+        <div class="peer">
+          <span class="peer-dot"></span>
+          <div><div class="peer-name">Reader Desk 04</div><div class="peer-meta">NFC handshake · 12s ago</div></div>
+          <span class="peer-tag">NFC</span>
+        </div>
+        <div class="peer">
+          <span class="peer-dot idle"></span>
+          <div><div class="peer-name">folkDevice · Kitchen</div><div class="peer-meta">Seen 3m ago · out of range</div></div>
+          <span class="peer-rssi">−91 dBm</span>
+        </div>
+      </div>
+
+      <p class="foot">Identity signed by Secure Enclave · never leaves the device</p>
+    </section>
+
+    <!-- ============ QR / SHADER PAGE ============ -->
+    <section class="page" id="page-qr">
+      <h1 class="title">Blend QR</h1>
+      <p class="subtitle">Your folkDevice ID as a Metal-shaded code that dissolves into whatever it's laid over.</p>
+
+      <div class="qr-stage">
+        <canvas id="qrShader"></canvas>
+        <div class="qr-hint">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round"><path d="M12 3v3M12 18v3M3 12h3M18 12h3"/><circle cx="12" cy="12" r="4"/></svg>
+          Lay the iPad on a surface — the code samples the backdrop and blends.
+        </div>
+      </div>
+
+      <div class="seg" id="blendSeg">
+        <button class="active" data-mode="0">Chroma&nbsp;Melt</button>
+        <button data-mode="1">Liquid&nbsp;Glass</button>
+        <button data-mode="2">Ink&nbsp;Bloom</button>
+      </div>
+
+      <div class="card">
+        <div class="slider-row">
+          <label>Blend</label>
+          <input type="range" id="blendAmt" min="0" max="100" value="62">
+        </div>
+        <div class="slider-row" style="margin-top:16px;">
+          <label>Flow speed</label>
+          <input type="range" id="flowSpd" min="0" max="100" value="45">
+        </div>
+        <div class="slider-row" style="margin-top:18px;">
+          <label>Backdrop</label>
+          <div class="swatches" id="bgSwatches">
+            <div class="swatch sel" style="background:linear-gradient(135deg,#2d3350,#12162a)" data-bg="0"></div>
+            <div class="swatch" style="background:linear-gradient(135deg,#5b8cff,#b06bff)" data-bg="1"></div>
+            <div class="swatch" style="background:linear-gradient(135deg,#37d6a6,#2b8f7a)" data-bg="2"></div>
+            <div class="swatch" style="background:linear-gradient(135deg,#e8dcc4,#b79b6e)" data-bg="3"></div>
+            <div class="swatch" style="background:linear-gradient(135deg,#ff7a6c,#b0384f)" data-bg="4"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card" style="display:flex;align-items:center;gap:12px;">
+        <div class="radio-icon" style="color:var(--accent)">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#5b8cff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3M21 14v7M17 21h4M14 18v3"/></svg>
+        </div>
+        <div style="flex:1"><div style="font-size:15px;font-weight:600;">Payload</div><div style="font-size:12px;color:var(--muted);margin-top:2px;font-family:'SF Mono',monospace;">folk://id/fD·7K4Q·A19F·E2C8</div></div>
+        <button class="copy-btn" style="background:rgba(91,140,255,0.2);border-color:rgba(91,140,255,0.4)" onclick="toast('Rotating one-time token…')">Rotate</button>
+      </div>
+
+      <p class="foot">GPU shader renders at 60fps · code stays scannable while blending</p>
+    </section>
+
+    <!-- ============ SETTINGS PAGE ============ -->
+    <section class="page" id="page-settings">
+      <h1 class="title">Device</h1>
+      <p class="subtitle">folkDevice M2 · firmware, security, and radio policy.</p>
+
+      <div class="eyebrow">Hardware</div>
+      <div class="card list">
+        <div class="lrow"><span class="li">🔩</span><span class="lt">Serial</span><span class="lv">FD2-7K4Q-A19F</span></div>
+        <div class="lrow"><span class="li">⚙️</span><span class="lt">Firmware</span><span class="lv">v3.2.1</span></div>
+        <div class="lrow"><span class="li">🔋</span><span class="lt">Coin cell</span><span class="lv">87%</span></div>
+      </div>
+
+      <div class="eyebrow">Security</div>
+      <div class="card list">
+        <div class="lrow"><span class="li">🛡️</span><span class="lt">Secure Enclave key</span><span class="chev">›</span></div>
+        <div class="lrow"><span class="li">🔁</span><span class="lt">Rotate broadcast token</span><span class="lv">Auto · 60s</span></div>
+        <div class="lrow"><span class="li">👆</span><span class="lt">Require Face ID to share</span>
+          <label class="switch nfc" style="margin-left:auto"><input type="checkbox" checked><span class="track"></span><span class="thumb"></span></label>
+        </div>
+      </div>
+
+      <div class="eyebrow">Radio Policy</div>
+      <div class="card list">
+        <div class="lrow"><span class="li">📡</span><span class="lt">NFC power</span><span class="lv">Reader + P2P</span></div>
+        <div class="lrow"><span class="li">🔵</span><span class="lt">BLE advertise interval</span><span class="lv">200 ms</span></div>
+        <div class="lrow"><span class="li">🌙</span><span class="lt">Quiet hours</span><span class="lv">11pm–7am</span></div>
+      </div>
+
+      <p class="foot">folkWallet 1.0 · build 240 · made for iOS & iPadOS</p>
+    </section>
+
+  </div>
+
+  <!-- Tab bar -->
+  <nav class="tabbar">
+    <button class="tab active" data-page="identity">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="3"/><circle cx="8.5" cy="12" r="2.5"/><path d="M13 10h5M13 14h5"/></svg>
+      Identity
+    </button>
+    <button class="tab" data-page="qr">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><path d="M14 14h3v3M21 14v7M17 21h4M14 18.5v2.5"/></svg>
+      Blend QR
+    </button>
+    <button class="tab" data-page="settings">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3.2"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/></svg>
+      Device
+    </button>
+  </nav>
+
+  <div class="toast" id="toast"></div>
+</div>
+
+<script>
+/* ---------- Clock ---------- */
+function tick(){
+  const d=new Date();
+  document.getElementById('clock').textContent =
+    ((d.getHours()%12)||12)+':'+String(d.getMinutes()).padStart(2,'0');
+}
+tick(); setInterval(tick,10000);
+
+/* ---------- Tab navigation ---------- */
+const tabs=document.querySelectorAll('.tab');
+const pages={identity:'page-identity',qr:'page-qr',settings:'page-settings'};
+tabs.forEach(t=>t.addEventListener('click',()=>{
+  tabs.forEach(x=>x.classList.remove('active'));
+  t.classList.add('active');
+  Object.values(pages).forEach(p=>document.getElementById(p).classList.remove('active'));
+  document.getElementById(pages[t.dataset.page]).classList.add('active');
+  if(t.dataset.page==='qr'){ resizeShader(); }
+}));
+
+/* ---------- Toast + copy ---------- */
+let toastT;
+function toast(msg){
+  const el=document.getElementById('toast');
+  el.textContent=msg; el.classList.add('show');
+  clearTimeout(toastT); toastT=setTimeout(()=>el.classList.remove('show'),1800);
+}
+function copyId(){
+  const id=document.getElementById('folkId').textContent.trim();
+  if(navigator.clipboard) navigator.clipboard.writeText(id).catch(()=>{});
+  toast('folkDevice ID copied');
+}
+function toggleNfc(cb){
+  document.getElementById('nfcPulse').classList.toggle('on',cb.checked);
+  toast(cb.checked?'NFC broadcasting':'NFC off');
+}
+function toggleBle(cb){
+  document.getElementById('blePulse').classList.toggle('on',cb.checked);
+  toast(cb.checked?'BLE advertising':'BLE off');
+}
+
+/* =====================================================================
+   METAL-STYLE QR BLEND SHADER (WebGL)
+   Renders the folkDevice QR as a signed-distance field, then melts /
+   refracts it over a sampled "backdrop" so the code blends into its
+   surroundings — a browser stand-in for the on-device Metal shader.
+===================================================================== */
+(function(){
+  const canvas=document.getElementById('qrShader');
+  const gl=canvas.getContext('webgl',{premultipliedAlpha:false,antialias:true});
+  if(!gl){ canvas.replaceWith(Object.assign(document.createElement('div'),{textContent:'WebGL unavailable',style:'color:#888;display:grid;place-items:center;height:100%;'})); return; }
+
+  /* Build a deterministic QR-like bit grid from the folkDevice id.
+     (Visual mock — not a spec-valid QR, but reads as one, with finders.) */
+  const N=25;
+  function hashStr(s){let h=2166136261;for(let i=0;i<s.length;i++){h^=s.charCodeAt(i);h=Math.imul(h,16777619);}return h>>>0;}
+  function buildGrid(seedStr){
+    const grid=new Uint8Array(N*N);
+    let h=hashStr(seedStr);
+    const rnd=()=>{h^=h<<13;h^=h>>>17;h^=h<<5;h>>>=0;return h/4294967296;};
+    for(let i=0;i<N*N;i++) grid[i]=rnd()>0.5?1:0;
+    // finder patterns (3 corners)
+    const stamp=(ox,oy)=>{for(let y=0;y<7;y++)for(let x=0;x<7;x++){
+      const edge=(x===0||x===6||y===0||y===6);
+      const core=(x>=2&&x<=4&&y>=2&&y<=4);
+      grid[(oy+y)*N+(ox+x)]=(edge||core)?1:0;
+    }};
+    stamp(0,0);stamp(N-7,0);stamp(0,N-7);
+    // quiet borders around finders
+    const clear=(ox,oy)=>{for(let y=-1;y<8;y++)for(let x=-1;x<8;x++){const gx=ox+x,gy=oy+y;if(gx>=0&&gx<N&&gy>=0&&gy<N&&(x<0||x>6||y<0||y>6))grid[gy*N+gx]=0;}};
+    clear(0,0);clear(N-7,0);clear(0,N-7);
+    return grid;
+  }
+  const grid=buildGrid('fD·7K4Q·A19F·E2C8');
+  // pack grid into a data texture (N x N, R channel = module)
+  const tex=gl.createTexture();
+  gl.bindTexture(gl.TEXTURE_2D,tex);
+  const pix=new Uint8Array(N*N*4);
+  for(let i=0;i<N*N;i++){const v=grid[i]?255:0;pix[i*4]=v;pix[i*4+1]=v;pix[i*4+2]=v;pix[i*4+3]=255;}
+  gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,N,N,0,gl.RGBA,gl.UNSIGNED_BYTE,pix);
+  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.NEAREST);
+  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.NEAREST);
+  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);
+
+  const vs=`attribute vec2 p;varying vec2 uv;void main(){uv=p*0.5+0.5;gl_Position=vec4(p,0.,1.);}`;
+  const fs=`
+  precision highp float;
+  varying vec2 uv;
+  uniform sampler2D qr;
+  uniform float uT, uBlend, uFlow, uMode, uGrid;
+  uniform vec3 uBgA, uBgB;
+
+  float qrAt(vec2 g){
+    vec2 c=(floor(g)+0.5)/uGrid;
+    if(c.x<0.||c.x>1.||c.y<0.||c.y>1.) return 0.;
+    return texture2D(qr, c).r;
+  }
+  // smooth module coverage w/ small AA
+  float module(vec2 uvp){
+    vec2 g=uvp*uGrid;
+    float m=qrAt(g);
+    return m;
+  }
+  float hash(vec2 p){return fract(sin(dot(p,vec2(41.3,289.1)))*43758.5);}
+  float noise(vec2 p){
+    vec2 i=floor(p),f=fract(p);
+    float a=hash(i),b=hash(i+vec2(1,0)),c=hash(i+vec2(0,1)),d=hash(i+vec2(1,1));
+    vec2 u=f*f*(3.-2.*f);
+    return mix(mix(a,b,u.x),mix(c,d,u.x),u.y);
+  }
+
+  void main(){
+    vec2 p=uv;
+    p.y=1.-p.y;
+    float t=uT*uFlow;
+
+    // animated backdrop (stands in for the camera-sampled surface under the iPad)
+    float bak=noise(p*3.0+vec2(t*0.3,-t*0.2));
+    bak=mix(bak,noise(p*6.0-t*0.15),0.5);
+    vec3 backdrop=mix(uBgA,uBgB,smoothstep(0.2,0.8,bak));
+    backdrop+=0.06*sin(p.x*20.+t)*0.5;
+
+    // liquid domain warp so the code "melts" into the backdrop
+    float warp=uBlend*0.06;
+    vec2 flow=vec2(noise(p*4.+t*0.5), noise(p*4.-t*0.4+7.))-0.5;
+    vec2 qp=p+flow*warp;
+
+    float m=module(qp);
+    // soften edges by supersampling module coverage
+    float e=1.0/uGrid*0.35;
+    m=(m+module(qp+vec2(e,0.))+module(qp+vec2(0.,e))+module(qp+vec2(-e,-e)))*0.25;
+
+    // ink color derived from backdrop for cohesion
+    vec3 dark=backdrop*0.12;
+    vec3 light=mix(vec3(1.0), backdrop*1.4+0.3, 0.4);
+
+    vec3 col;
+    float alpha;
+    if(uMode<0.5){
+      // Chroma melt — modules take a shifted hue of the backdrop
+      vec3 ink=mix(dark, vec3(0.05,0.06,0.1), 0.3);
+      vec3 paper=light;
+      col=mix(paper, ink, smoothstep(0.35,0.65,m));
+      col=mix(backdrop, col, mix(1.0,0.55,uBlend));  // blend toward backdrop
+      alpha=1.0;
+    } else if(uMode<1.5){
+      // Liquid glass — refractive, semi-transparent modules
+      float edge=abs(m-0.5)*2.0;
+      vec3 refr=backdrop.bgr*1.2 + 0.1;
+      col=mix(refr, dark, smoothstep(0.4,0.6,m));
+      col+=pow(1.0-edge,6.0)*0.5; // rim light
+      col=mix(backdrop,col,mix(0.7,0.4,uBlend));
+      alpha=1.0;
+    } else {
+      // Ink bloom — modules bleed like ink diffusing into paper
+      float bloom=noise(qp*uGrid*0.5+t)*uBlend*0.5;
+      float mm=smoothstep(0.35-bloom,0.65+bloom,m);
+      vec3 ink=mix(vec3(0.02,0.02,0.05), backdrop*0.3, 0.5);
+      col=mix(light, ink, mm);
+      col=mix(backdrop,col,mix(1.0,0.5,uBlend));
+      alpha=1.0;
+    }
+
+    // subtle vignette + film grain for that on-glass feel
+    float vig=smoothstep(1.2,0.3,length(uv-0.5));
+    col*=0.85+0.15*vig;
+    col+=(hash(uv*vec2(t+1.))-0.5)*0.03;
+
+    gl_FragColor=vec4(col,alpha);
+  }`;
+
+  function sh(type,src){const s=gl.createShader(type);gl.shaderSource(s,src);gl.compileShader(s);
+    if(!gl.getShaderParameter(s,gl.COMPILE_STATUS))console.error(gl.getShaderInfoLog(s));return s;}
+  const prog=gl.createProgram();
+  gl.attachShader(prog,sh(gl.VERTEX_SHADER,vs));
+  gl.attachShader(prog,sh(gl.FRAGMENT_SHADER,fs));
+  gl.linkProgram(prog);gl.useProgram(prog);
+
+  const buf=gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER,buf);
+  gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,3,-1,-1,3]),gl.STATIC_DRAW);
+  const loc=gl.getAttribLocation(prog,'p');
+  gl.enableVertexAttribArray(loc);gl.vertexAttribPointer(loc,2,gl.FLOAT,false,0,0);
+
+  const U=n=>gl.getUniformLocation(prog,n);
+  const uT=U('uT'),uBlend=U('uBlend'),uFlow=U('uFlow'),uMode=U('uMode'),uGrid=U('uGrid'),uBgA=U('uBgA'),uBgB=U('uBgB'),uQr=U('qr');
+  gl.uniform1i(uQr,0);gl.uniform1f(uGrid,N);
+
+  // Controls state
+  const state={blend:0.62,flow:0.45,mode:0,bgA:[0.176,0.20,0.314],bgB:[0.07,0.086,0.164]};
+  const BGS=[
+    [[0.176,0.20,0.314],[0.07,0.086,0.164]],
+    [[0.357,0.549,1.0],[0.69,0.42,1.0]],
+    [[0.216,0.839,0.65],[0.168,0.56,0.478]],
+    [[0.91,0.86,0.77],[0.72,0.61,0.43]],
+    [[1.0,0.48,0.42],[0.69,0.22,0.31]]
+  ];
+
+  function resizeShader(){
+    const r=canvas.getBoundingClientRect();
+    const dpr=Math.min(window.devicePixelRatio||1,2);
+    const w=Math.max(2,Math.round(r.width*dpr)), h=Math.max(2,Math.round(r.height*dpr));
+    if(canvas.width!==w||canvas.height!==h){canvas.width=w;canvas.height=h;}
+    gl.viewport(0,0,canvas.width,canvas.height);
+  }
+  window.resizeShader=resizeShader;
+  window.addEventListener('resize',resizeShader);
+
+  const start=performance.now();
+  function frame(now){
+    resizeShader();
+    gl.uniform1f(uT,(now-start)/1000);
+    gl.uniform1f(uBlend,state.blend);
+    gl.uniform1f(uFlow,state.flow*2.0);
+    gl.uniform1f(uMode,state.mode);
+    gl.uniform3fv(uBgA,state.bgA);
+    gl.uniform3fv(uBgB,state.bgB);
+    gl.drawArrays(gl.TRIANGLES,0,3);
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+
+  // Wire controls
+  document.getElementById('blendAmt').addEventListener('input',e=>state.blend=e.target.value/100);
+  document.getElementById('flowSpd').addEventListener('input',e=>state.flow=e.target.value/100);
+  document.querySelectorAll('#blendSeg button').forEach(b=>b.addEventListener('click',()=>{
+    document.querySelectorAll('#blendSeg button').forEach(x=>x.classList.remove('active'));
+    b.classList.add('active'); state.mode=+b.dataset.mode;
+  }));
+  document.querySelectorAll('#bgSwatches .swatch').forEach(s=>s.addEventListener('click',()=>{
+    document.querySelectorAll('#bgSwatches .swatch').forEach(x=>x.classList.remove('sel'));
+    s.classList.add('sel'); const g=BGS[+s.dataset.bg]; state.bgA=g[0]; state.bgB=g[1];
+  }));
+
+  resizeShader();
+})();
+</script>
+</body>
+</html>
