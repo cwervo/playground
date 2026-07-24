@@ -1,0 +1,172 @@
+# ----------------------------------------------------------------------------
+#  htmlDisplay.folk  —  a tiny HTML → Folk translator
+# ----------------------------------------------------------------------------
+#  Adds support for a new wish:
+#
+#     Wish $thing displays HTML {
+#       <h1> Hello I'm an h1! </h1>
+#       <img src=https://folk.computer/_media/logo.png>
+#       <span .footnote>I go below the quad</span>
+#     }
+#
+#  Any program (including this one) can make that wish; the `When` handler at
+#  the bottom parses the little HTML blob and re-expresses it purely in terms
+#  of native Folk drawing wishes:
+#
+#     <h1>…</h1>              -> Wish $thing draws text …          (big, top of flow)
+#     <h2>/<h3>/<p>/<span>    -> Wish $thing draws text …          (in the top-down flow)
+#     <img src=…>            -> Wish $thing displays image …      (in the flow)
+#     <span .footnote>…      -> Wish $thing is footnoted …        (below the quad!)
+#     <span .title>…         -> Wish $thing is titled …           (above the quad)
+#
+#  Block elements are laid out top-to-bottom inside the quad using percentage
+#  coordinates; the `.footnote` / `.title` classes escape the flow and use
+#  Folk's decoration wishes, which live outside the quad.
+# ----------------------------------------------------------------------------
+
+# --- HTML helpers ---------------------------------------------------------
+
+# Collapse runs of whitespace and trim, so "  Hello   world " -> "Hello world".
+fn htmlCollapse {s} {
+    regsub -all {\s+} [string trim $s] " " s
+    return $s
+}
+
+# Pull an attribute value out of a tag's attribute string. Handles quoted
+# ( src="x" / src='x' ) and bare ( src=https://… ) forms.
+fn htmlAttr {attrs name} {
+    if {[regexp "$name\\s*=\\s*\"(\[^\"\]*)\"" $attrs -> v]} { return $v }
+    if {[regexp "$name\\s*=\\s*'(\[^'\]*)'" $attrs -> v]} { return $v }
+    if {[regexp "$name\\s*=\\s*(\[^\\s>\]+)" $attrs -> v]} { return $v }
+    return ""
+}
+
+# Collect classes, both from the Folk-flavored ".name" shorthand ( <span .foo> )
+# and from a standard class="a b" attribute.
+fn htmlClasses {attrs} {
+    set classes {}
+    foreach {_ name} [regexp -all -inline {(?:^|\s)\.([-\w]+)} $attrs] {
+        lappend classes $name
+    }
+    if {[regexp {class\s*=\s*["']?([^"'>]+)["']?} $attrs -> cls]} {
+        foreach c [split [string trim $cls]] { lappend classes $c }
+    }
+    return $classes
+}
+
+# A minimal, forgiving HTML tokenizer. Returns a list of elements, each a dict
+# {tag <name> attrs <string> text <inner>}. Nesting of the same tag isn't
+# supported (it doesn't need to be for this vocabulary).
+fn htmlParse {html} {
+    set elements {}
+    set void {img br hr input meta link}
+    set pos 0
+    while {1} {
+        set lt [string first "<" $html $pos]
+        if {$lt < 0} break
+        set gt [string first ">" $html $lt]
+        if {$gt < 0} break
+
+        set inside [string range $html [expr {$lt + 1}] [expr {$gt - 1}]]
+        regsub -all {\s+} [string trim $inside] " " inside
+
+        # Closing tags are consumed while gathering inner text below; skip strays.
+        if {[string index $inside 0] eq "/"} { set pos [expr {$gt + 1}]; continue }
+
+        set sp [string first " " $inside]
+        if {$sp < 0} {
+            set tag [string tolower $inside]
+            set attrs ""
+        } else {
+            set tag   [string tolower [string range $inside 0 [expr {$sp - 1}]]]
+            set attrs [string trim [string range $inside [expr {$sp + 1}] end]]
+        }
+
+        if {$tag in $void} {
+            lappend elements [dict create tag $tag attrs $attrs text ""]
+            set pos [expr {$gt + 1}]
+            continue
+        }
+
+        set close "</$tag>"
+        set cpos [string first $close $html [expr {$gt + 1}]]
+        if {$cpos < 0} {
+            lappend elements [dict create tag $tag attrs $attrs text ""]
+            set pos [expr {$gt + 1}]
+        } else {
+            set inner [string range $html [expr {$gt + 1}] [expr {$cpos - 1}]]
+            lappend elements [dict create tag $tag attrs $attrs text $inner]
+            set pos [expr {$cpos + [string length $close]}]
+        }
+    }
+    return $elements
+}
+
+# --- The translator -------------------------------------------------------
+
+# Turn an HTML blob into native Folk drawing wishes on $thing.
+fn htmlRender {thing html} {
+    set y   7.0   ;# running top-of-flow cursor, in % of the quad height
+    set gap 4.0
+
+    foreach el [htmlParse $html] {
+        set tag     [dict get $el tag]
+        set attrs   [dict get $el attrs]
+        set text    [htmlCollapse [dict get $el text]]
+        set classes [htmlClasses $attrs]
+
+        # Decoration classes escape the in-quad flow.
+        if {"footnote" in $classes} {
+            Wish $thing is footnoted $text with scale 19 padding 0.25cm
+            continue
+        }
+        if {"title" in $classes} {
+            Wish $thing is titled $text with scale 25 padding 0.25cm
+            continue
+        }
+
+        switch -- $tag {
+            img {
+                set src [htmlAttr $attrs src]
+                if {$src eq ""} continue
+                set h 42.0
+                set cy [expr {$y + $h / 2.0}]
+                Wish $thing displays image $src with \
+                    position [list 50% ${cy}%] width 10cm anchor center
+                set y [expr {$y + $h + $gap}]
+            }
+            br - hr { set y [expr {$y + 6.0}] }
+            default {
+                if {$text eq ""} continue
+                switch -- $tag {
+                    h1      { set scale 1.05cm; set h 18.0; set color {1.0 0.95 0.55 1.0} }
+                    h2      { set scale 0.85cm; set h 15.0; set color white }
+                    h3 - h4 { set scale 0.70cm; set h 13.0; set color white }
+                    default { set scale 0.52cm; set h 11.0; set color {0.85 0.92 1.0 1.0} }
+                }
+                set cy [expr {$y + $h / 2.0}]
+                Wish $thing draws text $text with \
+                    position [list 50% ${cy}%] anchor center scale $scale color $color layer 10
+                set y [expr {$y + $h + $gap}]
+            }
+        }
+    }
+}
+
+# The new wish. Anyone can now say `Wish X displays HTML { … }`.
+When /someone/ wishes /thing/ displays HTML /html/ {
+    htmlRender $thing $html
+}
+
+# --- Self-demo ------------------------------------------------------------
+# Dropping this single page both defines the handler above AND exercises it,
+# so you immediately see the example from the wish rendered on this quad.
+
+Wish $this is outlined with color {1.0 1.0 1.0 0.45} thickness 0.05cm
+Wish $this is filled with color {0.05 0.06 0.09 0.80} layer -50
+
+Wish $this displays HTML {
+    <h1> Hello I'm an h1! </h1>
+    <img src=https://folk.computer/_media/logo.png>
+    <span .footnote>I go below the quad</span>
+}
