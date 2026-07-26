@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="85.600mm" height="53.980mm" viewBox="0 0 85.600 53.980">
+<rect width="85.600" height="53.980" fill="white"/>
+<g fill="none" stroke="#111" stroke-width="0.35">
+<rect x="41.260" y="4.990" width="3.080" height="44.000" rx="1.54" fill="#fff"/>
+<rect x="29.600" y="25.450" width="26.400" height="3.080" rx="1.54" fill="#fff"/>
+</g>
+<g stroke="#111" stroke-width="0.3">
+<line x1="41.814" y1="16.990" x2="43.786" y2="16.990"/>
+<line x1="41.814" y1="36.990" x2="43.786" y2="36.990"/>
+<line x1="41.814" y1="6.990" x2="43.786" y2="6.990"/>
+<line x1="41.814" y1="46.990" x2="43.786" y2="46.990"/>
+<line x1="52.800" y1="27.976" x2="52.800" y2="26.004"/>
+<line x1="32.800" y1="27.976" x2="32.800" y2="26.004"/>
+</g>
+<g style="mix-blend-mode:multiply">
+<rect x="41.414" y="17.681" width="2.772" height="1.498" fill="rgb(255,255,255)"/>
+<rect x="41.414" y="15.601" width="2.772" height="1.498" fill="rgb(255,255,255)"/>
+<rect x="41.414" y="13.521" width="2.772" height="1.498" fill="rgb(255,255,255)"/>
+<rect x="41.414" y="11.441" width="2.772" height="1.498" fill="rgb(255,0,255)"/>
+<rect x="41.414" y="9.361" width="2.772" height="1.498" fill="rgb(0,255,0)"/>
+<rect x="41.414" y="7.281" width="2.772" height="1.498" fill="rgb(255,255,255)"/>
+<rect x="41.414" y="34.801" width="2.772" height="1.498" fill="rgb(255,255,0)"/>
+<rect x="41.414" y="36.881" width="2.772" height="1.498" fill="rgb(0,255,0)"/>
+<rect x="41.414" y="38.961" width="2.772" height="1.498" fill="rgb(0,0,255)"/>
+<rect x="41.414" y="41.041" width="2.772" height="1.498" fill="rgb(255,255,0)"/>
+<rect x="41.414" y="43.121" width="2.772" height="1.498" fill="rgb(0,255,255)"/>
+<rect x="41.414" y="45.201" width="2.772" height="1.498" fill="rgb(255,0,0)"/>
+</g>
+<circle cx="42.800" cy="26.990" r="3.520" fill="#111" stroke="#111" stroke-width="0.25"/>
+<circle cx="42.800" cy="26.990" r="2.420" fill="#fff" stroke="#111" stroke-width="0.25"/>
+<circle cx="42.800" cy="26.990" r="1.210" fill="#111" stroke="#111" stroke-width="0.25"/>
+<polygon points="42.800,2.218 40.860,5.544 44.740,5.544" fill="#E23B4E"/>
+<text x="42.800" y="1.918" font-family="monospace" font-size="2.46" text-anchor="middle" fill="#E23B4E">N</text>
+<text x="42.800" y="52.990" font-family="monospace" font-size="2.4" text-anchor="middle" fill="#111">RULERCROSS  id 0x002A  L=22.0mm  span=44.0mm  CRC-OK</text>
+</svg>

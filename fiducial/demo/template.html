@@ -1,0 +1,749 @@
+<title>Fiducial Optical Bench — decode a number from pixels</title>
+<style>
+  :root{
+    --bg:#0B0F12; --panel:#141B21; --panel-2:#0F151A; --edge:#243139;
+    --ink:#C9D3D9; --ink-strong:#EAF1F4; --mut:#7A8791; --faint:#4A5860;
+    --accent:#37E0CE; --accent-dim:#1c6f68;
+    --cyan:#22D3EE; --magenta:#EC4899; --yellow:#F5C518; --red:#E23B4E;
+    --good:#43D17F; --bad:#F0603A;
+    --shadow:0 1px 0 rgba(255,255,255,.03), 0 12px 30px -18px #000;
+    --r:10px;
+    --mono:ui-monospace,"SF Mono","JetBrains Mono","Cascadia Code",Menlo,Consolas,monospace;
+    --sans:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  }
+  @media (prefers-color-scheme: light){
+    :root{
+      --bg:#F5F3EC; --panel:#FFFFFF; --panel-2:#F0EEE6; --edge:#DAD6C8;
+      --ink:#2A3238; --ink-strong:#121820; --mut:#6C7680; --faint:#A9B0B4;
+      --accent:#0E8F82; --accent-dim:#8fd8d0;
+      --cyan:#0891B2; --magenta:#BE1E7A; --yellow:#A9820C; --red:#C42134;
+      --shadow:0 1px 0 rgba(255,255,255,.6), 0 14px 34px -22px rgba(20,30,40,.5);
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#0B0F12; --panel:#141B21; --panel-2:#0F151A; --edge:#243139;
+    --ink:#C9D3D9; --ink-strong:#EAF1F4; --mut:#7A8791; --faint:#4A5860;
+    --accent:#37E0CE; --accent-dim:#1c6f68; --cyan:#22D3EE; --magenta:#EC4899;
+    --yellow:#F5C518; --red:#E23B4E; --good:#43D17F; --bad:#F0603A;
+    --shadow:0 1px 0 rgba(255,255,255,.03), 0 12px 30px -18px #000;
+  }
+  :root[data-theme="light"]{
+    --bg:#F5F3EC; --panel:#FFFFFF; --panel-2:#F0EEE6; --edge:#DAD6C8;
+    --ink:#2A3238; --ink-strong:#121820; --mut:#6C7680; --faint:#A9B0B4;
+    --accent:#0E8F82; --accent-dim:#8fd8d0; --cyan:#0891B2; --magenta:#BE1E7A;
+    --yellow:#A9820C; --red:#C42134; --good:#1a9d5c; --bad:#C7452020;
+  }
+  *{box-sizing:border-box}
+  body{background:var(--bg);color:var(--ink);font-family:var(--sans);line-height:1.55;
+       -webkit-font-smoothing:antialiased;margin:0}
+  .wrap{max-width:1080px;margin:0 auto;padding:clamp(18px,4vw,40px)}
+  a{color:var(--accent)}
+  h1,h2,h3{color:var(--ink-strong);text-wrap:balance;margin:0}
+  .eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.22em;text-transform:uppercase;
+           color:var(--accent);margin:0 0 10px}
+  .mono{font-family:var(--mono)}
+  .tnum{font-variant-numeric:tabular-nums}
+
+  /* ---- header ---- */
+  header.hero{border-bottom:1px solid var(--edge);padding-bottom:22px;margin-bottom:26px}
+  .hero h1{font-size:clamp(26px,4.4vw,42px);letter-spacing:-.02em;font-weight:680}
+  .hero .lede{color:var(--mut);max-width:64ch;margin-top:12px;font-size:15px}
+  .hero .credit{font-family:var(--mono);font-size:12px;color:var(--faint);margin-top:14px}
+  .hero .credit b{color:var(--mut);font-weight:600}
+  .scanline-strip{height:6px;border-radius:3px;margin-top:18px;
+    background:linear-gradient(90deg,var(--cyan),var(--magenta) 45%,var(--yellow) 70%,var(--accent));
+    opacity:.85}
+
+  /* ---- tabs ---- */
+  .tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:22px}
+  .tab{font-family:var(--mono);font-size:13px;letter-spacing:.02em;color:var(--mut);
+       background:var(--panel-2);border:1px solid var(--edge);border-radius:8px;
+       padding:9px 15px;cursor:pointer;transition:.15s}
+  .tab:hover{color:var(--ink);border-color:var(--accent-dim)}
+  .tab[aria-selected="true"]{color:var(--bg);background:var(--accent);border-color:var(--accent);font-weight:600}
+  :root[data-theme="light"] .tab[aria-selected="true"],
+  @media (prefers-color-scheme:light){.tab[aria-selected="true"]{color:#fff}}
+
+  .panel{background:var(--panel);border:1px solid var(--edge);border-radius:var(--r);
+         box-shadow:var(--shadow);padding:clamp(16px,3vw,26px)}
+  .module{display:none}
+  .module.active{display:block;animation:fade .3s ease}
+  @keyframes fade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+  @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+
+  .module h2{font-size:20px;letter-spacing:-.01em}
+  .module .sub{color:var(--mut);font-size:14px;margin:8px 0 20px;max-width:70ch}
+
+  /* ---- input row ---- */
+  .controls{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:20px}
+  .valpick{display:flex;gap:6px}
+  .valpick button, .btn{font-family:var(--mono);font-size:14px;cursor:pointer;
+    border:1px solid var(--edge);background:var(--panel-2);color:var(--ink);
+    border-radius:8px;padding:8px 13px;transition:.14s}
+  .valpick button:hover,.btn:hover{border-color:var(--accent);color:var(--ink-strong)}
+  .valpick button[aria-pressed="true"]{background:var(--accent);color:var(--bg);border-color:var(--accent);font-weight:700}
+  .btn.primary{background:var(--accent);color:var(--bg);border-color:var(--accent);font-weight:700;letter-spacing:.02em}
+  .btn.primary:hover{filter:brightness(1.08)}
+  .lbl{font-family:var(--mono);font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--mut)}
+  label.chk{display:inline-flex;gap:7px;align-items:center;font-family:var(--mono);font-size:12px;color:var(--mut);cursor:pointer}
+  input[type=range]{accent-color:var(--accent)}
+  .thumbs{display:flex;gap:8px;flex-wrap:wrap}
+  .thumbs button{padding:0;border:2px solid var(--edge);border-radius:8px;background:none;cursor:pointer;overflow:hidden;line-height:0;transition:.14s}
+  .thumbs button img{width:58px;height:78px;object-fit:cover;display:block}
+  .thumbs button[aria-pressed="true"]{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-dim)}
+
+  /* ---- pipeline filmstrip ---- */
+  .film{display:grid;grid-template-columns:repeat(auto-fit,minmax(128px,1fr));gap:12px;margin:8px 0 20px}
+  .stage{background:var(--panel-2);border:1px solid var(--edge);border-radius:10px;padding:10px;display:flex;flex-direction:column;gap:8px}
+  .stage .cap{font-family:var(--mono);font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--mut);display:flex;justify-content:space-between;align-items:baseline}
+  .stage .cap b{color:var(--accent);font-weight:600}
+  .stage .art{border-radius:6px;overflow:hidden;background:
+    repeating-conic-gradient(var(--panel-2) 0% 25%, transparent 0% 50%) 50%/14px 14px;
+    display:flex;align-items:center;justify-content:center;min-height:120px}
+  .stage canvas,.stage img{max-width:100%;height:auto;display:block;image-rendering:pixelated}
+  .stage .note{font-family:var(--mono);font-size:11px;color:var(--mut);min-height:1.2em}
+
+  /* ---- readout ---- */
+  .readout{display:flex;align-items:center;gap:20px;flex-wrap:wrap;
+    background:linear-gradient(180deg,var(--panel-2),var(--panel));
+    border:1px solid var(--edge);border-radius:12px;padding:16px 20px;margin-top:8px}
+  .readout .big{font-family:var(--mono);font-weight:800;font-size:clamp(44px,9vw,72px);line-height:.9;color:var(--accent);min-width:1.2ch;text-align:center}
+  .readout .meta{display:flex;flex-direction:column;gap:3px}
+  .readout .meta .k{font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--mut)}
+  .readout .meta .v{font-family:var(--mono);font-size:13px;color:var(--ink)}
+  .pill{font-family:var(--mono);font-size:11px;padding:3px 9px;border-radius:99px;border:1px solid;letter-spacing:.06em}
+  .pill.ok{color:var(--good);border-color:var(--good)}
+  .pill.no{color:var(--bad);border-color:var(--bad)}
+
+  /* ---- match bars (photo) ---- */
+  .bars{display:flex;flex-direction:column;gap:6px;font-family:var(--mono);font-size:12px}
+  .bars .row{display:grid;grid-template-columns:20px 1fr 48px;gap:10px;align-items:center}
+  .bars .track{height:14px;background:var(--panel-2);border:1px solid var(--edge);border-radius:4px;overflow:hidden}
+  .bars .fill{height:100%;background:var(--faint);transition:width .5s ease}
+  .bars .row.win .fill{background:var(--accent)}
+  .bars .row.win{color:var(--accent-strong,var(--accent))}
+
+  /* ---- bit chips ---- */
+  .bitrow{display:flex;gap:6px;flex-wrap:wrap;align-items:center;font-family:var(--mono);margin:4px 0}
+  .bit{width:30px;height:30px;border-radius:6px;border:1px solid var(--edge);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;cursor:pointer;user-select:none}
+  .bit.on{background:var(--ink-strong);color:var(--bg)}
+  .bit.off{background:var(--panel-2);color:var(--mut)}
+  .bit.role{border-color:var(--accent-dim)}
+  .bit.parity.on{background:var(--magenta);color:#fff;border-color:var(--magenta)}
+  .bit.parity.off{color:var(--magenta);border-color:var(--magenta)}
+  .tag-cmy .bit.c{border-color:var(--cyan)} .tag-cmy .bit.m{border-color:var(--magenta)} .tag-cmy .bit.y{border-color:var(--yellow)}
+
+  .cols{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+  @media (max-width:720px){.cols{grid-template-columns:1fr}}
+  .explain{font-size:13.5px;color:var(--mut)}
+  .explain h3{font-size:14px;color:var(--ink-strong);margin:14px 0 6px;letter-spacing:.01em}
+  .explain code{font-family:var(--mono);background:var(--panel-2);padding:1px 5px;border-radius:4px;color:var(--ink);font-size:12px}
+  .explain b{color:var(--ink)}
+  .swatch{display:inline-block;width:11px;height:11px;border-radius:3px;vertical-align:middle;margin-right:2px;border:1px solid #0004}
+
+  footer{margin-top:34px;padding-top:18px;border-top:1px solid var(--edge);color:var(--faint);font-family:var(--mono);font-size:12px;display:flex;justify-content:space-between;flex-wrap:wrap;gap:10px}
+  .toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(20px);opacity:0;
+    background:var(--accent);color:var(--bg);font-family:var(--mono);font-weight:700;
+    padding:12px 22px;border-radius:10px;box-shadow:0 10px 30px -8px #000a;transition:.25s;pointer-events:none;z-index:50}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+  .theme-btn{position:fixed;top:14px;right:14px;z-index:40;font-family:var(--mono);font-size:12px;
+    background:var(--panel);border:1px solid var(--edge);color:var(--mut);border-radius:8px;padding:6px 10px;cursor:pointer}
+</style>
+
+<button class="theme-btn" id="themeBtn" title="Toggle theme">◐ theme</button>
+<div class="wrap">
+  <header class="hero">
+    <p class="eyebrow">Fiducial Optical Bench · visible-light decode</p>
+    <h1>Turn a number into pixels — then read it back.</h1>
+    <p class="lede">A number leaves the paper and becomes light: a handwritten digit, a barcode, an
+      AprilTag-style grid, or a subtractive-ink <b>ColorCode</b>. Each panel below encodes a value,
+      then decodes it straight from pixels in your browser and fires
+      <code>alert(value)</code> — the same pipeline a camera runs, minus the camera.</p>
+    <p class="credit">Lineage — <b>Johnny Chung Lee</b>: visible-light &amp; light-sensor fiducials,
+      structured-light tracking (UIST&nbsp;2004/05; Wiimote projects). This bench extends that idea to a
+      plain 2D camera.</p>
+    <div class="scanline-strip"></div>
+  </header>
+
+  <nav class="tabs" role="tablist" id="tabs">
+    <button class="tab" role="tab" data-mod="photo"  aria-selected="true">01 · Handwritten photo</button>
+    <button class="tab" role="tab" data-mod="barcode" aria-selected="false">02 · Barcode</button>
+    <button class="tab" role="tab" data-mod="tag"     aria-selected="false">03 · AprilTag-style</button>
+    <button class="tab" role="tab" data-mod="color"   aria-selected="false">04 · ColorCode</button>
+  </nav>
+
+  <!-- ================= PHOTO ================= -->
+  <section class="panel module active" id="mod-photo">
+    <h2>Handwritten digit → number</h2>
+    <p class="sub">Five real photos of red marker digits on paper. The decoder isolates the red ink,
+      finds the stroke, normalises it to a 32×32 shape, and matches it against an enrolled template
+      dictionary — exactly how a fiducial family is matched to its codebook.</p>
+    <div class="controls">
+      <span class="lbl">Sample</span>
+      <div class="thumbs" id="photoThumbs"></div>
+      <label class="chk"><input type="checkbox" id="augChk"> camera sim (rotate · scale · noise)</label>
+      <button class="btn primary" id="photoDecode">Decode ▶</button>
+    </div>
+    <div class="film" id="photoFilm"></div>
+    <div class="cols">
+      <div>
+        <p class="lbl" style="margin-bottom:8px">Template match — shape IoU</p>
+        <div class="bars" id="photoBars"></div>
+      </div>
+      <div class="readout">
+        <div class="big" id="photoBig">·</div>
+        <div class="meta">
+          <span class="k">decoded value</span>
+          <span class="v" id="photoV">select a sample</span>
+          <span class="k" style="margin-top:6px">confidence</span>
+          <span class="v" id="photoConf">—</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= BARCODE ================= -->
+  <section class="panel module" id="mod-barcode">
+    <h2>Barcode — bits become bars</h2>
+    <p class="sub">A value is written as binary, wrapped in start/stop guard bars and an even-parity bit,
+      then drawn as black &amp; white modules. The decoder sweeps a scan line, measures run widths, and
+      reads the bits back.</p>
+    <div class="controls">
+      <span class="lbl">Value 0–31</span>
+      <div class="valpick" id="bcPick"></div>
+      <input type="range" id="bcRange" min="0" max="31" value="5">
+      <span class="mono tnum" id="bcRangeV">5</span>
+      <button class="btn primary" id="bcDecode">Decode ▶</button>
+    </div>
+    <div class="stage" style="margin-bottom:16px">
+      <div class="cap"><span>Encoded symbol</span><b id="bcModsN"></b></div>
+      <div class="art" style="min-height:120px;position:relative"><canvas id="bcCanvas"></canvas>
+        <div id="bcScan" style="position:absolute;top:0;bottom:0;width:2px;background:var(--red);opacity:0;box-shadow:0 0 8px var(--red)"></div>
+      </div>
+    </div>
+    <div class="cols">
+      <div class="explain">
+        <div class="bitrow" id="bcBits"></div>
+        <div class="bitrow"><span class="lbl">structure</span></div>
+        <p><span style="color:var(--accent)">▮</span> start/stop guard <code>101</code> ·
+           <span class="mono">5 data bits</span> (MSB→LSB) ·
+           <span style="color:var(--magenta)">▮</span> even parity.
+           Click a data bit to flip it and watch the bars change.</p>
+      </div>
+      <div class="readout">
+        <div class="big" id="bcBig">·</div>
+        <div class="meta">
+          <span class="k">decoded value</span><span class="v" id="bcV">press decode</span>
+          <span class="k" style="margin-top:6px">parity check</span><span class="v" id="bcParity">—</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= APRILTAG ================= -->
+  <section class="panel module" id="mod-tag">
+    <h2>AprilTag-style grid — a 2D codebook</h2>
+    <p class="sub">A solid black border makes the tag findable and gives four candidate orientations. One
+      inner corner is white — the orientation key — so the decoder can un-rotate the grid before reading
+      the 8 data bits and a 4-bit checksum. Rotate it and it still decodes.</p>
+    <div class="controls">
+      <span class="lbl">Value 0–255</span>
+      <div class="valpick" id="tgPick"></div>
+      <input type="range" id="tgRange" min="0" max="255" value="5">
+      <span class="mono tnum" id="tgRangeV">5</span>
+      <button class="btn" id="tgRotate">Rotate 90°</button>
+      <button class="btn primary" id="tgDecode">Decode ▶</button>
+    </div>
+    <div class="film">
+      <div class="stage"><div class="cap"><span>Tag</span><b id="tgRot">0°</b></div>
+        <div class="art"><canvas id="tgCanvas"></canvas></div>
+        <div class="note">border = finder · white corner = up</div></div>
+      <div class="stage"><div class="cap"><span>Sampling grid</span><b>6×6</b></div>
+        <div class="art"><canvas id="tgSample"></canvas></div>
+        <div class="note" id="tgOriNote">orientation: —</div></div>
+      <div class="stage"><div class="cap"><span>Recovered bits</span><b>8+4</b></div>
+        <div class="art" style="min-height:120px;padding:8px"><div id="tgBits" style="font-family:var(--mono);font-size:12px"></div></div>
+        <div class="note" id="tgChk">checksum: —</div></div>
+    </div>
+    <div class="readout">
+      <div class="big" id="tgBig">·</div>
+      <div class="meta"><span class="k">decoded value</span><span class="v" id="tgV">press decode</span>
+        <span class="k" style="margin-top:6px">integrity</span><span class="v" id="tgInt">—</span></div>
+    </div>
+  </section>
+
+  <!-- ================= COLORCODE ================= -->
+  <section class="panel module" id="mod-color">
+    <h2>ColorCode — data in subtractive ink</h2>
+    <p class="sub">Our technique. Each cell carries three bits, one per ink: <span class="swatch" style="background:#22D3EE"></span>Cyan,
+      <span class="swatch" style="background:#EC4899"></span>Magenta, <span class="swatch" style="background:#F5C518"></span>Yellow.
+      Overlapping inks “burn” subtractively — the same maths reads the screen or a photo, because
+      <code>(C,M,Y) = (1−R, 1−G, 1−B)</code>.</p>
+    <div class="controls">
+      <span class="lbl">Value 0–63</span>
+      <div class="valpick" id="ccPick"></div>
+      <input type="range" id="ccRange" min="0" max="63" value="5">
+      <span class="mono tnum" id="ccRangeV">5</span>
+      <button class="btn primary" id="ccDecode">Decode ▶</button>
+    </div>
+    <div class="film">
+      <div class="stage"><div class="cap"><span>Encoded cells</span><b id="ccCells"></b></div>
+        <div class="art"><canvas id="ccCanvas"></canvas></div>
+        <div class="note">2 data cells + 1 check cell</div></div>
+      <div class="stage"><div class="cap"><span>Channel split</span><b>C · M · Y</b></div>
+        <div class="art" style="flex-direction:column;gap:4px;padding:8px"><canvas id="ccChan"></canvas></div>
+        <div class="note">dark = ink present</div></div>
+      <div class="stage tag-cmy"><div class="cap"><span>Recovered bits</span><b>CMY</b></div>
+        <div class="art" style="min-height:120px;padding:8px;align-items:flex-start"><div id="ccBits"></div></div>
+        <div class="note" id="ccChk">check: —</div></div>
+    </div>
+    <div class="cols">
+      <div class="explain">
+        <h3>The burn table</h3>
+        <p id="ccLegend" class="mono" style="font-size:12px;line-height:1.9"></p>
+      </div>
+      <div class="readout">
+        <div class="big" id="ccBig">·</div>
+        <div class="meta"><span class="k">decoded value</span><span class="v" id="ccV">press decode</span>
+          <span class="k" style="margin-top:6px">check cell</span><span class="v" id="ccInt">—</span></div>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <span>Fiducial Optical Bench · all decoding runs on your pixels, in-browser</span>
+    <span>concept lineage: Johnny Chung Lee</span>
+  </footer>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+const THUMBS = /*__THUMBS__*/{};
+const LABELS = ["1","2","3","4","5"];
+/* ------------------------------------------------------------------ util */
+const $ = s => document.querySelector(s);
+const el = (t,p={})=>Object.assign(document.createElement(t),p);
+function toast(msg){const t=$("#toast");t.textContent=msg;t.classList.add("show");clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove("show"),2200);}
+function announce(value, where){
+  console.log("%c decode ▶ "+where+" = "+value, "background:#37E0CE;color:#0B0F12;font-weight:700;padding:2px 6px;border-radius:4px");
+  toast("Decoded value: "+value);
+  if(!window.__silent){ try{ alert("Decoded value: "+value); }catch(e){} }
+}
+function newCanvas(w,h){const c=el("canvas");c.width=w;c.height=h;return c;}
+
+/* ============================================================ 01 PHOTO */
+const Photo = (()=>{
+  const WORK_H = 170;                       // working canvas height
+  const NORM = 32;                          // normalized grid
+  let templates = [];                       // {label, grid}
+  let selected = 0, imgs = [];
+
+  function toWork(img, augment){
+    const s = WORK_H/img.naturalHeight, iw=Math.round(img.naturalWidth*s), ih=WORK_H;
+    // pad the canvas when augmenting so rotation can't clip the digit at the edge
+    const pad = augment ? 0.35 : 0;
+    const w=Math.round(iw*(1+pad)), h=Math.round(ih*(1+pad));
+    const c=newCanvas(w,h), x=c.getContext("2d");
+    x.fillStyle="#ffffff"; x.fillRect(0,0,w,h);           // paper-white padding
+    if(augment){
+      const ang=(Math.random()*16-8)*Math.PI/180, sc=0.9+Math.random()*0.2;
+      x.translate(w/2,h/2); x.rotate(ang); x.scale(sc,sc); x.translate(-w/2,-h/2);
+    }
+    x.drawImage(img,(w-iw)/2,(h-ih)/2,iw,ih);
+    if(augment){const d=x.getImageData(0,0,w,h);
+      for(let i=0;i<d.data.length;i+=4){const n=(Math.random()*30-15);d.data[i]+=n;d.data[i+1]+=n;d.data[i+2]+=n;}x.putImageData(d,0,0);}
+    return {c,d:x.getImageData(0,0,w,h),w,h};
+  }
+  // red-ink mask: red-dominant & bright enough
+  function redMask(d,w,h){
+    const m=new Uint8Array(w*h);
+    for(let i=0,p=0;i<w*h;i++,p+=4){
+      const r=d.data[p],g=d.data[p+1],b=d.data[p+2];
+      if(r>75 && r-g>32 && r-b>28 && g<190) m[i]=1;
+    }
+    return m;
+  }
+  function morph(m,w,h,k,grow){   // grow=1 dilate, grow=0 erode
+    let cur=m;
+    for(let it=0;it<k;it++){
+      const o=new Uint8Array(w*h);
+      for(let y=0;y<h;y++)for(let x=0;x<w;x++){
+        const self=cur[y*w+x];
+        const nb=(x&&cur[y*w+x-1])||(x<w-1&&cur[y*w+x+1])||(y&&cur[(y-1)*w+x])||(y<h-1&&cur[(y+1)*w+x]);
+        o[y*w+x]=grow ? (self||nb?1:0) : (self&&!( (x&&!cur[y*w+x-1])||(x<w-1&&!cur[y*w+x+1])||(y&&!cur[(y-1)*w+x])||(y<h-1&&!cur[(y+1)*w+x]) )?1:0);
+      }
+      cur=o;
+    }
+    return cur;
+  }
+  const dilate=(m,w,h,k)=>morph(m,w,h,k,1);
+  // largest connected component of `dil`; returns bbox
+  function largestBBox(dil,w,h){
+    const seen=new Uint8Array(w*h); let best=null;
+    const st=new Int32Array(w*h);
+    for(let i=0;i<w*h;i++){
+      if(!dil[i]||seen[i])continue;
+      let sp=0; st[sp++]=i; seen[i]=1;
+      let area=0,x0=w,y0=h,x1=0,y1=0;
+      while(sp){const c=st[--sp];const cx=c%w,cy=(c/w)|0;area++;
+        if(cx<x0)x0=cx;if(cx>x1)x1=cx;if(cy<y0)y0=cy;if(cy>y1)y1=cy;
+        const nb=[c-1,c+1,c-w,c+w,c-w-1,c-w+1,c+w-1,c+w+1];
+        for(const n of nb){if(n<0||n>=w*h)continue;const nx=n%w;if(Math.abs(nx-cx)>1)continue;if(dil[n]&&!seen[n]){seen[n]=1;st[sp++]=n;}}
+      }
+      // prefer large area, penalize touching far edges (partial neighbours)
+      const score=area;
+      if(!best||score>best.score)best={score,area,x0,y0,x1,y1};
+    }
+    return best;
+  }
+  function normalize(mask,w,h,bb){
+    const g=new Uint8Array(NORM*NORM);
+    const bw=bb.x1-bb.x0+1, bh=bb.y1-bb.y0+1, scale=(NORM-4)/Math.max(bw,bh);
+    const sw=Math.max(1,Math.round(bw*scale)), sh=Math.max(1,Math.round(bh*scale));
+    const ox=((NORM-sw)/2)|0, oy=((NORM-sh)/2)|0;
+    for(let ty=0;ty<sh;ty++)for(let tx=0;tx<sw;tx++){
+      const sx=bb.x0+Math.min(bw-1,(tx/scale)|0), sy=bb.y0+Math.min(bh-1,(ty/scale)|0);
+      if(mask[sy*w+sx]) g[(oy+ty)*NORM+(tx+ox)]=1;
+    }
+    return g;
+  }
+  function iou(a,b){let i=0,u=0;for(let k=0;k<a.length;k++){const x=a[k],y=b[k];if(x&y)i++;if(x|y)u++;}return u?i/u:0;}
+  function rotGrid(g,deg){                       // rotate 32² binary grid about centre
+    if(!deg)return g;
+    const a=deg*Math.PI/180,cs=Math.cos(a),sn=Math.sin(a),o=new Uint8Array(NORM*NORM),cc=(NORM-1)/2;
+    for(let y=0;y<NORM;y++)for(let x=0;x<NORM;x++){
+      const dx=x-cc,dy=y-cc,sx=Math.round(cc+dx*cs+dy*sn),sy=Math.round(cc-dx*sn+dy*cs);
+      if(sx>=0&&sx<NORM&&sy>=0&&sy<NORM&&g[sy*NORM+sx])o[y*NORM+x]=1;
+    }
+    return o;
+  }
+  const HYP=[-12,-8,-4,0,4,8,12];               // rotation hypotheses for matching
+  function matchScore(q,t){let m=0;for(const a of HYP){const s=iou(rotGrid(q,a),t);if(s>m)m=s;}return m;}
+  function gridCanvas(g,scale=4,fg="#E23B4E"){
+    const c=newCanvas(NORM*scale,NORM*scale),x=c.getContext("2d");
+    x.fillStyle=getComputedStyle(document.body).getPropertyValue("--panel-2");x.fillRect(0,0,c.width,c.height);
+    x.fillStyle=fg;for(let y=0;y<NORM;y++)for(let xx=0;xx<NORM;xx++)if(g[y*NORM+xx])x.fillRect(xx*scale,y*scale,scale,scale);
+    return c;
+  }
+  function maskCanvas(mask,w,h,bb){
+    const c=newCanvas(w,h),x=c.getContext("2d"),im=x.createImageData(w,h);
+    for(let i=0;i<w*h;i++){const v=mask[i]?[226,59,78]:[15,21,26];im.data[i*4]=v[0];im.data[i*4+1]=v[1];im.data[i*4+2]=v[2];im.data[i*4+3]=255;}
+    x.putImageData(im,0,0);
+    if(bb){x.strokeStyle="#37E0CE";x.lineWidth=2;x.strokeRect(bb.x0,bb.y0,bb.x1-bb.x0,bb.y1-bb.y0);}
+    return c;
+  }
+  function process(img,augment){
+    const {c,d,w,h}=toWork(img,augment);
+    const m=redMask(d,w,h);
+    const dil=dilate(m,w,h,2);
+    const bb=largestBBox(dil,w,h)||{x0:0,y0:0,x1:w-1,y1:h-1};
+    const grid=normalize(m,w,h,bb);
+    return {src:c,mask:m,w,h,bb,grid};
+  }
+  function enroll(){templates=imgs.map((im,i)=>({label:LABELS[i],grid:process(im,false).grid}));}
+
+  function render(res, scores, winner){
+    const film=$("#photoFilm");film.innerHTML="";
+    const stages=[
+      ["source","01",res.src],
+      ["red-ink mask","02",maskCanvas(res.mask,res.w,res.h,null)],
+      ["largest stroke","03",maskCanvas(res.mask,res.w,res.h,res.bb)],
+      ["normalized 32²","04",gridCanvas(res.grid)],
+    ];
+    for(const [cap,n,cv] of stages){
+      const s=el("div",{className:"stage"});
+      s.innerHTML=`<div class="cap"><span>${cap}</span><b>${n}</b></div>`;
+      const art=el("div",{className:"art"});art.appendChild(cv);s.appendChild(art);
+      film.appendChild(s);
+    }
+    const bars=$("#photoBars");bars.innerHTML="";
+    scores.forEach((sc,i)=>{
+      const row=el("div",{className:"row"+(i===winner?" win":"")});
+      row.innerHTML=`<span>${LABELS[i]}</span><div class="track"><div class="fill" style="width:${(sc*100).toFixed(0)}%"></div></div><span class="tnum">${sc.toFixed(2)}</span>`;
+      bars.appendChild(row);
+    });
+  }
+  function decode(fire){
+    const res=process(imgs[selected], $("#augChk").checked);
+    const scores=templates.map(t=>matchScore(res.grid,t.grid));
+    let winner=0;for(let i=1;i<scores.length;i++)if(scores[i]>scores[winner])winner=i;
+    const val=templates[winner].label;
+    const sorted=[...scores].sort((a,b)=>b-a);const margin=sorted[0]-(sorted[1]||0);
+    render(res,scores,winner);
+    $("#photoBig").textContent=val;
+    $("#photoV").textContent=`“${val}”  · matched template`;
+    $("#photoConf").textContent=`${(scores[winner]*100).toFixed(0)}% IoU · margin ${(margin*100).toFixed(0)}pt`;
+    if(fire)announce(val,"photo");
+    return val;
+  }
+  function selectIdx(i){selected=i;[...$("#photoThumbs").children].forEach((b,j)=>b.setAttribute("aria-pressed",j===i));decode(false);}
+  function select(i){selectIdx(i);}
+  function init(){
+    const box=$("#photoThumbs");let loaded=0;
+    LABELS.forEach((lb,i)=>{
+      const im=new Image();im.src=THUMBS[lb]; imgs[i]=im;
+      const b=el("button");b.setAttribute("aria-pressed",i===0);b.title="sample "+lb;
+      const t=new Image();t.src=THUMBS[lb];b.appendChild(t);b.onclick=()=>selectIdx(i);
+      box.appendChild(b);
+      im.onload=()=>{if(++loaded===LABELS.length){enroll();selectIdx(0);}};
+    });
+    $("#photoDecode").onclick=()=>decode(true);
+  }
+  return {init,decode,select,setAug:v=>{$("#augChk").checked=v;}};
+})();
+
+/* ========================================================== 02 BARCODE */
+const Barcode = (()=>{
+  const M=9;                        // module px width
+  let value=5;
+  const GUARD=[1,0,1];
+  function parity(bits){return bits.reduce((a,b)=>a^b,0);} // even parity bit
+  function symbol(v){
+    const data=[4,3,2,1,0].map(i=>(v>>i)&1);
+    return {mods:[0,...GUARD,...data,parity(data),...GUARD,0], data};
+  }
+  function draw(){
+    const {mods}=symbol(value);
+    const c=$("#bcCanvas"), H=110; c.width=mods.length*M; c.height=H;
+    const x=c.getContext("2d");
+    x.fillStyle="#fff";x.fillRect(0,0,c.width,c.height);
+    x.fillStyle="#111";
+    mods.forEach((b,i)=>{if(b)x.fillRect(i*M,0,M,H);});
+    $("#bcModsN").textContent=mods.length+" modules";
+    renderBits();
+  }
+  function renderBits(){
+    const {data}=symbol(value);const p=parity(data);
+    const box=$("#bcBits");box.innerHTML="";
+    box.appendChild(el("span",{className:"lbl",textContent:"bits"}));
+    data.forEach((b,i)=>{
+      const d=el("div",{className:"bit "+(b?"on":"off"),textContent:b});
+      d.title="bit "+(4-i)+" (value "+(1<<(4-i))+")";
+      d.onclick=()=>{value^=(1<<(4-i));sync();};
+      box.appendChild(d);
+    });
+    const pe=el("div",{className:"bit parity "+(p?"on":"off"),textContent:p});pe.title="even parity";box.appendChild(pe);
+    const eq=el("span",{className:"mono",textContent:"= "+value});eq.style.marginLeft="8px";box.appendChild(eq);
+  }
+  // decode straight from the rendered pixels
+  function decode(fire){
+    const c=$("#bcCanvas");const x=c.getContext("2d");
+    const row=x.getImageData(0,(c.height/2)|0,c.width,1).data;
+    const isBlack=i=>row[i*4]<128;
+    // find first black (start of guard), estimate module width from that run
+    let start=0;while(start<c.width&&!isBlack(start))start++;
+    let run=0;while(start+run<c.width&&isBlack(start+run))run++;
+    const mw=run||M;
+    // total modules = full symbol; sample each module centre
+    const {mods}=symbol(value);
+    const read=[];
+    for(let i=0;i<mods.length-1;i++){    // skip leading quiet at index0? sample from start
+      const cx=Math.round(start - mw*0.5 + mw*(i+0.5)); // start aligns to guard[0]
+    }
+    // simpler & robust: re-scan whole row into runs, quantize to module counts
+    const bits=[];let i=0;
+    // skip leading white quiet
+    while(i<c.width&&!isBlack(i))i++;
+    while(i<c.width){
+      let j=i;const col=isBlack(i);while(j<c.width&&isBlack(j)===col)j++;
+      const n=Math.max(1,Math.round((j-i)/mw));
+      for(let k=0;k<n;k++)bits.push(col?1:0);
+      i=j;
+    }
+    // bits should be GUARD + data(5) + parity + GUARD
+    const G=GUARD.length;
+    const data=bits.slice(G,G+5);
+    const par=bits[G+5];
+    const val=data.reduce((a,b)=>a*2+b,0);
+    const ok=(parity(data)===par) && bits.length>=2*G+6;
+    $("#bcBig").textContent=val;
+    $("#bcV").textContent=data.join("")+" → "+val;
+    $("#bcParity").innerHTML=ok?'<span class="pill ok">PASS</span>':'<span class="pill no">FAIL</span>';
+    scanAnim();
+    if(fire)announce(val,"barcode");
+    return val;
+  }
+  function scanAnim(){const s=$("#bcScan");s.style.transition="none";s.style.left="0%";s.style.opacity="1";
+    requestAnimationFrame(()=>{s.style.transition="left .7s linear, opacity .3s";s.style.left="100%";setTimeout(()=>s.style.opacity="0",700);});}
+  function sync(){$("#bcRange").value=value;$("#bcRangeV").textContent=value;
+    [...$("#bcPick").children].forEach(b=>b.setAttribute("aria-pressed",+b.dataset.v===value));draw();}
+  function init(){
+    const pick=$("#bcPick");[1,2,3,4,5].forEach(v=>{const b=el("button",{textContent:v});b.dataset.v=v;b.onclick=()=>{value=v;sync();};pick.appendChild(b);});
+    $("#bcRange").oninput=e=>{value=+e.target.value;sync();};
+    $("#bcDecode").onclick=()=>decode(true);
+    sync();
+  }
+  return {init,decode,setValue:v=>{value=v;sync();}};
+})();
+
+/* ======================================================== 03 APRILTAG */
+const Tag=(()=>{
+  const N=6, CELL=26;               // 6x6 grid
+  let value=5, rot=0;
+  function chk(v){return ((v>>4)^(v&0xF)^0x5)&0xF;}
+  // build 6x6 matrix; 1=black. border all black. inner 4x4 at r,c in 1..4.
+  function matrix(v){
+    const m=Array.from({length:N},()=>Array(N).fill(1)); // border black
+    for(let r=1;r<=4;r++)for(let c=1;c<=4;c++)m[r][c]=1;
+    // orientation: inner corners -> only top-left white(0)
+    m[1][1]=0; m[1][4]=1; m[4][1]=1; m[4][4]=1;
+    // 12 data cells = inner non-corner, raster order
+    const cells=[];for(let r=1;r<=4;r++)for(let c=1;c<=4;c++){if((r===1||r===4)&&(c===1||c===4))continue;cells.push([r,c]);}
+    const bits=[];for(let i=7;i>=0;i--)bits.push((v>>i)&1);const ck=chk(v);for(let i=3;i>=0;i--)bits.push((ck>>i)&1);
+    cells.forEach(([r,c],i)=>{m[r][c]=bits[i]?1:0;}); // 1=black ink
+    return m;
+  }
+  function rotAny(m,k){let r=m;for(let t=0;t<((k%4)+4)%4;t++){const o=Array.from({length:N},()=>Array(N).fill(0));for(let y=0;y<N;y++)for(let x=0;x<N;x++)o[x][N-1-y]=r[y][x];r=o;}return r;}
+  function drawMatrix(cv,m,sample){
+    cv.width=N*CELL;cv.height=N*CELL;const x=cv.getContext("2d");
+    for(let y=0;y<N;y++)for(let xx=0;xx<N;xx++){x.fillStyle=m[y][xx]?"#111":"#fff";x.fillRect(xx*CELL,y*CELL,CELL,CELL);}
+    if(sample){x.strokeStyle="#37E0CE";x.globalAlpha=.9;for(let y=0;y<N;y++)for(let xx=0;xx<N;xx++){x.beginPath();x.arc(xx*CELL+CELL/2,y*CELL+CELL/2,3,0,7);x.strokeStyle="#37E0CE";x.stroke();}x.globalAlpha=1;}
+  }
+  function draw(){drawMatrix($("#tgCanvas"),rotAny(matrix(value),rot),false);$("#tgRot").textContent=(rot*90)+"°";}
+  function sampleGrid(cv){const x=cv.getContext("2d");const m=Array.from({length:N},()=>Array(N).fill(0));
+    for(let y=0;y<N;y++)for(let xx=0;xx<N;xx++){const px=x.getImageData(xx*CELL+CELL/2,y*CELL+CELL/2,1,1).data;m[y][xx]=px[0]<128?1:0;}return m;}
+  function decode(fire){
+    drawMatrix($("#tgSample"),rotAny(matrix(value),rot),true);
+    let m=sampleGrid($("#tgSample"));
+    // border check
+    let border=true;for(let i=0;i<N;i++){if(!m[0][i]||!m[N-1][i]||!m[i][0]||!m[i][N-1])border=false;}
+    // find white inner corner -> rotate so it's top-left
+    const corners=[[1,1],[1,4],[4,4],[4,1]]; let k=corners.findIndex(([r,c])=>m[r][c]===0);
+    if(k<0)k=0; const mm=rotAny(m,(4-k)%4);
+    $("#tgOriNote").textContent="orientation: key at "+["TL","TR","BR","BL"][k]+" → rotated "+(((4-k)%4)*90)+"°";
+    const cells=[];for(let r=1;r<=4;r++)for(let c=1;c<=4;c++){if((r===1||r===4)&&(c===1||c===4))continue;cells.push([r,c]);}
+    const bits=cells.map(([r,c])=>mm[r][c]);
+    const val=bits.slice(0,8).reduce((a,b)=>a*2+b,0);
+    const ck=bits.slice(8,12).reduce((a,b)=>a*2+b,0);
+    const ok=border&&(ck===chk(val));
+    $("#tgBits").innerHTML='<span style="color:var(--accent)">data</span> '+bits.slice(0,8).join("")+
+      '<br><span style="color:var(--magenta)">chk&nbsp;</span> '+bits.slice(8,12).join("");
+    $("#tgChk").textContent="checksum: "+ck+" vs "+chk(val)+(ck===chk(val)?" ✓":" ✗");
+    $("#tgBig").textContent=val;$("#tgV").textContent=bits.slice(0,8).join("")+" → "+val;
+    $("#tgInt").innerHTML=ok?'<span class="pill ok">BORDER+CHK OK</span>':'<span class="pill no">FAIL</span>';
+    if(fire)announce(val,"apriltag");
+    return val;
+  }
+  function sync(){$("#tgRange").value=value;$("#tgRangeV").textContent=value;[...$("#tgPick").children].forEach(b=>b.setAttribute("aria-pressed",+b.dataset.v===value));draw();}
+  function init(){
+    [1,2,3,4,5].forEach(v=>{const b=el("button",{textContent:v});b.dataset.v=v;b.onclick=()=>{value=v;sync();};$("#tgPick").appendChild(b);});
+    $("#tgRange").oninput=e=>{value=+e.target.value;sync();};
+    $("#tgRotate").onclick=()=>{rot=(rot+1)%4;draw();};
+    $("#tgDecode").onclick=()=>decode(true);
+    sync();
+  }
+  return {init,decode,setValue:v=>{value=v;sync();},rotate:()=>{rot=(rot+1)%4;draw();}};
+})();
+
+/* ======================================================= 04 COLORCODE */
+const Color=(()=>{
+  const CELL=64; let value=5;
+  const NAMES={"000":"white","100":"cyan","010":"magenta","001":"yellow","110":"blue","101":"green","011":"red","111":"black"};
+  function cmyToRgb(c,m,y){return [255*(1-c),255*(1-m),255*(1-y)];}
+  function checkBits(v){const b=[];for(let i=2;i>=0;i--)b.push(((~v)>>i)&1);return b;} // 3-bit check = ~value low bits
+  function cells(v){
+    const bits=[];for(let i=5;i>=0;i--)bits.push((v>>i)&1);         // 6 data bits
+    const cA=bits.slice(0,3), cB=bits.slice(3,6), cC=checkBits(v);
+    return [cA,cB,cC];
+  }
+  function draw(){
+    const cs=cells(value);const cv=$("#ccCanvas");cv.width=CELL*3;cv.height=CELL;const x=cv.getContext("2d");
+    cs.forEach((b,i)=>{const[r,g,bl]=cmyToRgb(b[0],b[1],b[2]);x.fillStyle=`rgb(${r},${g},${bl})`;x.fillRect(i*CELL,0,CELL,CELL);
+      x.strokeStyle="#0006";x.strokeRect(i*CELL+.5,.5,CELL-1,CELL-1);});
+    $("#ccCells").textContent="3 cells";
+    // channel split view: three rows C,M,Y (dark=ink)
+    const ch=$("#ccChan");ch.width=CELL*3;ch.height=18*3+8;const cx=ch.getContext("2d");
+    cx.clearRect(0,0,ch.width,ch.height);
+    ["C","M","Y"].forEach((lab,ci)=>{
+      cs.forEach((b,i)=>{const on=b[ci];cx.fillStyle=on?"#111":"#e9e9e9";cx.fillRect(i*CELL,ci*22,CELL,18);cx.strokeStyle="#0004";cx.strokeRect(i*CELL+.5,ci*22+.5,CELL-1,17);});
+      cx.fillStyle=getComputedStyle(document.body).getPropertyValue("--mut");cx.font="11px monospace";cx.fillText(lab,ch.width-12,ci*22+13);
+    });
+    renderBits(cs);
+  }
+  function renderBits(cs){
+    const box=$("#ccBits");box.innerHTML="";
+    ["data A","data B","check"].forEach((lab,i)=>{
+      const row=el("div",{className:"bitrow"});
+      row.appendChild(el("span",{className:"lbl",textContent:lab,style:"width:52px"}));
+      ["c","m","y"].forEach((ch,j)=>{const b=cs[i][j];const d=el("div",{className:"bit "+ch+" "+(b?"on":"off"),textContent:ch.toUpperCase()});row.appendChild(d);});
+      const nm=el("span",{className:"mono",textContent:" "+NAMES[cs[i].join("")]});nm.style.color="var(--mut)";nm.style.marginLeft="6px";row.appendChild(nm);
+      box.appendChild(row);
+    });
+  }
+  function decode(fire){
+    const cv=$("#ccCanvas");const x=cv.getContext("2d");const read=[];
+    for(let i=0;i<3;i++){const px=x.getImageData(i*CELL+CELL/2,CELL/2,1,1).data;
+      read.push([px[0]<128?1:0,px[1]<128?1:0,px[2]<128?1:0]);}
+    const val=[...read[0],...read[1]].reduce((a,b)=>a*2+b,0);
+    const ok=read[2].join("")===checkBits(val).join("");
+    $("#ccBig").textContent=val;$("#ccV").textContent=read[0].join("")+" "+read[1].join("")+" → "+val;
+    $("#ccChk").textContent="check: "+read[2].join("")+" vs "+checkBits(val).join("")+(ok?" ✓":" ✗");
+    $("#ccInt").innerHTML=ok?'<span class="pill ok">CHECK OK</span>':'<span class="pill no">FAIL</span>';
+    if(fire)announce(val,"colorcode");
+    return val;
+  }
+  function legend(){
+    const rows=[["100","cyan"],["010","magenta"],["001","yellow"],["110","blue"],["101","green"],["011","red"],["111","black"]];
+    $("#ccLegend").innerHTML=rows.map(([b,n])=>{const c=cmyToRgb(+b[0],+b[1],+b[2]);
+      return `<span class="swatch" style="background:rgb(${c[0]},${c[1]},${c[2]})"></span> C${b[0]} M${b[1]} Y${b[2]} → ${n}`;}).join("<br>");
+  }
+  function sync(){$("#ccRange").value=value;$("#ccRangeV").textContent=value;[...$("#ccPick").children].forEach(b=>b.setAttribute("aria-pressed",+b.dataset.v===value));draw();}
+  function init(){
+    [1,2,3,4,5].forEach(v=>{const b=el("button",{textContent:v});b.dataset.v=v;b.onclick=()=>{value=v;sync();};$("#ccPick").appendChild(b);});
+    $("#ccRange").oninput=e=>{value=+e.target.value;sync();};
+    $("#ccDecode").onclick=()=>decode(true);
+    legend();sync();
+  }
+  return {init,decode,setValue:v=>{value=v;sync();}};
+})();
+
+/* ============================================================== shell */
+function initTabs(){
+  const tabs=[...document.querySelectorAll(".tab")];
+  tabs.forEach(t=>t.onclick=()=>{
+    tabs.forEach(o=>o.setAttribute("aria-selected",o===t));
+    document.querySelectorAll(".module").forEach(m=>m.classList.remove("active"));
+    $("#mod-"+t.dataset.mod).classList.add("active");
+  });
+}
+function initTheme(){
+  const b=$("#themeBtn");
+  b.onclick=()=>{const cur=document.documentElement.getAttribute("data-theme");
+    const next=cur==="dark"?"light":cur==="light"?"dark":(matchMedia("(prefers-color-scheme: dark)").matches?"light":"dark");
+    document.documentElement.setAttribute("data-theme",next);
+    // canvases bake theme tokens; re-render the visible module silently
+    window.__silent=true;
+    const id=(document.querySelector(".module.active")||{}).id;
+    try{ if(id==="mod-photo")Photo.decode(false); else if(id==="mod-barcode")Barcode.decode(false);
+         else if(id==="mod-tag")Tag.decode(false); else if(id==="mod-color")Color.decode(false); }catch(e){}
+    window.__silent=false;
+  };
+}
+window.addEventListener("DOMContentLoaded",()=>{
+  initTabs();initTheme();
+  Photo.init();Barcode.init();Tag.init();Color.init();
+});
+// self-test hook for headless verification
+window.__selfTest=(opts={})=>{
+  window.__silent=true;
+  const r={photo:[],photoAug:{ok:0,n:0},barcode:[],tag:[],color:[],fails:[]};
+  // photo — clean
+  for(let i=0;i<5;i++){Photo.setAug(false);Photo.select(i);const v=Photo.decode(false);r.photo.push(v);if(v!==LABELS[i])r.fails.push("photo "+i+" got "+v);}
+  // photo — camera sim (probabilistic); many trials
+  Photo.setAug(true);
+  for(let t=0;t<40;t++){const i=t%5;Photo.select(i);const v=Photo.decode(false);r.photoAug.n++;if(v===LABELS[i])r.photoAug.ok++;}
+  Photo.setAug(false);
+  // barcode — full range 0..31
+  for(let v=0;v<=31;v++){Barcode.setValue(v);const d=Barcode.decode(false);r.barcode.push(d);if(d!==v)r.fails.push("barcode "+v+" got "+d);}
+  // tag — sample values incl edges, plus rotation invariance
+  for(const v of [0,1,2,3,4,5,7,42,99,128,200,255]){Tag.setValue(v);let d=Tag.decode(false);if(d!==v)r.fails.push("tag "+v+" got "+d);
+    for(let k=0;k<3;k++){Tag.rotate();const dr=Tag.decode(false);if(dr!==v)r.fails.push("tag "+v+" rot got "+dr);}Tag.rotate();r.tag.push(d);}
+  // color — full range 0..63
+  for(let v=0;v<=63;v++){Color.setValue(v);const d=Color.decode(false);r.color.push(d);if(d!==v)r.fails.push("color "+v+" got "+d);}
+  // hard gate: deterministic decoders + clean photo must be perfect.
+  // camera-sim (random rotate/scale/noise) is a stress test -> informational.
+  r.pass=r.fails.length===0;
+  r.augRate=r.photoAug.ok/r.photoAug.n;
+  return r;
+};
+</script>
