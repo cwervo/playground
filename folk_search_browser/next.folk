@@ -1,0 +1,34 @@
+# folk_search_browser/next.folk
+#
+# Point this tag at the "query JSON browser" page (browser.folk) to advance
+# it to the next search result. It steps exactly once per pointing session:
+# point away (or cover the tag), then point again to step again.
+
+Wish $this is titled "next result >>"
+Wish $this is outlined green
+Wish $this points up with length 200px
+
+When $this points up with length 200px at /nothing/ {
+    Commit $this-aim {
+        Claim $this aim is idle
+    }
+}
+
+When $this points up with length 200px at /b/ &\
+     /b/ is a query JSON browser {
+    Wish $b is outlined green
+
+    # Flipping the aim from idle to engaged un-matches this inner When
+    # immediately, so the index change below can't re-trigger it: one step
+    # per pointing session.
+    When $this aim is idle &\
+         $b has result index /i/ & $b has result count /n/ {
+        set j [expr {($i + 1) % $n}]
+        Commit $this-aim {
+            Claim $this aim is engaged
+        }
+        Commit $b-search-result-index {
+            Claim $b has result index $j
+        }
+    }
+}

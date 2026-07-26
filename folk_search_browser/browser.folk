@@ -1,0 +1,107 @@
+# folk_search_browser/browser.folk
+#
+# A "browser" page for the results of the web search
+#   "Xteink X4 hardware ESP32 firmware GitHub"
+# parsed out of the search-results JSON (see results.json next to this file).
+#
+# It shows one result at a time:
+#   - the result's Title as the page title
+#   - a PNG preview of the linked website (previews/<slug>.png)
+#   - Wish $this is footnoted with the full URL, plus a PNG QR code by the
+#     footnote so you can scan it with a phone and see the source yourself
+#
+# Point next.folk / prev.folk at this page to step through the results.
+
+# The links array from the search JSON, parsed into Tcl dicts:
+set results [list \
+    [dict create \
+        slug vaulco-x4-firmware \
+        title {GitHub - Vaulco/x4-firmware: Firmware for the Xteink X4 e-paper display reader} \
+        url https://github.com/Vaulco/x4-firmware] \
+    [dict create \
+        slug yattsu-biscuit \
+        title {GitHub - yattsu/biscuit: Firmware for the ESP32-C3 SoC Xteink X4 e-paper display reader} \
+        url https://github.com/yattsu/biscuit] \
+    [dict create \
+        slug danmartinez78-biscuit \
+        title {GitHub - danmartinez78/biscuit: Firmware for the ESP32-C3 SoC Xteink X4 e-paper display reader} \
+        url https://github.com/danmartinez78/biscuit] \
+    [dict create \
+        slug ohmygaugh-biscuit-eink \
+        title {GitHub - ohmygaugh-crypto/biscuit-eink: Firmware for the ESP32-C3 SoC Xteink X4 e-paper display reader} \
+        url https://github.com/ohmygaugh-crypto/biscuit-eink] \
+    [dict create \
+        slug reukiodo-v \
+        title {GitHub - reukiodo/_V_: Firmware for the XTeink X4 ereader} \
+        url https://github.com/reukiodo/_V_] \
+    [dict create \
+        slug open-x4-sample-firmware \
+        title {GitHub - open-x4-epaper/sample-firmware: Sample code for the Xteink X4} \
+        url https://github.com/open-x4-epaper/sample-firmware] \
+    [dict create \
+        slug maddiedreese-xteink-terminal \
+        title {GitHub - maddiedreese/xteink-terminal: Custom firmware and a tmux bridge for using an XTeInk X4 as a small Wi-Fi e-ink terminal display.} \
+        url https://github.com/maddiedreese/xteink-terminal] \
+    [dict create \
+        slug crosspoint-reader \
+        title {GitHub - crosspoint-reader/crosspoint-reader: Firmware for the Xteink X3 and X4 e-readers} \
+        url https://github.com/crosspoint-reader/crosspoint-reader] \
+    [dict create \
+        slug open-x4-sample-firmware-readme \
+        title {sample-firmware/README.md at main - open-x4-epaper/sample-firmware} \
+        url https://github.com/open-x4-epaper/sample-firmware/blob/main/README.md]]
+
+# Find the folder holding previews/ and qr/. Add your clone's path to the
+# front of this list if the playground repo lives somewhere else.
+set assetRoots [list \
+    [file join [pwd] folk_search_browser] \
+    [file join $::env(HOME) playground folk_search_browser] \
+    [file join $::env(HOME) folk-live playground folk_search_browser] \
+    /home/folk/playground/folk_search_browser]
+set assetDir ""
+foreach root $assetRoots {
+    if {[file isdirectory $root]} { set assetDir $root; break }
+}
+
+set n [llength $results]
+
+Claim $this is a query JSON browser
+Claim $this has result count $n
+Claim $this has search query "Xteink X4 hardware ESP32 firmware GitHub"
+
+# Start on the first result if nobody has committed an index yet.
+When $this has result index /nothing/ {
+    Commit $this-search-result-index {
+        Claim $this has result index 0
+    }
+}
+
+When $this has result index /i/ {
+    set r [lindex $results [expr {$i % $n}]]
+    set title [dict get $r title]
+    set url [dict get $r url]
+    set slug [dict get $r slug]
+
+    Wish $this is titled "([expr {$i + 1}]/$n) $title" with scale 20 padding 0.25cm
+
+    if {$assetDir ne ""} {
+        set preview [file join $assetDir previews $slug.png]
+        if {[file exists $preview]} {
+            Wish $this displays image $preview with \
+                position {50% 42%} width 10cm anchor center
+        }
+        # QR code sits by the footnote: scan it to see the source yourself
+        set qr [file join $assetDir qr $slug.png]
+        if {[file exists $qr]} {
+            Wish $this displays image $qr with \
+                position {87% 84%} width 2.6cm anchor center
+        }
+    } else {
+        Wish $this is labelled "preview assets not found --\nadd your clone to assetRoots in browser.folk"
+    }
+
+    # Footnote: the full URL of the current result
+    Wish $this is footnoted $url with scale 16 padding 0.25cm
+}
+
+Wish $this is outlined white

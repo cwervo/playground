@@ -1,0 +1,50 @@
+{
+  "query": "Xteink X4 hardware ESP32 firmware GitHub",
+  "results": [
+    {
+      "slug": "vaulco-x4-firmware",
+      "title": "GitHub - Vaulco/x4-firmware: Firmware for the Xteink X4 e-paper display reader",
+      "url": "https://github.com/Vaulco/x4-firmware"
+    },
+    {
+      "slug": "yattsu-biscuit",
+      "title": "GitHub - yattsu/biscuit: Firmware for the ESP32-C3 SoC Xteink X4 e-paper display reader",
+      "url": "https://github.com/yattsu/biscuit"
+    },
+    {
+      "slug": "danmartinez78-biscuit",
+      "title": "GitHub - danmartinez78/biscuit: Firmware for the ESP32-C3 SoC Xteink X4 e-paper display reader",
+      "url": "https://github.com/danmartinez78/biscuit"
+    },
+    {
+      "slug": "ohmygaugh-biscuit-eink",
+      "title": "GitHub - ohmygaugh-crypto/biscuit-eink: Firmware for the ESP32-C3 SoC Xteink X4 e-paper display reader",
+      "url": "https://github.com/ohmygaugh-crypto/biscuit-eink"
+    },
+    {
+      "slug": "reukiodo-v",
+      "title": "GitHub - reukiodo/_V_: Firmware for the XTeink X4 ereader",
+      "url": "https://github.com/reukiodo/_V_"
+    },
+    {
+      "slug": "open-x4-sample-firmware",
+      "title": "GitHub - open-x4-epaper/sample-firmware: Sample code for the Xteink X4",
+      "url": "https://github.com/open-x4-epaper/sample-firmware"
+    },
+    {
+      "slug": "maddiedreese-xteink-terminal",
+      "title": "GitHub - maddiedreese/xteink-terminal: Custom firmware and a tmux bridge for using an XTeInk X4 as a small Wi-Fi e-ink terminal display.",
+      "url": "https://github.com/maddiedreese/xteink-terminal"
+    },
+    {
+      "slug": "crosspoint-reader",
+      "title": "GitHub - crosspoint-reader/crosspoint-reader: Firmware for the Xteink X3 and X4 e-readers",
+      "url": "https://github.com/crosspoint-reader/crosspoint-reader"
+    },
+    {
+      "slug": "open-x4-sample-firmware-readme",
+      "title": "sample-firmware/README.md at main - open-x4-epaper/sample-firmware",
+      "url": "https://github.com/open-x4-epaper/sample-firmware/blob/main/README.md"
+    }
+  ]
+}
