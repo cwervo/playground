@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="210.0000mm" height="297.0000mm" viewBox="0 0 210.0000 297.0000">
+<rect x="0" y="0" width="210.0000" height="297.0000" fill="white"/>
+<g style="isolation:isolate">
+<g style="mix-blend-mode:multiply">
+<rect x="86.0000" y="138.5000" width="9.5000" height="19.0000" fill="#00FFFF"/>
+<rect x="114.5000" y="138.5000" width="9.5000" height="19.0000" fill="#00FFFF"/>
+<rect x="124.0000" y="138.5000" width="9.5000" height="19.0000" fill="#00FFFF"/>
+<rect x="133.5000" y="138.5000" width="9.5000" height="19.0000" fill="#00FFFF"/>
+<rect x="152.5000" y="138.5000" width="9.5000" height="19.0000" fill="#00FFFF"/>
+<rect x="42.3000" y="138.5000" width="3.8000" height="19.0000" fill="#00FFFF"/>
+<rect x="53.7000" y="138.5000" width="3.8000" height="19.0000" fill="#00FFFF"/>
+</g>
+<g style="mix-blend-mode:multiply">
+<rect x="114.5000" y="138.5000" width="9.5000" height="19.0000" fill="#FF00FF"/>
+<rect x="124.0000" y="138.5000" width="9.5000" height="19.0000" fill="#FF00FF"/>
+<rect x="133.5000" y="138.5000" width="9.5000" height="19.0000" fill="#FF00FF"/>
+<rect x="152.5000" y="138.5000" width="9.5000" height="19.0000" fill="#FF00FF"/>
+<rect x="162.0000" y="138.5000" width="9.5000" height="19.0000" fill="#FF00FF"/>
+<rect x="46.1000" y="138.5000" width="3.8000" height="19.0000" fill="#FF00FF"/>
+<rect x="53.7000" y="138.5000" width="3.8000" height="19.0000" fill="#FF00FF"/>
+</g>
+<g style="mix-blend-mode:multiply">
+<rect x="67.0000" y="138.5000" width="9.5000" height="19.0000" fill="#FFFF00"/>
+<rect x="76.5000" y="138.5000" width="9.5000" height="19.0000" fill="#FFFF00"/>
+<rect x="86.0000" y="138.5000" width="9.5000" height="19.0000" fill="#FFFF00"/>
+<rect x="95.5000" y="138.5000" width="9.5000" height="19.0000" fill="#FFFF00"/>
+<rect x="105.0000" y="138.5000" width="9.5000" height="19.0000" fill="#FFFF00"/>
+<rect x="162.0000" y="138.5000" width="9.5000" height="19.0000" fill="#FFFF00"/>
+<rect x="49.9000" y="138.5000" width="3.8000" height="19.0000" fill="#FFFF00"/>
+<rect x="53.7000" y="138.5000" width="3.8000" height="19.0000" fill="#FFFF00"/>
+</g>
+</g>
+<line x1="57.5000" y1="157.5000" x2="57.5000" y2="138.5000" stroke="black" stroke-width="0.15"/>
+<line x1="67.0000" y1="157.5000" x2="67.0000" y2="138.5000" stroke="black" stroke-width="0.15"/>
+<line x1="76.5000" y1="157.5000" x2="76.5000" y2="138.5000" stroke="black" stroke-width="0.15"/>
+<line x1="86.0000" y1="157.5000" x2="86.0000" y2="138.5000" stroke="black" stroke-width="0.15"/>
+<line x1="95.5000" y1="157.5000" x2="95.5000" y2="138.5000" stroke="black" stroke-width="0.15"/>
+<line x1="105.0000" y1="157.5000" x2="105.0000" y2="138.5000" stroke="black" stroke-width="0.15"/>
+<line x1="114.5000" y1="157.5000" x2="114.5000" y2="138.5000" stroke="black" stroke-width="0.15"/>
+<line x1="124.0000" y1="157.5000" x2="124.0000" y2="138.5000" stroke="black" stroke-width="0.15"/>
+<line x1="133.5000" y1="157.5000" x2="133.5000" y2="138.5000" stroke="black" stroke-width="0.15"/>
+<line x1="143.0000" y1="157.5000" x2="143.0000" y2="138.5000" stroke="black" stroke-width="0.15"/>
+<line x1="152.5000" y1="157.5000" x2="152.5000" y2="138.5000" stroke="black" stroke-width="0.15"/>
+<line x1="162.0000" y1="157.5000" x2="162.0000" y2="138.5000" stroke="black" stroke-width="0.15"/>
+<rect x="19.5000" y="138.5000" width="5.7000" height="19.0000" fill="black"/>
+<rect x="172.9250" y="138.5000" width="2.3750" height="19.0000" fill="black"/>
+<rect x="177.2000" y="138.5000" width="5.2250" height="19.0000" fill="black"/>
+<rect x="10.0000" y="137.5000" width="190.0000" height="0.2000" fill="black"/>
+<line x1="10.0000" y1="137.7000" x2="10.0000" y2="134.7000" stroke="black" stroke-width="0.25"/>
+<text x="10.0000" y="134.4000" font-family="monospace" font-size="2" text-anchor="middle">0</text>
+<line x1="20.0000" y1="137.7000" x2="20.0000" y2="136.0500" stroke="black" stroke-width="0.25"/>
+<line x1="30.0000" y1="137.7000" x2="30.0000" y2="136.0500" stroke="black" stroke-width="0.25"/>
+<line x1="40.0000" y1="137.7000" x2="40.0000" y2="136.0500" stroke="black" stroke-width="0.25"/>
+<line x1="50.0000" y1="137.7000" x2="50.0000" y2="136.0500" stroke="black" stroke-width="0.25"/>
+<line x1="60.0000" y1="137.7000" x2="60.0000" y2="134.7000" stroke="black" stroke-width="0.25"/>
+<text x="60.0000" y="134.4000" font-family="monospace" font-size="2" text-anchor="middle">50</text>
+<line x1="70.0000" y1="137.7000" x2="70.0000" y2="136.0500" stroke="black" stroke-width="0.25"/>
+<line x1="80.0000" y1="137.7000" x2="80.0000" y2="136.0500" stroke="black" stroke-width="0.25"/>
+<line x1="90.0000" y1="137.7000" x2="90.0000" y2="136.0500" stroke="black" stroke-width="0.25"/>
+<line x1="100.0000" y1="137.7000" x2="100.0000" y2="136.0500" stroke="black" stroke-width="0.25"/>
+<line x1="110.0000" y1="137.7000" x2="110.0000" y2="134.7000" stroke="black" stroke-width="0.25"/>
+<text x="110.0000" y="134.4000" font-family="monospace" font-size="2" text-anchor="middle">100</text>
+<line x1="120.0000" y1="137.7000" x2="120.0000" y2="136.0500" stroke="black" stroke-width="0.25"/>
+<line x1="130.0000" y1="137.7000" x2="130.0000" y2="136.0500" stroke="black" stroke-width="0.25"/>
+<line x1="140.0000" y1="137.7000" x2="140.0000" y2="136.0500" stroke="black" stroke-width="0.25"/>
+<line x1="150.0000" y1="137.7000" x2="150.0000" y2="136.0500" stroke="black" stroke-width="0.25"/>
+<line x1="160.0000" y1="137.7000" x2="160.0000" y2="134.7000" stroke="black" stroke-width="0.25"/>
+<text x="160.0000" y="134.4000" font-family="monospace" font-size="2" text-anchor="middle">150</text>
+<line x1="170.0000" y1="137.7000" x2="170.0000" y2="136.0500" stroke="black" stroke-width="0.25"/>
+<line x1="180.0000" y1="137.7000" x2="180.0000" y2="136.0500" stroke="black" stroke-width="0.25"/>
+<line x1="190.0000" y1="137.7000" x2="190.0000" y2="136.0500" stroke="black" stroke-width="0.25"/>
+<line x1="200.0000" y1="137.7000" x2="200.0000" y2="136.0500" stroke="black" stroke-width="0.25"/>
+<text x="10.0000" y="161.5000" font-family="monospace" font-size="2.6">RULERCODE v1   ID 0x04D2 (1234)   L=190.0mm   module=9.50mm   CRC-OK</text>
+</svg>
