@@ -51,7 +51,8 @@ PAPER = {
 }
 SHORT_RATIO = 0.60          # E-W arms are 60% of N-S arms
 ARM_W = 0.14                # arm width as fraction of L
-BULLSEYE = [0.16, 0.11, 0.055]   # ring radii as fraction of L (outer->inner)
+BULLSEYE = [0.20, 0.13, 0.075]   # ring radii as fraction of L (outer->inner)
+DSTART, DEND = 0.28, 0.70   # data-cell band, as a fraction of L (scale-invariant)
 
 
 class CrossGeometry:
@@ -69,17 +70,19 @@ class CrossGeometry:
                 "E": (self.Le, 0.0), "W": (-self.Le, 0.0)}
 
     # Data cells: 6 along +Y (N) arm, 6 along -Y (S) arm, as (cx, cy, w, h, cmy).
+    # Positions are purely PROPORTIONAL to L so a marker of any size decodes the
+    # same way in normalised marker units (matches the desk-scanner decoder).
     def data_cells(self):
         cells = self.modules
         w = self.arm_w * 0.9
-        seg = (self.L - self.rings[0] - 6.0) / 6.0        # gap for pip/ticks
+        seg = (DEND - DSTART) * self.L / 6.0
         out = []
         for i in range(6):                                # N arm, outward
-            cy = self.rings[0] + 4.0 + (i + 0.5) * seg
-            out.append((0.0, cy, w, seg * 0.72, cells[i]))
+            cy = DSTART * self.L + (i + 0.5) * seg
+            out.append((0.0, cy, w, seg * 0.66, cells[i]))
         for i in range(6):                                # S arm, outward
-            cy = -(self.rings[0] + 4.0 + (i + 0.5) * seg)
-            out.append((0.0, cy, w, seg * 0.72, cells[6 + i]))
+            cy = -(DSTART * self.L + (i + 0.5) * seg)
+            out.append((0.0, cy, w, seg * 0.66, cells[6 + i]))
         return out
 
     def ruler_ticks(self):
@@ -150,13 +153,12 @@ def to_svg(g, page_w, page_h, landscape=False, cx=None, cy=None, show_frame=Fals
         S.append('<circle cx="%.3f" cy="%.3f" r="%.3f" fill="%s" stroke="#111" stroke-width="0.25"/>'
                  % (X(0), Y(0), rad, fill))
 
-    # compass pip at North tip -> heading (a triangle, not a square)
-    pip = aw * 0.9
+    # compass pip -> heading (a triangle, not a square). Contained within the
+    # arm tip so it doesn't extend the arm's measured length during decoding.
     S.append('<polygon points="%.3f,%.3f %.3f,%.3f %.3f,%.3f" fill="#E23B4E"/>'
-             % (X(0), Y(g.L + pip), X(-pip*0.7), Y(g.L - pip*0.2), X(pip*0.7), Y(g.L - pip*0.2)))
+             % (X(0), Y(g.L), X(-aw*0.6), Y(0.82*g.L), X(aw*0.6), Y(0.82*g.L)))
     S.append('<text x="%.3f" y="%.3f" font-family="monospace" font-size="%.2f" '
-             'text-anchor="middle" fill="#E23B4E">N</text>'
-             % (X(0), Y(g.L + pip) - 0.3, aw*0.8))
+             'fill="#E23B4E">N</text>' % (X(aw*0.8), Y(g.L), aw*0.8))
 
     # human-readable text under the marker
     S.append('<text x="%.3f" y="%.3f" font-family="monospace" font-size="2.4" '
@@ -224,12 +226,11 @@ def to_postscript(g, page_w, page_h, landscape=False):
     L.append("0 0 %.3f dot" % g.rings[0])
     L.append("1 1 1 setrgbcolor 0 0 %.3f dot" % g.rings[1])
     L.append("0 0 0 setrgbcolor 0 0 %.3f dot" % g.rings[2])
-    # compass pip (triangle)
-    pip = aw*0.9
+    # compass pip (triangle), contained within the arm tip
     L.append("0.886 0.231 0.306 setrgbcolor")
     L.append("newpath cx %.3f mm add cy %.3f mm add moveto cx %.3f mm add cy %.3f mm add lineto "
              "cx %.3f mm add cy %.3f mm add lineto closepath fill"
-             % (0, g.L+pip, -pip*0.7, g.L-pip*0.2, pip*0.7, g.L-pip*0.2))
+             % (0, g.L, -aw*0.6, 0.82*g.L, aw*0.6, 0.82*g.L))
     # text
     L.append("0 0 0 setrgbcolor /Courier findfont 6.8 scalefont setfont")
     txt = g.human_text().replace("(", "\\(").replace(")", "\\)")

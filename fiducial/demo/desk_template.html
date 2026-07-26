@@ -1,0 +1,456 @@
+<title>Rulercross Desk Scanner — recover scale &amp; pose from pixels</title>
+<style>
+  :root{
+    --bg:#0B0F12; --panel:#141B21; --panel-2:#0F151A; --edge:#243139;
+    --ink:#C9D3D9; --ink-strong:#EAF1F4; --mut:#7A8791; --faint:#4A5860;
+    --accent:#37E0CE; --accent-dim:#1c6f68; --cyan:#22D3EE; --magenta:#EC4899;
+    --yellow:#F5C518; --red:#E23B4E; --good:#43D17F; --bad:#F0603A;
+    --mono:ui-monospace,"SF Mono","JetBrains Mono",Menlo,Consolas,monospace;
+    --sans:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  }
+  @media (prefers-color-scheme:light){:root{
+    --bg:#F5F3EC; --panel:#FFFFFF; --panel-2:#F0EEE6; --edge:#DAD6C8;
+    --ink:#2A3238; --ink-strong:#121820; --mut:#6C7680; --faint:#A9B0B4;
+    --accent:#0E8F82; --accent-dim:#8fd8d0; --good:#1a9d5c; --bad:#C74520;}}
+  :root[data-theme="dark"]{--bg:#0B0F12;--panel:#141B21;--panel-2:#0F151A;--edge:#243139;--ink:#C9D3D9;--ink-strong:#EAF1F4;--mut:#7A8791;--faint:#4A5860;--accent:#37E0CE;--accent-dim:#1c6f68;--good:#43D17F;--bad:#F0603A;}
+  :root[data-theme="light"]{--bg:#F5F3EC;--panel:#FFFFFF;--panel-2:#F0EEE6;--edge:#DAD6C8;--ink:#2A3238;--ink-strong:#121820;--mut:#6C7680;--faint:#A9B0B4;--accent:#0E8F82;--accent-dim:#8fd8d0;--good:#1a9d5c;--bad:#C74520;}
+  *{box-sizing:border-box}
+  body{background:var(--bg);color:var(--ink);font-family:var(--sans);margin:0;line-height:1.55;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:1080px;margin:0 auto;padding:clamp(18px,4vw,40px)}
+  h1,h2{color:var(--ink-strong);text-wrap:balance;margin:0}
+  .eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.22em;text-transform:uppercase;color:var(--accent);margin:0 0 10px}
+  header{border-bottom:1px solid var(--edge);padding-bottom:20px;margin-bottom:22px}
+  header h1{font-size:clamp(24px,4vw,38px);letter-spacing:-.02em;font-weight:680}
+  header .lede{color:var(--mut);max-width:66ch;margin-top:12px;font-size:15px}
+  .credit{font-family:var(--mono);font-size:12px;color:var(--faint);margin-top:12px}
+  .credit b{color:var(--mut)}
+  .controls{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin:18px 0}
+  .btn{font-family:var(--mono);font-size:14px;cursor:pointer;border:1px solid var(--edge);background:var(--panel-2);color:var(--ink);border-radius:8px;padding:8px 14px;transition:.14s}
+  .btn:hover{border-color:var(--accent);color:var(--ink-strong)}
+  .btn.primary{background:var(--accent);color:var(--bg);border-color:var(--accent);font-weight:700}
+  label.chk{display:inline-flex;gap:7px;align-items:center;font-family:var(--mono);font-size:12px;color:var(--mut);cursor:pointer}
+  .lbl{font-family:var(--mono);font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--mut)}
+  .stage{background:var(--panel-2);border:1px solid var(--edge);border-radius:12px;padding:12px;overflow-x:auto}
+  canvas#scene{width:100%;max-width:960px;height:auto;display:block;border-radius:8px;background:#000}
+  .grid{display:grid;grid-template-columns:1fr;gap:18px;margin-top:18px}
+  table{border-collapse:collapse;width:100%;font-family:var(--mono);font-size:12.5px}
+  th,td{text-align:right;padding:7px 9px;border-bottom:1px solid var(--edge);font-variant-numeric:tabular-nums;white-space:nowrap}
+  th{color:var(--mut);font-weight:600;letter-spacing:.04em;text-transform:uppercase;font-size:10.5px}
+  td:first-child,th:first-child{text-align:left}
+  .ok{color:var(--good)} .bad{color:var(--bad)}
+  .chip{display:inline-block;width:10px;height:10px;border-radius:3px;vertical-align:middle;margin-right:5px}
+  .legend{font-family:var(--mono);font-size:12px;color:var(--mut);display:flex;gap:16px;flex-wrap:wrap;margin-top:8px}
+  .legend span{display:inline-flex;align-items:center;gap:6px}
+  .stat{display:flex;gap:22px;flex-wrap:wrap;background:linear-gradient(180deg,var(--panel-2),var(--panel));border:1px solid var(--edge);border-radius:12px;padding:14px 18px;margin-top:6px}
+  .stat .k{font-family:var(--mono);font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--mut)}
+  .stat .v{font-family:var(--mono);font-size:22px;color:var(--accent);font-weight:700}
+  .explain{color:var(--mut);font-size:13.5px;max-width:72ch}
+  .explain b{color:var(--ink)} .explain code{font-family:var(--mono);background:var(--panel-2);padding:1px 5px;border-radius:4px;font-size:12px;color:var(--ink)}
+  footer{margin-top:30px;padding-top:16px;border-top:1px solid var(--edge);color:var(--faint);font-family:var(--mono);font-size:12px}
+  .theme-btn{position:fixed;top:14px;right:14px;z-index:40;font-family:var(--mono);font-size:12px;background:var(--panel);border:1px solid var(--edge);color:var(--mut);border-radius:8px;padding:6px 10px;cursor:pointer}
+  @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+<button class="theme-btn" id="themeBtn">◐ theme</button>
+<div class="wrap">
+  <header>
+    <p class="eyebrow">Rulercross · desk scanner · scale + pose from pixels</p>
+    <h1>Several rulers on a desk. One camera. Recover each one's data, true size, and pose.</h1>
+    <p class="lede">Rulercross markers of different paper sizes are scattered across a tilted desk with the
+      handwritten cards as distractors. The scanner finds each bullseye, traces its arms, decodes the
+      colour data, and — because the marker's physical geometry is known — recovers <b>true scale
+      (mm/px)</b>, <b>3-DoF</b> position &amp; heading, and full <b>6-DoF</b> pose. Nothing is read from
+      the scene description; everything comes from the rendered pixels.</p>
+    <p class="credit">After <b>Johnny Chung Lee</b>'s structured-light &amp; light-sensor pose recovery —
+      here on a plain 2D camera, from print.</p>
+  </header>
+
+  <div class="controls">
+    <button class="btn primary" id="scan">Scan desk ▶</button>
+    <button class="btn" id="shuffle">Shuffle layout</button>
+    <label class="chk"><input type="checkbox" id="showTruth" checked> show ground truth</label>
+    <label class="chk"><input type="checkbox" id="showRays"> show arm rays</label>
+  </div>
+
+  <div class="stage"><canvas id="scene" width="960" height="620"></canvas></div>
+  <div class="legend">
+    <span><span class="chip" style="background:#37E0CE"></span>recovered origin + axes</span>
+    <span><span class="chip" style="background:#E23B4E"></span>North (compass pip)</span>
+    <span><span class="chip" style="background:#F5C518"></span>ground-truth origin</span>
+    <span>desk = distractor cards carry the handwritten 1–5</span>
+  </div>
+
+  <div class="stat">
+    <div><div class="k">markers found</div><div class="v" id="sFound">—</div></div>
+    <div><div class="k">ids decoded (CRC-OK)</div><div class="v" id="sIds">—</div></div>
+    <div><div class="k">median scale error</div><div class="v" id="sScale">—</div></div>
+    <div><div class="k">median position error</div><div class="v" id="sPos">—</div></div>
+  </div>
+
+  <div class="grid">
+    <div class="stage" style="overflow-x:auto">
+      <table id="results"><thead><tr>
+        <th>marker</th><th>id</th><th>CRC</th><th>true L (mm)</th>
+        <th>scale mm/px</th><th>scale err</th><th>heading°</th>
+        <th>tilt x°</th><th>tilt y°</th><th>pos err (mm)</th>
+      </tr></thead><tbody></tbody></table>
+    </div>
+    <p class="explain">
+      <b>How the true scale comes back.</b> Each marker prints its own physical long-arm length
+      <code>L</code> into the CMY cells. The scanner solves a homography from the five known points
+      (centre + four arm tips) in <i>normalised</i> marker units, samples the cells through that
+      homography to read <code>L</code> in millimetres, then converts the homography's Jacobian into
+      <code>mm/px</code> at the marker. Four arm tips (non-collinear) are enough to also decompose the
+      homography with the camera intrinsics into a full rotation and translation — the tilt columns you
+      see per row. The bullseye and long/short-arm asymmetry with a red North pip make the frame’s
+      origin and heading unambiguous, which is why this reads pose where a 1-D barcode cannot.
+    </p>
+  </div>
+  <footer>Rulercross desk scanner · homography + decomposition run on your pixels, in-browser</footer>
+</div>
+
+<script>
+const THUMBS = /*__THUMBS__*/{};
+const $=s=>document.querySelector(s);
+/* ============================ linalg (ported from pose.py) ============ */
+const T=M=>M[0].map((_,j)=>M.map(r=>r[j]));
+function matmul(A,B){const n=A.length,m=B.length,p=B[0].length,O=[];for(let i=0;i<n;i++){O[i]=[];for(let j=0;j<p;j++){let s=0;for(let k=0;k<m;k++)s+=A[i][k]*B[k][j];O[i][j]=s;}}return O;}
+function matvec(M,v){return M.map(r=>r.reduce((s,x,j)=>s+x*v[j],0));}
+function solve(A,b){const n=A.length,M=A.map((r,i)=>[...r,b[i]]);
+  for(let c=0;c<n;c++){let p=c;for(let r=c+1;r<n;r++)if(Math.abs(M[r][c])>Math.abs(M[p][c]))p=r;[M[c],M[p]]=[M[p],M[c]];
+    const pv=M[c][c]||1e-12;for(let r=0;r<n;r++)if(r!==c){const f=M[r][c]/pv;for(let k=c;k<=n;k++)M[r][k]-=f*M[c][k];}}
+  return M.map((r,i)=>r[n]/r[i]);}
+function inv3(M){const[a,b,c]=M[0],[d,e,f]=M[1],[g,h,i]=M[2];
+  const A=e*i-f*h,B=-(d*i-f*g),C=d*h-e*g,det=a*A+b*B+c*C;
+  return[[A/det,-(b*i-c*h)/det,(b*f-c*e)/det],[B/det,(a*i-c*g)/det,-(a*f-c*d)/det],[C/det,-(a*h-b*g)/det,(a*e-b*d)/det]];}
+const cross=(a,b)=>[a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0]];
+const norm=v=>Math.hypot(...v); const nd=v=>{const n=norm(v)||1;return v.map(x=>x/n);};
+const dot=(a,b)=>a.reduce((s,x,i)=>s+x*b[i],0);
+
+function homography(src,dst){const rows=[],rhs=[];
+  for(let i=0;i<src.length;i++){const[x,y]=src[i],[u,v]=dst[i];
+    rows.push([x,y,1,0,0,0,-u*x,-u*y]);rhs.push(u);rows.push([0,0,0,x,y,1,-v*x,-v*y]);rhs.push(v);}
+  const At=T(rows),AtA=matmul(At,rows),Atb=matvec(At,rhs),h=solve(AtA,Atb);
+  return[[h[0],h[1],h[2]],[h[3],h[4],h[5]],[h[6],h[7],1]];}
+function applyH(H,[x,y]){const d=H[2][0]*x+H[2][1]*y+H[2][2];return[(H[0][0]*x+H[0][1]*y+H[0][2])/d,(H[1][0]*x+H[1][1]*y+H[1][2])/d];}
+function jac(H,x,y){const w=H[2][0]*x+H[2][1]*y+H[2][2],u=(H[0][0]*x+H[0][1]*y+H[0][2])/w,v=(H[1][0]*x+H[1][1]*y+H[1][2])/w;
+  return[[(H[0][0]-u*H[2][0])/w,(H[0][1]-u*H[2][1])/w],[(H[1][0]-v*H[2][0])/w,(H[1][1]-v*H[2][1])/w]];}
+function scalePxPerUnit(H){const J=jac(H,0,0);return Math.sqrt(Math.abs(J[0][0]*J[1][1]-J[0][1]*J[1][0]));}
+function decompose(H,K){const B=matmul(inv3(K),H);
+  const b1=[B[0][0],B[1][0],B[2][0]],b2=[B[0][1],B[1][1],B[2][1]],b3=[B[0][2],B[1][2],B[2][2]];
+  const lam=2/(norm(b1)+norm(b2));let r1=b1.map(x=>x*lam),r2=b2.map(x=>x*lam),t=b3.map(x=>x*lam);
+  if(t[2]<0){r1=r1.map(x=>-x);r2=r2.map(x=>-x);t=t.map(x=>-x);}
+  const r1n=nd(r1),r2n=nd(r2.map((x,i)=>x-dot(r2,r1n)*r1n[i])),r3n=cross(r1n,r2n);
+  return{R:[[r1n[0],r2n[0],r3n[0]],[r1n[1],r2n[1],r3n[1]],[r1n[2],r2n[2],r3n[2]]],t};}
+function euler(R){const sy=Math.hypot(R[0][0],R[1][0]);
+  return sy>1e-6?[Math.atan2(R[2][1],R[2][2])*57.2958,Math.atan2(-R[2][0],sy)*57.2958,Math.atan2(R[1][0],R[0][0])*57.2958]
+                :[Math.atan2(-R[1][2],R[1][1])*57.2958,Math.atan2(-R[2][0],sy)*57.2958,0];}
+function Reuler(rx,ry,rz){[rx,ry,rz]=[rx,ry,rz].map(d=>d*Math.PI/180);
+  const Rx=[[1,0,0],[0,Math.cos(rx),-Math.sin(rx)],[0,Math.sin(rx),Math.cos(rx)]],
+        Ry=[[Math.cos(ry),0,Math.sin(ry)],[0,1,0],[-Math.sin(ry),0,Math.cos(ry)]],
+        Rz=[[Math.cos(rz),-Math.sin(rz),0],[Math.sin(rz),Math.cos(rz),0],[0,0,1]];
+  return matmul(matmul(Rz,Ry),Rx);}
+
+/* ============================ payload (ported from rulercode) ========= */
+function crc8(bytes){let c=0;for(const b of bytes){c^=b;for(let i=0;i<8;i++)c=(c&0x80)?((c<<1)^0x07)&0xFF:(c<<1)&0xFF;}return c;}
+function bitsToBytes(bits){const o=[];for(let i=0;i<bits.length;i+=8){let by=0;for(let j=0;j<8;j++)by=(by<<1)|(bits[i+j]||0);o.push(by);}return o;}
+function intBits(v,w){const b=[];for(let i=0;i<w;i++)b.push((v>>(w-1-i))&1);return b;}
+function encodePayload(id,Lmm){const units=Math.round(Lmm*10);
+  const pay=[...intBits(id,16),...intBits(units,12)],crc=crc8(bitsToBytes(pay)),bits=[...pay,...intBits(crc,8)];
+  const cells=[];for(let i=0;i<12;i++)cells.push([bits[3*i],bits[3*i+1],bits[3*i+2]]);return cells;}
+function decodeCells(cells){const bits=[];for(const[c,m,y]of cells)bits.push(c,m,y);
+  const id=bits.slice(0,16).reduce((a,b)=>a*2+b,0),units=bits.slice(16,28).reduce((a,b)=>a*2+b,0),
+        crc=bits.slice(28,36).reduce((a,b)=>a*2+b,0),ok=crc8(bitsToBytes(bits.slice(0,28)))===crc;
+  return{id,L:units/10,crc_ok:ok};}
+const cmyRGB=([c,m,y])=>[255*(1-c),255*(1-m),255*(1-y)];
+
+/* ============================ marker geometry (mm) =================== */
+const SHORT=0.60, ARMW=0.14, RINGS=[0.20,0.13,0.075];
+// data-cell band, purely PROPORTIONAL to L so normalised (L=1) sampling is
+// size-independent -> a marker of any paper size decodes the same way.
+const DSTART=0.28, DEND=0.70;
+function crossSpec(L,id){
+  const Le=L*SHORT, aw=L*ARMW, rings=RINGS.map(r=>r*L), cells=encodePayload(id,L);
+  const dataCells=[]; const seg=(DEND-DSTART)*L/6, w=aw*0.9;
+  for(let i=0;i<6;i++){const cy=DSTART*L+(i+0.5)*seg;dataCells.push({x:0,y:cy,w,h:seg*0.66,cmy:cells[i]});}
+  for(let i=0;i<6;i++){const cy=-(DSTART*L+(i+0.5)*seg);dataCells.push({x:0,y:cy,w,h:seg*0.66,cmy:cells[6+i]});}
+  const ticks=[];for(const[axis,reach]of[["y",L],["x",Le]]){for(let d=10;d<=reach+1e-6;d+=10){const major=Math.round(d)%50===0;
+    for(const s of[1,-1])ticks.push({axis,d:s*d,major});}}
+  return{L,Le,aw,rings,dataCells,ticks,
+    known:{C:[0,0],N:[0,L],S:[0,-L],E:[Le,0],W:[-Le,0]}};
+}
+
+/* ============================ scene =================================== */
+const K=[[900,0,480],[0,900,310],[0,0,1]];
+const DESK=[92,78,58];
+function project(R,t,[mx,my]){const Xc=[R[0][0]*mx+R[0][1]*my+t[0],R[1][0]*mx+R[1][1]*my+t[1],R[2][0]*mx+R[2][1]*my+t[2]];
+  return[K[0][0]*Xc[0]/Xc[2]+K[0][2],K[1][1]*Xc[1]/Xc[2]+K[1][2]];}
+let SCENE=[], CARDS=[], imgs={};
+
+function buildScene(seed){
+  const rng=mulberry(seed); const R=()=>rng();
+  // four markers of different paper "sizes" (long half-arm L in mm)
+  const defs=[
+    {id:0x2A, L:92, name:"Letter"},
+    {id:0x11, L:66, name:"A5"},
+    {id:0x7C, L:46, name:"postcard"},
+    {id:0x05, L:30, name:"business card"},
+  ];
+  // Physically correct: all markers lie on ONE tilted desk plane (the camera
+  // views the desk at an angle). Each marker differs only by its (X,Y) spot on
+  // the desk and its in-plane rotation -> shared, moderate perspective.
+  const tiltx=-12-R()*16, tilty=R()*20-10, roll=R()*16-8;
+  const Rd=Reuler(tiltx,tilty,roll), depth=470+R()*70, tcam=[0,0,depth];
+  const slots=[[-92,-52],[94,-48],[-88,58],[86,60]];
+  SCENE=defs.map((d,i)=>{
+    const X=slots[i][0]+(R()*26-13), Y=slots[i][1]+(R()*22-11), th=R()*360-180;
+    const Rm=matmul(Rd,Reuler(0,0,th)), off=matvec(Rd,[X,Y,0]);
+    const t=[off[0]+tcam[0],off[1]+tcam[1],off[2]+tcam[2]];
+    return {...d, X,Y,th,tiltx,tilty, t, R:Rm, spec:crossSpec(d.L,d.id)};
+  });
+  // distractor cards with the handwritten digits, scattered in the gaps
+  CARDS=[]; const digits=["1","2","3","4","5"];
+  const cslot=[[480,110],[830,300],[130,300],[480,540],[820,540]];
+  for(let i=0;i<5;i++){const sc=0.5+R()*0.3, ang=R()*1.0-0.5;
+    CARDS.push({d:digits[i], x:cslot[i][0]+(R()*60-30), y:cslot[i][1]+(R()*40-20), s:sc, a:ang});}
+}
+function mulberry(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
+
+function poly(ctx,pts,fill,stroke,lw){ctx.beginPath();pts.forEach(([x,y],i)=>i?ctx.lineTo(x,y):ctx.moveTo(x,y));ctx.closePath();
+  if(fill){ctx.fillStyle=fill;ctx.fill();}if(stroke){ctx.strokeStyle=stroke;ctx.lineWidth=lw||1;ctx.stroke();}}
+function circlePts(R,t,cx,cy,r,n=44){const p=[];for(let i=0;i<n;i++){const a=i/n*2*Math.PI;p.push(project(R,t,[cx+r*Math.cos(a),cy+r*Math.sin(a)]));}return p;}
+
+function drawMarker(ctx,m){const {R,t,spec}=m;
+  // arms (white rounded-ish rects as quads) + outline
+  const aw=spec.aw;
+  const armNS=[[-aw/2,-spec.L],[aw/2,-spec.L],[aw/2,spec.L],[-aw/2,spec.L]].map(p=>project(R,t,p));
+  const armEW=[[-spec.Le,-aw/2],[spec.Le,-aw/2],[spec.Le,aw/2],[-spec.Le,aw/2]].map(p=>project(R,t,p));
+  poly(ctx,armNS,"#fbfbf7","#111",1.4); poly(ctx,armEW,"#fbfbf7","#111",1.4);
+  // ticks
+  ctx.strokeStyle="#111";ctx.lineWidth=1;
+  for(const tk of spec.ticks){const tlen=aw*(tk.major?0.5:0.32);let a,b;
+    if(tk.axis==="y"){a=project(R,t,[-tlen,tk.d]);b=project(R,t,[tlen,tk.d]);}else{a=project(R,t,[tk.d,-tlen]);b=project(R,t,[tk.d,tlen]);}
+    ctx.beginPath();ctx.moveTo(...a);ctx.lineTo(...b);ctx.stroke();}
+  // data cells
+  for(const c of spec.dataCells){const q=[[c.x-c.w/2,c.y-c.h/2],[c.x+c.w/2,c.y-c.h/2],[c.x+c.w/2,c.y+c.h/2],[c.x-c.w/2,c.y+c.h/2]].map(p=>project(R,t,p));
+    const[r,g,b]=cmyRGB(c.cmy);poly(ctx,q,`rgb(${r|0},${g|0},${b|0})`,"#0004",0.5);}
+  // bullseye
+  poly(ctx,circlePts(R,t,0,0,spec.rings[0]),"#111");
+  poly(ctx,circlePts(R,t,0,0,spec.rings[1]),"#fff");
+  poly(ctx,circlePts(R,t,0,0,spec.rings[2]),"#111");
+  // north pip (red triangle) -- contained within the arm tip so it doesn't
+  // extend the arm's pixel reach; sits in the 0.80..1.0 L gap above the cells.
+  const tri=[[0,spec.L],[-aw*0.6,spec.L*0.82],[aw*0.6,spec.L*0.82]].map(p=>project(R,t,p));
+  poly(ctx,tri,"#E23B4E");
+}
+function drawCard(ctx,c){ctx.save();ctx.translate(c.x,c.y);ctx.rotate(c.a);ctx.scale(c.s,c.s);
+  ctx.fillStyle="#f4f4ef";ctx.strokeStyle="#00000022";ctx.lineWidth=2;
+  ctx.beginPath();ctx.rect(-52,-72,104,144);ctx.fill();ctx.stroke();
+  const im=imgs[c.d]; if(im&&im.complete)ctx.drawImage(im,-52,-72,104,144);
+  ctx.restore();}
+
+function renderScene(){const cv=$("#scene"),ctx=cv.getContext("2d");
+  ctx.fillStyle=`rgb(${DESK[0]},${DESK[1]},${DESK[2]})`;ctx.fillRect(0,0,cv.width,cv.height);
+  // faint desk grain
+  const g=ctx.createLinearGradient(0,0,cv.width,cv.height);g.addColorStop(0,"#ffffff08");g.addColorStop(1,"#00000018");ctx.fillStyle=g;ctx.fillRect(0,0,cv.width,cv.height);
+  for(const c of CARDS)drawCard(ctx,c);
+  for(const m of SCENE)drawMarker(ctx,m);
+}
+
+/* ============================ detection ============================== */
+function luma(d,i){return 0.299*d[i]+0.587*d[i+1]+0.114*d[i+2];}
+function findBullseyes(img,W,H){
+  const d=img.data, dark=new Uint8Array(W*H);
+  for(let i=0,p=0;i<W*H;i++,p+=4)if(luma(d,p)<70)dark[i]=1;
+  // connected components of dark; keep compact disk-like blobs
+  const seen=new Uint8Array(W*H),st=new Int32Array(W*H),cands=[];
+  for(let i=0;i<W*H;i++){if(!dark[i]||seen[i])continue;let sp=0;st[sp++]=i;seen[i]=1;
+    let area=0,sx=0,sy=0,x0=W,y0=H,x1=0,y1=0;
+    while(sp){const c=st[--sp],cx=c%W,cy=(c/W)|0;area++;sx+=cx;sy+=cy;if(cx<x0)x0=cx;if(cx>x1)x1=cx;if(cy<y0)y0=cy;if(cy>y1)y1=cy;
+      const nb=[c-1,c+1,c-W,c+W];for(const n of nb){if(n<0||n>=W*H)continue;if(Math.abs((n%W)-cx)>1)continue;if(dark[n]&&!seen[n]){seen[n]=1;st[sp++]=n;}}}
+    const bw=x1-x0+1,bh=y1-y0+1,ar=bw/bh;
+    if(area>=10&&area<1200&&ar>0.45&&ar<2.2){cands.push({x:sx/area,y:sy/area,r:Math.sqrt(area/Math.PI),area});}}
+  // Ring structure around the dark core (radius r ~ inner disk): white ring at
+  // ~1.5r, dark ring at ~2.45r, then arms/background beyond ~2.9r.
+  const ok=[];
+  for(const c of cands){const rb=annulusLuma(d,W,H,c.x,c.y,c.r*1.3,c.r*1.5),rd=annulusLuma(d,W,H,c.x,c.y,c.r*2.1,c.r*2.3);
+    if(rb!=null&&rd!=null&&rb>130&&rd<130&&rb-rd>25)ok.push(c);}
+  if(window.__debug)console.log("bullseye: "+cands.length+" dark cands, "+ok.length+" validated");
+  return ok;
+}
+function annulusLuma(d,W,H,cx,cy,r0,r1){let s=0,n=0;for(let a=0;a<360;a+=15){const rr=(r0+r1)/2,x=Math.round(cx+rr*Math.cos(a*Math.PI/180)),y=Math.round(cy+rr*Math.sin(a*Math.PI/180));
+  if(x<1||y<1||x>=W-1||y>=H-1)continue;s+=luma(d,(y*W+x)*4);n++;}return n?s/n:null;}
+
+function isMarker(d,W,H,x,y){if(x<0||y<0||x>=W||y>=H)return false;const p=(y*W+x)*4;
+  const dl=Math.abs(d[p]-DESK[0])+Math.abs(d[p+1]-DESK[1])+Math.abs(d[p+2]-DESK[2]);return dl>55;}
+function rayReach(d,W,H,cx,cy,ang,r0){const dx=Math.cos(ang),dy=Math.sin(ang);let last=r0,gap=0;
+  for(let rr=r0;rr<900;rr+=1){const x=Math.round(cx+dx*rr),y=Math.round(cy+dy*rr);
+    if(isMarker(d,W,H,x,y)){last=rr;gap=0;}else{gap++;if(gap>4)break;}}
+  return last;}
+function detectArms(d,W,H,c){
+  const r0=c.r*3.0, N=360, reach=[];
+  for(let k=0;k<N;k++){const a=k/N*2*Math.PI;reach.push(rayReach(d,W,H,c.x,c.y,a,r0));}
+  // coarse seed directions (reach peaks -- may point at corners)
+  const peaks=[];for(let k=0;k<N;k++){let isMax=reach[k]>c.r*3;for(let w=-12;w<=12;w++)if(reach[(k+w+N)%N]>reach[k]+0.01){isMax=false;break;}if(isMax)peaks.push({a:k/N*2*Math.PI,reach:reach[k]});}
+  peaks.sort((p,q)=>q.reach-p.reach);
+  const seeds=[];for(const p of peaks){if(seeds.every(q=>angDiff(p.a,q.a)>0.7))seeds.push(p);if(seeds.length===4)break;}
+  if(seeds.length<4)return [];
+  // refine each seed to its true CENTRELINE by averaging unit vectors of marker
+  // pixels in the arm's mid-band, then march the centreline to the tip.
+  const arms=[];
+  for(const s of seeds){
+    let sx=0,sy=0;
+    for(let rr=s.reach*0.35;rr<s.reach*0.75;rr+=1)
+      for(let da=-0.32;da<=0.32;da+=0.04){const a=s.a+da,x=Math.round(c.x+Math.cos(a)*rr),y=Math.round(c.y+Math.sin(a)*rr);
+        if(isMarker(d,W,H,x,y)){sx+=Math.cos(a);sy+=Math.sin(a);}}
+    const ca=Math.atan2(sy,sx)||s.a;
+    const reach2=rayReach(d,W,H,c.x,c.y,ca,r0);
+    arms.push({a:ca,reach:reach2,tip:[c.x+Math.cos(ca)*reach2,c.y+Math.sin(ca)*reach2]});
+  }
+  return arms;
+}
+function angDiff(a,b){let d=Math.abs(a-b)%(2*Math.PI);return d>Math.PI?2*Math.PI-d:d;}
+function isRedNear(d,W,H,x,y,rad){for(let a=0;a<360;a+=30)for(const rr of[rad*0.6,rad])
+  {const px=Math.round(x+rr*Math.cos(a*Math.PI/180)),py=Math.round(y+rr*Math.sin(a*Math.PI/180));if(px<0||py<0||px>=W||py>=H)continue;
+   const p=(py*W+px)*4;if(d[p]>150&&d[p]-d[p+1]>70&&d[p]-d[p+2]>60)return true;}return false;}
+
+function decodeMarker(img,W,H,c){
+  const d=img.data, arms=detectArms(d,W,H,c);
+  if(window.__debug)console.log("  arms found: "+arms.length+" reaches="+arms.map(a=>a.reach.toFixed(0)));
+  if(arms.length<4)return null;
+  const tip=p=>p.tip;
+  const dist=(a,b)=>Math.hypot(a[0]-b[0],a[1]-b[1]);
+  // pair opposite arms (each axis is ~collinear through the centre)
+  let p0=1; for(const j of [1,2,3]) if(angDiff(arms[0].a,arms[j].a)>angDiff(arms[0].a,arms[p0].a))p0=j;
+  const axisA=[0,p0], axisB=[1,2,3].filter(j=>j!==p0);
+  const order=["C","N","S","E","W"];
+  const kn={C:[0,0],N:[0,1],S:[0,-1],E:[0.6,0],W:[-0.6,0]};
+  // Foreshortening can make a long arm project shorter than a short arm, so we
+  // don't trust span: try BOTH axes as N-S and both N/S orientations; CRC decides.
+  const tries=[];
+  for(const [NS,EW] of [[axisA,axisB],[axisB,axisA]])
+    for(const [ni,si] of [[NS[0],NS[1]],[NS[1],NS[0]]]) tries.push([ni,si,EW]);
+  for(const [ni,si,EW] of tries){
+    const px={C:[c.x,c.y],N:tip(arms[ni]),S:tip(arms[si]),E:tip(arms[EW[0]]),W:tip(arms[EW[1]])};
+    const Hn=homography(order.map(k=>kn[k]),order.map(k=>px[k]));
+    const info=decodeCells(sampleCells(d,W,Hn));
+    if(window.__debug)console.log("  try N@"+ni+" id="+info.id+" L="+info.L.toFixed(1)+" crc="+info.crc_ok);
+    if(info.crc_ok && info.L>4 && info.L<400){
+      // resolve E/W for a right-handed face-up frame (screen y-down convention)
+      const o=px.C, nv=[px.N[0]-o[0],px.N[1]-o[1]], e0=[px.E[0]-o[0],px.E[1]-o[1]];
+      let E=EW[0],Wc=EW[1];
+      if((nv[0]*e0[1]-nv[1]*e0[0])>0){E=EW[1];Wc=EW[0];}
+      const pxm={C:[c.x,c.y],N:tip(arms[ni]),S:tip(arms[si]),E:tip(arms[E]),W:tip(arms[Wc])};
+      const knownMm={C:[0,0],N:[0,info.L],S:[0,-info.L],E:[0.6*info.L,0],W:[-0.6*info.L,0]};
+      const Hmm=homography(order.map(k=>knownMm[k]),order.map(k=>pxm[k]));
+      const mmPerPx=1/scalePxPerUnit(Hmm), origin=applyH(Hmm,[0,0]);
+      const heading=Math.atan2(pxm.N[1]-origin[1],pxm.N[0]-origin[0])*57.2958;
+      const {R,t}=decompose(Hmm,K), eu=euler(R);
+      return {c,px:pxm,H:Hmm,info,mmPerPx,origin,heading,R,t,euler:eu};
+    }
+  }
+  return {c,info:{id:0,L:0,crc_ok:false},bad:true};
+}
+// sample 12 cells: their normalised centres come from crossSpec at L=1.
+// Sample a small disc sized to the marker's on-screen scale and take the
+// per-channel MEDIAN, so a slightly-off homography still reads each cell.
+function sampleCells(d,W,H){
+  const Hh=d.length/4/W;
+  const spec=crossSpec(1,0);
+  const cellHalf=(DEND-DSTART)/6*0.5;                 // normalised cell half-height
+  const rad=Math.max(1,Math.min(4,Math.round(scalePxPerUnit(H)*cellHalf*0.6)));
+  const out=[];
+  for(const cell of spec.dataCells){const[u,v]=applyH(H,[cell.x,cell.y]);
+    const x=Math.round(u),y=Math.round(v); const R=[],G=[],B=[];
+    for(let dy=-rad;dy<=rad;dy++)for(let dx=-rad;dx<=rad;dx++){const xx=x+dx,yy=y+dy;if(xx<0||yy<0||xx>=W||yy>=Hh)continue;const p=(yy*W+xx)*4;R.push(d[p]);G.push(d[p+1]);B.push(d[p+2]);}
+    const med=a=>{a.sort((m,n)=>m-n);return a.length?a[a.length>>1]:255;};
+    out.push([med(R)<128?1:0,med(G)<128?1:0,med(B)<128?1:0]);}
+  return out;
+}
+
+/* ============================ run + overlay ========================== */
+let LAST=[];
+function scan(){renderScene();const cv=$("#scene"),ctx=cv.getContext("2d");
+  const img=ctx.getImageData(0,0,cv.width,cv.height);
+  const eyes=findBullseyes(img,cv.width,cv.height);
+  const results=[];
+  for(const c of eyes){const r=decodeMarker(img,cv.width,cv.height,c);if(r&&!r.bad)results.push(r);}
+  LAST=results; overlay(ctx,results); fillTable(results); return results;
+}
+function nearestTruth(origin){let best=null,bd=1e9;for(const m of SCENE){const o=project(m.R,m.t,[0,0]);const dd=Math.hypot(o[0]-origin[0],o[1]-origin[1]);if(dd<bd){bd=dd;best=m;}}return{m:best,d:bd};}
+function overlay(ctx,results){
+  if($("#showRays").checked)for(const r of results){ctx.strokeStyle="#37e0ce55";for(const k of["N","S","E","W"]){ctx.beginPath();ctx.moveTo(r.c.x,r.c.y);ctx.lineTo(...r.px[k]);ctx.stroke();}}
+  for(const r of results){
+    if($("#showTruth").checked){const {m}=nearestTruth(r.origin);const o=project(m.R,m.t,[0,0]);
+      ctx.fillStyle="#F5C518";ctx.beginPath();ctx.arc(o[0],o[1],5,0,7);ctx.fill();}
+    // recovered axes
+    const ax=(k,col)=>{ctx.strokeStyle=col;ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(...r.origin);ctx.lineTo(...r.px[k]);ctx.stroke();};
+    ax("N","#E23B4E"); ax("E","#37E0CE");
+    ctx.fillStyle="#37E0CE";ctx.beginPath();ctx.arc(r.origin[0],r.origin[1],4,0,7);ctx.fill();
+    ctx.fillStyle="#37E0CE";ctx.font="bold 13px ui-monospace,monospace";
+    ctx.fillText("id "+r.info.id+" · "+r.info.L.toFixed(0)+"mm", r.origin[0]+8, r.origin[1]-8);
+  }
+}
+function fillTable(results){
+  const tb=$("#results").querySelector("tbody");tb.innerHTML="";
+  let scaleErrs=[],posErrs=[],ids=0;
+  results.sort((a,b)=>b.info.L-a.info.L);
+  for(const r of results){
+    const {m,d}=nearestTruth(r.origin);
+    // truth scale mm/px at that marker origin (numerical Jacobian of true projection)
+    const o=project(m.R,m.t,[0,0]),ox=project(m.R,m.t,[0.5,0]),oy=project(m.R,m.t,[0,0.5]);
+    const Jt=[[(ox[0]-o[0])/0.5,(oy[0]-o[0])/0.5],[(ox[1]-o[1])/0.5,(oy[1]-o[1])/0.5]];
+    const truePxpmm=Math.sqrt(Math.abs(Jt[0][0]*Jt[1][1]-Jt[0][1]*Jt[1][0])),trueMmpp=1/truePxpmm;
+    const sErr=Math.abs(r.mmPerPx-trueMmpp)/trueMmpp;
+    const posErrMm=d*r.mmPerPx;
+    if(r.info.crc_ok)ids++; scaleErrs.push(sErr); posErrs.push(posErrMm);
+    const tr=document.createElement("tr");
+    tr.innerHTML=`<td>${m.name}</td><td>${r.info.id}</td>
+      <td class="${r.info.crc_ok?'ok':'bad'}">${r.info.crc_ok?'OK':'—'}</td>
+      <td>${r.info.L.toFixed(1)}</td><td>${r.mmPerPx.toFixed(4)}</td>
+      <td class="${sErr<0.05?'ok':''}">${(sErr*100).toFixed(1)}%</td>
+      <td>${r.heading.toFixed(1)}</td><td>${r.euler[0].toFixed(1)}</td><td>${r.euler[1].toFixed(1)}</td>
+      <td class="${posErrMm<8?'ok':''}">${posErrMm.toFixed(1)}</td>`;
+    tb.appendChild(tr);
+  }
+  const med=a=>a.length?a.slice().sort((x,y)=>x-y)[a.length>>1]:0;
+  $("#sFound").textContent=results.length+"/"+SCENE.length;
+  $("#sIds").textContent=ids+"/"+SCENE.length;
+  $("#sScale").textContent=(med(scaleErrs)*100).toFixed(1)+"%";
+  $("#sPos").textContent=med(posErrs).toFixed(1)+" mm";
+}
+
+/* ============================ boot =================================== */
+let SEED=7;
+function boot(){
+  let loaded=0; const keys=Object.keys(THUMBS);
+  keys.forEach(k=>{const im=new Image();im.onload=()=>{if(++loaded===keys.length){buildScene(SEED);renderScene();}};im.src=THUMBS[k];imgs[k]=im;});
+  $("#scan").onclick=()=>scan();
+  $("#shuffle").onclick=()=>{SEED=(SEED*1664525+1013904223)>>>0;buildScene(SEED);renderScene();$("#results").querySelector("tbody").innerHTML="";["sFound","sIds","sScale","sPos"].forEach(id=>$("#"+id).textContent="—");};
+  $("#showTruth").onchange=()=>{if(LAST.length)scan();};
+  $("#showRays").onchange=()=>{if(LAST.length)scan();};
+  $("#themeBtn").onclick=()=>{const c=document.documentElement.getAttribute("data-theme");document.documentElement.setAttribute("data-theme",c==="dark"?"light":c==="light"?"dark":(matchMedia("(prefers-color-scheme: dark)").matches?"light":"dark"));};
+}
+window.addEventListener("DOMContentLoaded",boot);
+window.__scanTest=()=>{buildScene(SEED);const r=scan();
+  const info=r.map(x=>({id:x.info.id,L:x.info.L,crc:x.info.crc_ok}));
+  return {found:r.length,total:SCENE.length,ids:info,pass:r.length>=3};};
+// multi-layout robustness: expected ids per L, tally correct decodes + scale err
+window.__scanSweep=(nSeeds)=>{
+  const want={92:0x2A,66:0x11,46:0x7C,30:0x05};
+  let markers=0, correct=0, scaleErrs=[], posErrs=[];
+  for(let s=1;s<=nSeeds;s++){ SEED=s*2654435761>>>0; buildScene(SEED); const r=scan();
+    markers+=SCENE.length;
+    for(const x of r){ const exp=want[Math.round(x.info.L)];
+      if(x.info.crc_ok && exp===x.info.id) correct++;
+      // scale/pos error vs nearest ground truth
+      const {m,d}=nearestTruth(x.origin);
+      const o=project(m.R,m.t,[0,0]),ox=project(m.R,m.t,[0.5,0]),oy=project(m.R,m.t,[0,0.5]);
+      const Jt=[[(ox[0]-o[0])/0.5,(oy[0]-o[0])/0.5],[(ox[1]-o[1])/0.5,(oy[1]-o[1])/0.5]];
+      const tp=Math.sqrt(Math.abs(Jt[0][0]*Jt[1][1]-Jt[0][1]*Jt[1][0])), trueMmpp=1/tp;
+      scaleErrs.push(Math.abs(x.mmPerPx-trueMmpp)/trueMmpp); posErrs.push(d*x.mmPerPx);
+    }
+  }
+  const med=a=>{a.sort((m,n)=>m-n);return a.length?a[a.length>>1]:0;};
+  return {markers,correct,rate:correct/markers,medScaleErr:med(scaleErrs),medPosErr:med(posErrs)};
+};
+</script>

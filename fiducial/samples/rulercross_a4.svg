@@ -36,23 +36,23 @@
 <line x1="55.000" y1="154.940" x2="55.000" y2="142.060"/>
 </g>
 <g style="mix-blend-mode:multiply">
-<rect x="99.204" y="119.563" width="11.592" height="8.554" fill="rgb(255,255,255)"/>
-<rect x="99.204" y="107.683" width="11.592" height="8.554" fill="rgb(255,255,255)"/>
-<rect x="99.204" y="95.803" width="11.592" height="8.554" fill="rgb(255,255,255)"/>
-<rect x="99.204" y="83.923" width="11.592" height="8.554" fill="rgb(255,0,255)"/>
-<rect x="99.204" y="72.043" width="11.592" height="8.554" fill="rgb(0,255,0)"/>
-<rect x="99.204" y="60.163" width="11.592" height="8.554" fill="rgb(255,255,255)"/>
-<rect x="99.204" y="168.883" width="11.592" height="8.554" fill="rgb(0,0,0)"/>
-<rect x="99.204" y="180.763" width="11.592" height="8.554" fill="rgb(255,255,0)"/>
-<rect x="99.204" y="192.643" width="11.592" height="8.554" fill="rgb(0,255,255)"/>
-<rect x="99.204" y="204.523" width="11.592" height="8.554" fill="rgb(255,255,255)"/>
-<rect x="99.204" y="216.403" width="11.592" height="8.554" fill="rgb(255,255,0)"/>
-<rect x="99.204" y="228.283" width="11.592" height="8.554" fill="rgb(255,255,0)"/>
+<rect x="99.204" y="117.395" width="11.592" height="4.250" fill="rgb(255,255,255)"/>
+<rect x="99.204" y="110.955" width="11.592" height="4.250" fill="rgb(255,255,255)"/>
+<rect x="99.204" y="104.515" width="11.592" height="4.250" fill="rgb(255,255,255)"/>
+<rect x="99.204" y="98.075" width="11.592" height="4.250" fill="rgb(255,0,255)"/>
+<rect x="99.204" y="91.635" width="11.592" height="4.250" fill="rgb(0,255,0)"/>
+<rect x="99.204" y="85.195" width="11.592" height="4.250" fill="rgb(255,255,255)"/>
+<rect x="99.204" y="175.355" width="11.592" height="4.250" fill="rgb(0,0,0)"/>
+<rect x="99.204" y="181.795" width="11.592" height="4.250" fill="rgb(255,255,0)"/>
+<rect x="99.204" y="188.235" width="11.592" height="4.250" fill="rgb(0,255,255)"/>
+<rect x="99.204" y="194.675" width="11.592" height="4.250" fill="rgb(255,255,255)"/>
+<rect x="99.204" y="201.115" width="11.592" height="4.250" fill="rgb(255,255,0)"/>
+<rect x="99.204" y="207.555" width="11.592" height="4.250" fill="rgb(255,255,0)"/>
 </g>
-<circle cx="105.000" cy="148.500" r="14.720" fill="#111" stroke="#111" stroke-width="0.25"/>
-<circle cx="105.000" cy="148.500" r="10.120" fill="#fff" stroke="#111" stroke-width="0.25"/>
-<circle cx="105.000" cy="148.500" r="5.060" fill="#111" stroke="#111" stroke-width="0.25"/>
-<polygon points="105.000,44.908 96.886,58.818 113.114,58.818" fill="#E23B4E"/>
-<text x="105.000" y="44.608" font-family="monospace" font-size="10.30" text-anchor="middle" fill="#E23B4E">N</text>
+<circle cx="105.000" cy="148.500" r="18.400" fill="#111" stroke="#111" stroke-width="0.25"/>
+<circle cx="105.000" cy="148.500" r="11.960" fill="#fff" stroke="#111" stroke-width="0.25"/>
+<circle cx="105.000" cy="148.500" r="6.900" fill="#111" stroke="#111" stroke-width="0.25"/>
+<polygon points="105.000,56.500 97.272,73.060 112.728,73.060" fill="#E23B4E"/>
+<text x="115.304" y="56.500" font-family="monospace" font-size="10.30" fill="#E23B4E">N</text>
 <text x="105.000" y="244.500" font-family="monospace" font-size="2.4" text-anchor="middle" fill="#111">RULERCROSS  id 0x002A  L=92.0mm  span=184.0mm  CRC-OK</text>
 </svg>
