@@ -1,0 +1,406 @@
+# PrintablePrograms.png: Byte-Exact Recovery of Programs from Physically Printed Pages
+
+**AndrÃ©s Cuervo** â _playground / folk.computer community_  
+**Claude** â _Anthropic (pair programmer)_  
+
+July 27, 2026
+
+**Keywords:** printable programs, visual codes, fiducial markers, paper computing, Tcl, program archival
+
+## Abstract
+
+The dominant carriers of software are invisible: magnetic domains,
+charge wells, and radio packets. We present PrintablePrograms.png, a
+toolkit that makes the printed page a first-class program carrier. A
+program is typeset legibly in the middle of a page and simultaneously
+encoded, byte-exactly, into a thin frame of saturated color cells
+around the page edge. The frame self-describes its geometry, physical
+scale, color palette, and network origin, so a screenshot, scan, or
+photograph of the page suffices to reconstruct the program with no
+out-of-band knowledge. We describe the format, an eight-color
+modulation scheme with per-print calibration, a CRC-guarded
+repetition-coded packet layout, and a family of format converters that
+route every representation through a canonical XML document carrying
+both byte-exact source and a structural AST. This paper is itself a
+demonstration: its canonical XML source builds the PDF, HTML, and
+Markdown editions you may be reading, and each printed page of the PDF
+carries this document in its own data frame.
+
+## 1. Introduction
+
+Programs on paper have a long history: type-in listings in hobbyist
+magazines, punched cards, and archival microfilm all treated paper as
+a distribution medium. Paper is durable, human-inspectable,
+self-powered, and survives institutional collapse better than any
+spinning or charged medium. What paper lost, when software grew, was
+byte-exactness: retyping a listing introduces errors, and OCR of
+source code remains unreliable precisely where it matters (identifiers,
+punctuation, whitespace).
+
+PrintablePrograms.png restores byte-exactness while keeping
+legibility. Every printed page carries two synchronized channels: a
+human channel (the program text, typeset at a minimum physical size of
+12pt) and a machine channel (a border band of large color cells that
+encodes the program plus enough metadata to decode itself). The two
+channels cover for each other: the machine channel makes recovery
+exact; the human channel makes the artifact auditable, quotable, and
+partially recoverable even when the machine channel is damaged.
+
+The design descends from a lineage of physical-computing systems: the
+DigitalDesk's insistence that paper and computation share a surface
+[Wellner 1993], tangible interfaces [Ishii and Ullmer 1997], Weiser's
+vision of computation receding into the environment [Weiser 1991], and
+the communal computing rooms of Dynamicland [Victor et al. 2017] and
+Folk Computer [Rizwan and Michaud-Agrawal 2023], where programs are
+literally pieces of paper on tables. Those systems locate programs by
+fiducial tags and fetch the source over a network; a PrintablePrograms
+page needs no network, though it names one as a fallback.
+
+## 2. Related Work
+
+Two-dimensional visual codes are mature technology: QR codes [ISO/IEC
+18004 2015] and Data Matrix reach kilobyte capacities with strong
+Reed-Solomon error correction [Reed and Solomon 1960], and robust
+fiducial systems such as ARToolKit [Kato and Billinghurst 1999] and
+AprilTag [Olson 2011] solve detection and pose. PaperBack [Yuschuk
+2007] demonstrated dense full-page archival backup (hundreds of
+kilobytes per page) at the cost of legibility: the page becomes a
+uniform gray texture. Literate programming [Knuth 1984] made the
+printed program a publication artifact but kept recovery manual.
+
+PrintablePrograms.png occupies a deliberate middle point: the page
+remains, at a glance, a document -- title, code, margins -- and the
+machine channel is confined to a decorative-looking border. Capacity
+is sacrificed (kilobytes, not megabytes) for a page that a human would
+pin to a wall. The frame is self-describing in a way that dense
+archival formats are not: physical dimensions, cell pitch, palette,
+and origin URL are all recovered from the pixels themselves.
+
+## 3. Format Design
+
+A page is a cell grid. A quiet white margin (for printer comfort;
+detection does not require it) surrounds a band of color cells; the
+interior holds the typeset program. Cells modulate three bits each
+through an eight-color palette at the corners of the RGB cube --
+black, red, green, blue, cyan, magenta, yellow, white -- the colors
+maximally separated under the subtractive gamut of consumer inkjet
+inks. QR-style finder fiducials occupy all four corners. Beside the
+top-left fiducial sit a calibration strip (the eight palette colors in
+fixed order, letting the decoder re-learn the palette per print) and
+three self-description words: band thickness, grid width, and grid
+height, each 24 bits. Self-encoding the grid dimensions makes cell
+recovery immune to accumulated pitch error, which defeats
+run-length-only estimation on wide grids.
+
+The band payload is a single packet: magic, version, a header of
+key=value lines (hostname, IP, program identifier, a UTC-millisecond
+filename, page and cell dimensions in millimeters, creation time,
+origin URL), the leading bytes of the program, and a CRC32. The packet
+repeats to fill the band; a decoder accepts the first copy whose CRC
+verifies. Because physical dimensions ride in the header, every
+artifact encodes its own absolute scale: a decoder reports pixels per
+millimeter for any raster it is handed, and US Letter editions of this
+paper are emitted with fixed 8.5 by 11 inch geometry declared in the
+frame itself.
+
+When a program exceeds band capacity the frame carries a prefix, a
+complete=0 flag, and the origin URL from which the full program can be
+fetched (http://ip/folk-data/program/filename); the typeset human
+channel carries the rest of the meaning.
+
+## 4. Toolchain
+
+The toolkit is implemented in Tcl [Ousterhout 1990], the language of
+the Folk Computer ecosystem it serves. A canonical XML document is the
+hub of all conversions: it carries the byte-exact source (base64), a
+per-command breakdown, and a full abstract syntax tree with typed
+words and nested scripts, from which a semantically equivalent program
+can be regenerated. The press (bin/press.tcl) converts any pair among
+.tcl, .xml, .png, .jpg; raster carriers hold the XML in PNG tEXt
+chunks and JPEG COM segments, so a lossy JPEG still round-trips the
+source byte-exactly. The printout tool (bin/printout.tcl) emits and
+decodes page frames; the decoder assumes only an axis-aligned raster
+and tolerates anisotropic rescaling, blur, and recompression.
+Perspective and rotation rectification are delegated to the
+surrounding computer-vision layer, as in AprilTag-based rooms.
+
+The white paper tool (bin/whitepaper.tcl) is the toolkit eating its
+own cooking: it typesets this document from WhitePaper.xml into US
+Letter page frames set in the Libertinus revival of Linux Libertine --
+the ACM's standard typeface family [Boldt et al. 2012; ACM 2017] --
+and emits every published edition, including carrier programs in
+folk, Rust, Go, and C++ that reproduce the PDF, images, diagrams, and
+formatting from constants embedded in their own source.
+
+## 5. Evaluation
+
+The test suites hold 34 checks. Digital round trips are byte-exact
+across every format pair, including chains through lossy JPEG.
+Physical-channel simulations decode byte-exactly after 137 percent
+upscale, 63 percent downscale, and a rescan simulation of 80 percent
+rescale with Gaussian blur and JPEG quality 80. A committed sample
+(storyboard.printout.rescan.jpg) demonstrates recovery from degraded
+pixels using no metadata. Capacity at default geometry (2mm cells,
+12-cell band) is roughly 1.7 kilobytes per US Letter page, sufficient
+for the programs the Folk community actually prints; larger programs
+degrade gracefully to prefix plus origin.
+
+## 6. Limitations and Future Work
+
+The decoder requires an axis-aligned image; camera-in-the-wild
+decoding needs the perspective rectification that fiducial systems
+already provide. Error correction is repetition plus CRC; Reed-Solomon
+coding would multiply usable capacity under damage. The sketch that
+motivated this work calls for burn-blend barcode layers encoding six
+degrees of freedom of pose and scale per storyboard frame, paper-size
+preset families, and transpiled carriers (.tk.folk, .c.folk,
+.folk.rs, .folk.go); the mm-parameterized geometry and the carrier
+generators in this paper are the first steps of that roadmap.
+
+## 7. Acknowledgments
+
+To the Folk Computer community, for insisting that programs belong on
+tables, and to a hand-drawn orange-marker system diagram, for being a
+better specification than most specifications.
+
+## References
+
+- ACM. 2017. ACM Master Article Template and the acmart document class. Association for Computing Machinery, New York, NY. https://www.acm.org/publications/proceedings-template
+- Philipp H. Poll. 2012. The Linux Libertine Open Fonts Project. libertine-fonts.org.
+- ISO/IEC. 2015. Information technology - Automatic identification and data capture techniques - QR Code bar code symbology specification. ISO/IEC 18004:2015.
+- Hiroshi Ishii and Brygg Ullmer. 1997. Tangible bits: towards seamless interfaces between people, bits and atoms. In Proceedings of the ACM SIGCHI Conference on Human Factors in Computing Systems (CHI '97). ACM, New York, NY, 234-241. https://doi.org/10.1145/258549.258715
+- Hirokazu Kato and Mark Billinghurst. 1999. Marker tracking and HMD calibration for a video-based augmented reality conferencing system. In Proceedings of the 2nd IEEE and ACM International Workshop on Augmented Reality (IWAR '99). IEEE, 85-94. https://doi.org/10.1109/IWAR.1999.803809
+- Donald E. Knuth. 1984. Literate Programming. The Computer Journal 27, 2 (1984), 97-111. https://doi.org/10.1093/comjnl/27.2.97
+- Edwin Olson. 2011. AprilTag: A robust and flexible visual fiducial system. In Proceedings of the IEEE International Conference on Robotics and Automation (ICRA '11). IEEE, 3400-3407. https://doi.org/10.1109/ICRA.2011.5979561
+- John K. Ousterhout. 1990. Tcl: An Embeddable Command Language. In Proceedings of the USENIX Winter 1990 Technical Conference. USENIX Association, 133-146.
+- Irving S. Reed and Gustave Solomon. 1960. Polynomial Codes Over Certain Finite Fields. Journal of the Society for Industrial and Applied Mathematics 8, 2 (1960), 300-304. https://doi.org/10.1137/0108018
+- Omar Rizwan and Naveen Michaud-Agrawal. 2023. Folk Computer: a physical computing system. https://folk.computer
+- Bret Victor, Luke Iannini, Toby Schachman, Paula Te, Josh Horowitz, and Chaim Gingold. 2017. Dynamicland. https://dynamicland.org
+- Mark Weiser. 1991. The Computer for the 21st Century. Scientific American 265, 3 (1991), 94-104. https://doi.org/10.1038/scientificamerican0991-94
+- Pierre Wellner. 1993. Interacting with paper on the DigitalDesk. Commun. ACM 36, 7 (1993), 87-96. https://doi.org/10.1145/159544.159630
+- Oleh Yuschuk. 2007. PaperBack: free application that allows backing up files on ordinary paper. ollydbg.de/Paperbak.
+
+---
+
+_Built from WhitePaper.xml by PrintablePrograms.png; the PDF edition's page frames carry this document's canonical XML._
+
+<!-- pp:xml:base64
+PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiPz4KPCEtLQogIFdoaXRlUGFwZXIu
+eG1sIDogdGhlIGNhbm9uaWNhbCBzb3VyY2Ugb2YgdGhlIFByaW50YWJsZVByb2dyYW1zLnBuZwog
+IHdoaXRlIHBhcGVyLiBUaGlzIHNpbmdsZSBkb2N1bWVudCBidWlsZHMgZXZlcnkgcHVibGlzaGVk
+IGFydGlmYWN0CiAgKC5tZCwgLmh0bWwsIC5wZGYsIC5wcC5wZGYsIC5wcC54bWwsIC5wcC5tZCwg
+LnBwLmh0bWwsIGFuZCB0aGUKICBzZWxmLXJlcHJvZHVjaW5nIGNhcnJpZXIgcHJvZ3JhbXMpIHZp
+YSBiaW4vd2hpdGVwYXBlci50Y2wgLS0gdGhlCiAgcGFwZXIgaXMgaXRzZWxmIGEgcHJpbnRhYmxl
+IHByb2dyYW0uCi0tPgo8d2hpdGVwYXBlciB4bWxucz0iaHR0cHM6Ly9naXRodWIuY29tL2N3ZXJ2
+by9wbGF5Z3JvdW5kL1ByaW50YWJsZVByb2dyYW1zLnBuZy93aGl0ZXBhcGVyIj4KICA8dGl0bGU+
+UHJpbnRhYmxlUHJvZ3JhbXMucG5nOiBCeXRlLUV4YWN0IFJlY292ZXJ5IG9mIFByb2dyYW1zIGZy
+b20gUGh5c2ljYWxseSBQcmludGVkIFBhZ2VzPC90aXRsZT4KICA8YXV0aG9ycz4KICAgIDxhdXRo
+b3IgYWZmaWxpYXRpb249InBsYXlncm91bmQgLyBmb2xrLmNvbXB1dGVyIGNvbW11bml0eSI+QW5k
+ciYjMjMzO3MgQ3VlcnZvPC9hdXRob3I+CiAgICA8YXV0aG9yIGFmZmlsaWF0aW9uPSJBbnRocm9w
+aWMgKHBhaXIgcHJvZ3JhbW1lcikiPkNsYXVkZTwvYXV0aG9yPgogIDwvYXV0aG9ycz4KICA8ZGF0
+ZT5KdWx5IDI3LCAyMDI2PC9kYXRlPgogIDxrZXl3b3Jkcz5wcmludGFibGUgcHJvZ3JhbXMsIHZp
+c3VhbCBjb2RlcywgZmlkdWNpYWwgbWFya2VycywgcGFwZXIgY29tcHV0aW5nLCBUY2wsIHByb2dy
+YW0gYXJjaGl2YWw8L2tleXdvcmRzPgoKICA8YWJzdHJhY3Q+ClRoZSBkb21pbmFudCBjYXJyaWVy
+cyBvZiBzb2Z0d2FyZSBhcmUgaW52aXNpYmxlOiBtYWduZXRpYyBkb21haW5zLApjaGFyZ2Ugd2Vs
+bHMsIGFuZCByYWRpbyBwYWNrZXRzLiBXZSBwcmVzZW50IFByaW50YWJsZVByb2dyYW1zLnBuZywg
+YQp0b29sa2l0IHRoYXQgbWFrZXMgdGhlIHByaW50ZWQgcGFnZSBhIGZpcnN0LWNsYXNzIHByb2dy
+YW0gY2Fycmllci4gQQpwcm9ncmFtIGlzIHR5cGVzZXQgbGVnaWJseSBpbiB0aGUgbWlkZGxlIG9m
+IGEgcGFnZSBhbmQgc2ltdWx0YW5lb3VzbHkKZW5jb2RlZCwgYnl0ZS1leGFjdGx5LCBpbnRvIGEg
+dGhpbiBmcmFtZSBvZiBzYXR1cmF0ZWQgY29sb3IgY2VsbHMKYXJvdW5kIHRoZSBwYWdlIGVkZ2Uu
+IFRoZSBmcmFtZSBzZWxmLWRlc2NyaWJlcyBpdHMgZ2VvbWV0cnksIHBoeXNpY2FsCnNjYWxlLCBj
+b2xvciBwYWxldHRlLCBhbmQgbmV0d29yayBvcmlnaW4sIHNvIGEgc2NyZWVuc2hvdCwgc2Nhbiwg
+b3IKcGhvdG9ncmFwaCBvZiB0aGUgcGFnZSBzdWZmaWNlcyB0byByZWNvbnN0cnVjdCB0aGUgcHJv
+Z3JhbSB3aXRoIG5vCm91dC1vZi1iYW5kIGtub3dsZWRnZS4gV2UgZGVzY3JpYmUgdGhlIGZvcm1h
+dCwgYW4gZWlnaHQtY29sb3IKbW9kdWxhdGlvbiBzY2hlbWUgd2l0aCBwZXItcHJpbnQgY2FsaWJy
+YXRpb24sIGEgQ1JDLWd1YXJkZWQKcmVwZXRpdGlvbi1jb2RlZCBwYWNrZXQgbGF5b3V0LCBhbmQg
+YSBmYW1pbHkgb2YgZm9ybWF0IGNvbnZlcnRlcnMgdGhhdApyb3V0ZSBldmVyeSByZXByZXNlbnRh
+dGlvbiB0aHJvdWdoIGEgY2Fub25pY2FsIFhNTCBkb2N1bWVudCBjYXJyeWluZwpib3RoIGJ5dGUt
+ZXhhY3Qgc291cmNlIGFuZCBhIHN0cnVjdHVyYWwgQVNULiBUaGlzIHBhcGVyIGlzIGl0c2VsZiBh
+CmRlbW9uc3RyYXRpb246IGl0cyBjYW5vbmljYWwgWE1MIHNvdXJjZSBidWlsZHMgdGhlIFBERiwg
+SFRNTCwgYW5kCk1hcmtkb3duIGVkaXRpb25zIHlvdSBtYXkgYmUgcmVhZGluZywgYW5kIGVhY2gg
+cHJpbnRlZCBwYWdlIG9mIHRoZSBQREYKY2FycmllcyB0aGlzIGRvY3VtZW50IGluIGl0cyBvd24g
+ZGF0YSBmcmFtZS4KICA8L2Fic3RyYWN0PgoKICA8c2VjdGlvbiB0aXRsZT0iSW50cm9kdWN0aW9u
+Ij4KUHJvZ3JhbXMgb24gcGFwZXIgaGF2ZSBhIGxvbmcgaGlzdG9yeTogdHlwZS1pbiBsaXN0aW5n
+cyBpbiBob2JieWlzdAptYWdhemluZXMsIHB1bmNoZWQgY2FyZHMsIGFuZCBhcmNoaXZhbCBtaWNy
+b2ZpbG0gYWxsIHRyZWF0ZWQgcGFwZXIgYXMKYSBkaXN0cmlidXRpb24gbWVkaXVtLiBQYXBlciBp
+cyBkdXJhYmxlLCBodW1hbi1pbnNwZWN0YWJsZSwKc2VsZi1wb3dlcmVkLCBhbmQgc3Vydml2ZXMg
+aW5zdGl0dXRpb25hbCBjb2xsYXBzZSBiZXR0ZXIgdGhhbiBhbnkKc3Bpbm5pbmcgb3IgY2hhcmdl
+ZCBtZWRpdW0uIFdoYXQgcGFwZXIgbG9zdCwgd2hlbiBzb2Z0d2FyZSBncmV3LCB3YXMKYnl0ZS1l
+eGFjdG5lc3M6IHJldHlwaW5nIGEgbGlzdGluZyBpbnRyb2R1Y2VzIGVycm9ycywgYW5kIE9DUiBv
+Zgpzb3VyY2UgY29kZSByZW1haW5zIHVucmVsaWFibGUgcHJlY2lzZWx5IHdoZXJlIGl0IG1hdHRl
+cnMgKGlkZW50aWZpZXJzLApwdW5jdHVhdGlvbiwgd2hpdGVzcGFjZSkuCgpQcmludGFibGVQcm9n
+cmFtcy5wbmcgcmVzdG9yZXMgYnl0ZS1leGFjdG5lc3Mgd2hpbGUga2VlcGluZwpsZWdpYmlsaXR5
+LiBFdmVyeSBwcmludGVkIHBhZ2UgY2FycmllcyB0d28gc3luY2hyb25pemVkIGNoYW5uZWxzOiBh
+Cmh1bWFuIGNoYW5uZWwgKHRoZSBwcm9ncmFtIHRleHQsIHR5cGVzZXQgYXQgYSBtaW5pbXVtIHBo
+eXNpY2FsIHNpemUgb2YKMTJwdCkgYW5kIGEgbWFjaGluZSBjaGFubmVsIChhIGJvcmRlciBiYW5k
+IG9mIGxhcmdlIGNvbG9yIGNlbGxzIHRoYXQKZW5jb2RlcyB0aGUgcHJvZ3JhbSBwbHVzIGVub3Vn
+aCBtZXRhZGF0YSB0byBkZWNvZGUgaXRzZWxmKS4gVGhlIHR3bwpjaGFubmVscyBjb3ZlciBmb3Ig
+ZWFjaCBvdGhlcjogdGhlIG1hY2hpbmUgY2hhbm5lbCBtYWtlcyByZWNvdmVyeQpleGFjdDsgdGhl
+IGh1bWFuIGNoYW5uZWwgbWFrZXMgdGhlIGFydGlmYWN0IGF1ZGl0YWJsZSwgcXVvdGFibGUsIGFu
+ZApwYXJ0aWFsbHkgcmVjb3ZlcmFibGUgZXZlbiB3aGVuIHRoZSBtYWNoaW5lIGNoYW5uZWwgaXMg
+ZGFtYWdlZC4KClRoZSBkZXNpZ24gZGVzY2VuZHMgZnJvbSBhIGxpbmVhZ2Ugb2YgcGh5c2ljYWwt
+Y29tcHV0aW5nIHN5c3RlbXM6IHRoZQpEaWdpdGFsRGVzaydzIGluc2lzdGVuY2UgdGhhdCBwYXBl
+ciBhbmQgY29tcHV0YXRpb24gc2hhcmUgYSBzdXJmYWNlCltXZWxsbmVyIDE5OTNdLCB0YW5naWJs
+ZSBpbnRlcmZhY2VzIFtJc2hpaSBhbmQgVWxsbWVyIDE5OTddLCBXZWlzZXIncwp2aXNpb24gb2Yg
+Y29tcHV0YXRpb24gcmVjZWRpbmcgaW50byB0aGUgZW52aXJvbm1lbnQgW1dlaXNlciAxOTkxXSwg
+YW5kCnRoZSBjb21tdW5hbCBjb21wdXRpbmcgcm9vbXMgb2YgRHluYW1pY2xhbmQgW1ZpY3RvciBl
+dCBhbC4gMjAxN10gYW5kCkZvbGsgQ29tcHV0ZXIgW1JpendhbiBhbmQgTWljaGF1ZC1BZ3Jhd2Fs
+IDIwMjNdLCB3aGVyZSBwcm9ncmFtcyBhcmUKbGl0ZXJhbGx5IHBpZWNlcyBvZiBwYXBlciBvbiB0
+YWJsZXMuIFRob3NlIHN5c3RlbXMgbG9jYXRlIHByb2dyYW1zIGJ5CmZpZHVjaWFsIHRhZ3MgYW5k
+IGZldGNoIHRoZSBzb3VyY2Ugb3ZlciBhIG5ldHdvcms7IGEgUHJpbnRhYmxlUHJvZ3JhbXMKcGFn
+ZSBuZWVkcyBubyBuZXR3b3JrLCB0aG91Z2ggaXQgbmFtZXMgb25lIGFzIGEgZmFsbGJhY2suCiAg
+PC9zZWN0aW9uPgoKICA8c2VjdGlvbiB0aXRsZT0iUmVsYXRlZCBXb3JrIj4KVHdvLWRpbWVuc2lv
+bmFsIHZpc3VhbCBjb2RlcyBhcmUgbWF0dXJlIHRlY2hub2xvZ3k6IFFSIGNvZGVzIFtJU08vSUVD
+CjE4MDA0IDIwMTVdIGFuZCBEYXRhIE1hdHJpeCByZWFjaCBraWxvYnl0ZSBjYXBhY2l0aWVzIHdp
+dGggc3Ryb25nClJlZWQtU29sb21vbiBlcnJvciBjb3JyZWN0aW9uIFtSZWVkIGFuZCBTb2xvbW9u
+IDE5NjBdLCBhbmQgcm9idXN0CmZpZHVjaWFsIHN5c3RlbXMgc3VjaCBhcyBBUlRvb2xLaXQgW0th
+dG8gYW5kIEJpbGxpbmdodXJzdCAxOTk5XSBhbmQKQXByaWxUYWcgW09sc29uIDIwMTFdIHNvbHZl
+IGRldGVjdGlvbiBhbmQgcG9zZS4gUGFwZXJCYWNrIFtZdXNjaHVrCjIwMDddIGRlbW9uc3RyYXRl
+ZCBkZW5zZSBmdWxsLXBhZ2UgYXJjaGl2YWwgYmFja3VwIChodW5kcmVkcyBvZgpraWxvYnl0ZXMg
+cGVyIHBhZ2UpIGF0IHRoZSBjb3N0IG9mIGxlZ2liaWxpdHk6IHRoZSBwYWdlIGJlY29tZXMgYQp1
+bmlmb3JtIGdyYXkgdGV4dHVyZS4gTGl0ZXJhdGUgcHJvZ3JhbW1pbmcgW0tudXRoIDE5ODRdIG1h
+ZGUgdGhlCnByaW50ZWQgcHJvZ3JhbSBhIHB1YmxpY2F0aW9uIGFydGlmYWN0IGJ1dCBrZXB0IHJl
+Y292ZXJ5IG1hbnVhbC4KClByaW50YWJsZVByb2dyYW1zLnBuZyBvY2N1cGllcyBhIGRlbGliZXJh
+dGUgbWlkZGxlIHBvaW50OiB0aGUgcGFnZQpyZW1haW5zLCBhdCBhIGdsYW5jZSwgYSBkb2N1bWVu
+dCAtLSB0aXRsZSwgY29kZSwgbWFyZ2lucyAtLSBhbmQgdGhlCm1hY2hpbmUgY2hhbm5lbCBpcyBj
+b25maW5lZCB0byBhIGRlY29yYXRpdmUtbG9va2luZyBib3JkZXIuIENhcGFjaXR5CmlzIHNhY3Jp
+ZmljZWQgKGtpbG9ieXRlcywgbm90IG1lZ2FieXRlcykgZm9yIGEgcGFnZSB0aGF0IGEgaHVtYW4g
+d291bGQKcGluIHRvIGEgd2FsbC4gVGhlIGZyYW1lIGlzIHNlbGYtZGVzY3JpYmluZyBpbiBhIHdh
+eSB0aGF0IGRlbnNlCmFyY2hpdmFsIGZvcm1hdHMgYXJlIG5vdDogcGh5c2ljYWwgZGltZW5zaW9u
+cywgY2VsbCBwaXRjaCwgcGFsZXR0ZSwKYW5kIG9yaWdpbiBVUkwgYXJlIGFsbCByZWNvdmVyZWQg
+ZnJvbSB0aGUgcGl4ZWxzIHRoZW1zZWx2ZXMuCiAgPC9zZWN0aW9uPgoKICA8c2VjdGlvbiB0aXRs
+ZT0iRm9ybWF0IERlc2lnbiI+CkEgcGFnZSBpcyBhIGNlbGwgZ3JpZC4gQSBxdWlldCB3aGl0ZSBt
+YXJnaW4gKGZvciBwcmludGVyIGNvbWZvcnQ7CmRldGVjdGlvbiBkb2VzIG5vdCByZXF1aXJlIGl0
+KSBzdXJyb3VuZHMgYSBiYW5kIG9mIGNvbG9yIGNlbGxzOyB0aGUKaW50ZXJpb3IgaG9sZHMgdGhl
+IHR5cGVzZXQgcHJvZ3JhbS4gQ2VsbHMgbW9kdWxhdGUgdGhyZWUgYml0cyBlYWNoCnRocm91Z2gg
+YW4gZWlnaHQtY29sb3IgcGFsZXR0ZSBhdCB0aGUgY29ybmVycyBvZiB0aGUgUkdCIGN1YmUgLS0K
+YmxhY2ssIHJlZCwgZ3JlZW4sIGJsdWUsIGN5YW4sIG1hZ2VudGEsIHllbGxvdywgd2hpdGUgLS0g
+dGhlIGNvbG9ycwptYXhpbWFsbHkgc2VwYXJhdGVkIHVuZGVyIHRoZSBzdWJ0cmFjdGl2ZSBnYW11
+dCBvZiBjb25zdW1lciBpbmtqZXQKaW5rcy4gUVItc3R5bGUgZmluZGVyIGZpZHVjaWFscyBvY2N1
+cHkgYWxsIGZvdXIgY29ybmVycy4gQmVzaWRlIHRoZQp0b3AtbGVmdCBmaWR1Y2lhbCBzaXQgYSBj
+YWxpYnJhdGlvbiBzdHJpcCAodGhlIGVpZ2h0IHBhbGV0dGUgY29sb3JzIGluCmZpeGVkIG9yZGVy
+LCBsZXR0aW5nIHRoZSBkZWNvZGVyIHJlLWxlYXJuIHRoZSBwYWxldHRlIHBlciBwcmludCkgYW5k
+CnRocmVlIHNlbGYtZGVzY3JpcHRpb24gd29yZHM6IGJhbmQgdGhpY2tuZXNzLCBncmlkIHdpZHRo
+LCBhbmQgZ3JpZApoZWlnaHQsIGVhY2ggMjQgYml0cy4gU2VsZi1lbmNvZGluZyB0aGUgZ3JpZCBk
+aW1lbnNpb25zIG1ha2VzIGNlbGwKcmVjb3ZlcnkgaW1tdW5lIHRvIGFjY3VtdWxhdGVkIHBpdGNo
+IGVycm9yLCB3aGljaCBkZWZlYXRzCnJ1bi1sZW5ndGgtb25seSBlc3RpbWF0aW9uIG9uIHdpZGUg
+Z3JpZHMuCgpUaGUgYmFuZCBwYXlsb2FkIGlzIGEgc2luZ2xlIHBhY2tldDogbWFnaWMsIHZlcnNp
+b24sIGEgaGVhZGVyIG9mCmtleT12YWx1ZSBsaW5lcyAoaG9zdG5hbWUsIElQLCBwcm9ncmFtIGlk
+ZW50aWZpZXIsIGEgVVRDLW1pbGxpc2Vjb25kCmZpbGVuYW1lLCBwYWdlIGFuZCBjZWxsIGRpbWVu
+c2lvbnMgaW4gbWlsbGltZXRlcnMsIGNyZWF0aW9uIHRpbWUsCm9yaWdpbiBVUkwpLCB0aGUgbGVh
+ZGluZyBieXRlcyBvZiB0aGUgcHJvZ3JhbSwgYW5kIGEgQ1JDMzIuIFRoZSBwYWNrZXQKcmVwZWF0
+cyB0byBmaWxsIHRoZSBiYW5kOyBhIGRlY29kZXIgYWNjZXB0cyB0aGUgZmlyc3QgY29weSB3aG9z
+ZSBDUkMKdmVyaWZpZXMuIEJlY2F1c2UgcGh5c2ljYWwgZGltZW5zaW9ucyByaWRlIGluIHRoZSBo
+ZWFkZXIsIGV2ZXJ5CmFydGlmYWN0IGVuY29kZXMgaXRzIG93biBhYnNvbHV0ZSBzY2FsZTogYSBk
+ZWNvZGVyIHJlcG9ydHMgcGl4ZWxzIHBlcgptaWxsaW1ldGVyIGZvciBhbnkgcmFzdGVyIGl0IGlz
+IGhhbmRlZCwgYW5kIFVTIExldHRlciBlZGl0aW9ucyBvZiB0aGlzCnBhcGVyIGFyZSBlbWl0dGVk
+IHdpdGggZml4ZWQgOC41IGJ5IDExIGluY2ggZ2VvbWV0cnkgZGVjbGFyZWQgaW4gdGhlCmZyYW1l
+IGl0c2VsZi4KCldoZW4gYSBwcm9ncmFtIGV4Y2VlZHMgYmFuZCBjYXBhY2l0eSB0aGUgZnJhbWUg
+Y2FycmllcyBhIHByZWZpeCwgYQpjb21wbGV0ZT0wIGZsYWcsIGFuZCB0aGUgb3JpZ2luIFVSTCBm
+cm9tIHdoaWNoIHRoZSBmdWxsIHByb2dyYW0gY2FuIGJlCmZldGNoZWQgKGh0dHA6Ly9pcC9mb2xr
+LWRhdGEvcHJvZ3JhbS9maWxlbmFtZSk7IHRoZSB0eXBlc2V0IGh1bWFuCmNoYW5uZWwgY2Fycmll
+cyB0aGUgcmVzdCBvZiB0aGUgbWVhbmluZy4KICA8L3NlY3Rpb24+CgogIDxzZWN0aW9uIHRpdGxl
+PSJUb29sY2hhaW4iPgpUaGUgdG9vbGtpdCBpcyBpbXBsZW1lbnRlZCBpbiBUY2wgW091c3Rlcmhv
+dXQgMTk5MF0sIHRoZSBsYW5ndWFnZSBvZgp0aGUgRm9sayBDb21wdXRlciBlY29zeXN0ZW0gaXQg
+c2VydmVzLiBBIGNhbm9uaWNhbCBYTUwgZG9jdW1lbnQgaXMgdGhlCmh1YiBvZiBhbGwgY29udmVy
+c2lvbnM6IGl0IGNhcnJpZXMgdGhlIGJ5dGUtZXhhY3Qgc291cmNlIChiYXNlNjQpLCBhCnBlci1j
+b21tYW5kIGJyZWFrZG93biwgYW5kIGEgZnVsbCBhYnN0cmFjdCBzeW50YXggdHJlZSB3aXRoIHR5
+cGVkCndvcmRzIGFuZCBuZXN0ZWQgc2NyaXB0cywgZnJvbSB3aGljaCBhIHNlbWFudGljYWxseSBl
+cXVpdmFsZW50IHByb2dyYW0KY2FuIGJlIHJlZ2VuZXJhdGVkLiBUaGUgcHJlc3MgKGJpbi9wcmVz
+cy50Y2wpIGNvbnZlcnRzIGFueSBwYWlyIGFtb25nCi50Y2wsIC54bWwsIC5wbmcsIC5qcGc7IHJh
+c3RlciBjYXJyaWVycyBob2xkIHRoZSBYTUwgaW4gUE5HIHRFWHQKY2h1bmtzIGFuZCBKUEVHIENP
+TSBzZWdtZW50cywgc28gYSBsb3NzeSBKUEVHIHN0aWxsIHJvdW5kLXRyaXBzIHRoZQpzb3VyY2Ug
+Ynl0ZS1leGFjdGx5LiBUaGUgcHJpbnRvdXQgdG9vbCAoYmluL3ByaW50b3V0LnRjbCkgZW1pdHMg
+YW5kCmRlY29kZXMgcGFnZSBmcmFtZXM7IHRoZSBkZWNvZGVyIGFzc3VtZXMgb25seSBhbiBheGlz
+LWFsaWduZWQgcmFzdGVyCmFuZCB0b2xlcmF0ZXMgYW5pc290cm9waWMgcmVzY2FsaW5nLCBibHVy
+LCBhbmQgcmVjb21wcmVzc2lvbi4KUGVyc3BlY3RpdmUgYW5kIHJvdGF0aW9uIHJlY3RpZmljYXRp
+b24gYXJlIGRlbGVnYXRlZCB0byB0aGUKc3Vycm91bmRpbmcgY29tcHV0ZXItdmlzaW9uIGxheWVy
+LCBhcyBpbiBBcHJpbFRhZy1iYXNlZCByb29tcy4KClRoZSB3aGl0ZSBwYXBlciB0b29sIChiaW4v
+d2hpdGVwYXBlci50Y2wpIGlzIHRoZSB0b29sa2l0IGVhdGluZyBpdHMKb3duIGNvb2tpbmc6IGl0
+IHR5cGVzZXRzIHRoaXMgZG9jdW1lbnQgZnJvbSBXaGl0ZVBhcGVyLnhtbCBpbnRvIFVTCkxldHRl
+ciBwYWdlIGZyYW1lcyBzZXQgaW4gdGhlIExpYmVydGludXMgcmV2aXZhbCBvZiBMaW51eCBMaWJl
+cnRpbmUgLS0KdGhlIEFDTSdzIHN0YW5kYXJkIHR5cGVmYWNlIGZhbWlseSBbQm9sZHQgZXQgYWwu
+IDIwMTI7IEFDTSAyMDE3XSAtLQphbmQgZW1pdHMgZXZlcnkgcHVibGlzaGVkIGVkaXRpb24sIGlu
+Y2x1ZGluZyBjYXJyaWVyIHByb2dyYW1zIGluCmZvbGssIFJ1c3QsIEdvLCBhbmQgQysrIHRoYXQg
+cmVwcm9kdWNlIHRoZSBQREYsIGltYWdlcywgZGlhZ3JhbXMsIGFuZApmb3JtYXR0aW5nIGZyb20g
+Y29uc3RhbnRzIGVtYmVkZGVkIGluIHRoZWlyIG93biBzb3VyY2UuCiAgPC9zZWN0aW9uPgoKICA8
+c2VjdGlvbiB0aXRsZT0iRXZhbHVhdGlvbiI+ClRoZSB0ZXN0IHN1aXRlcyBob2xkIDM0IGNoZWNr
+cy4gRGlnaXRhbCByb3VuZCB0cmlwcyBhcmUgYnl0ZS1leGFjdAphY3Jvc3MgZXZlcnkgZm9ybWF0
+IHBhaXIsIGluY2x1ZGluZyBjaGFpbnMgdGhyb3VnaCBsb3NzeSBKUEVHLgpQaHlzaWNhbC1jaGFu
+bmVsIHNpbXVsYXRpb25zIGRlY29kZSBieXRlLWV4YWN0bHkgYWZ0ZXIgMTM3IHBlcmNlbnQKdXBz
+Y2FsZSwgNjMgcGVyY2VudCBkb3duc2NhbGUsIGFuZCBhIHJlc2NhbiBzaW11bGF0aW9uIG9mIDgw
+IHBlcmNlbnQKcmVzY2FsZSB3aXRoIEdhdXNzaWFuIGJsdXIgYW5kIEpQRUcgcXVhbGl0eSA4MC4g
+QSBjb21taXR0ZWQgc2FtcGxlCihzdG9yeWJvYXJkLnByaW50b3V0LnJlc2Nhbi5qcGcpIGRlbW9u
+c3RyYXRlcyByZWNvdmVyeSBmcm9tIGRlZ3JhZGVkCnBpeGVscyB1c2luZyBubyBtZXRhZGF0YS4g
+Q2FwYWNpdHkgYXQgZGVmYXVsdCBnZW9tZXRyeSAoMm1tIGNlbGxzLAoxMi1jZWxsIGJhbmQpIGlz
+IHJvdWdobHkgMS43IGtpbG9ieXRlcyBwZXIgVVMgTGV0dGVyIHBhZ2UsIHN1ZmZpY2llbnQKZm9y
+IHRoZSBwcm9ncmFtcyB0aGUgRm9sayBjb21tdW5pdHkgYWN0dWFsbHkgcHJpbnRzOyBsYXJnZXIg
+cHJvZ3JhbXMKZGVncmFkZSBncmFjZWZ1bGx5IHRvIHByZWZpeCBwbHVzIG9yaWdpbi4KICA8L3Nl
+Y3Rpb24+CgogIDxzZWN0aW9uIHRpdGxlPSJMaW1pdGF0aW9ucyBhbmQgRnV0dXJlIFdvcmsiPgpU
+aGUgZGVjb2RlciByZXF1aXJlcyBhbiBheGlzLWFsaWduZWQgaW1hZ2U7IGNhbWVyYS1pbi10aGUt
+d2lsZApkZWNvZGluZyBuZWVkcyB0aGUgcGVyc3BlY3RpdmUgcmVjdGlmaWNhdGlvbiB0aGF0IGZp
+ZHVjaWFsIHN5c3RlbXMKYWxyZWFkeSBwcm92aWRlLiBFcnJvciBjb3JyZWN0aW9uIGlzIHJlcGV0
+aXRpb24gcGx1cyBDUkM7IFJlZWQtU29sb21vbgpjb2Rpbmcgd291bGQgbXVsdGlwbHkgdXNhYmxl
+IGNhcGFjaXR5IHVuZGVyIGRhbWFnZS4gVGhlIHNrZXRjaCB0aGF0Cm1vdGl2YXRlZCB0aGlzIHdv
+cmsgY2FsbHMgZm9yIGJ1cm4tYmxlbmQgYmFyY29kZSBsYXllcnMgZW5jb2Rpbmcgc2l4CmRlZ3Jl
+ZXMgb2YgZnJlZWRvbSBvZiBwb3NlIGFuZCBzY2FsZSBwZXIgc3Rvcnlib2FyZCBmcmFtZSwgcGFw
+ZXItc2l6ZQpwcmVzZXQgZmFtaWxpZXMsIGFuZCB0cmFuc3BpbGVkIGNhcnJpZXJzICgudGsuZm9s
+aywgLmMuZm9saywKLmZvbGsucnMsIC5mb2xrLmdvKTsgdGhlIG1tLXBhcmFtZXRlcml6ZWQgZ2Vv
+bWV0cnkgYW5kIHRoZSBjYXJyaWVyCmdlbmVyYXRvcnMgaW4gdGhpcyBwYXBlciBhcmUgdGhlIGZp
+cnN0IHN0ZXBzIG9mIHRoYXQgcm9hZG1hcC4KICA8L3NlY3Rpb24+CgogIDxzZWN0aW9uIHRpdGxl
+PSJBY2tub3dsZWRnbWVudHMiPgpUbyB0aGUgRm9sayBDb21wdXRlciBjb21tdW5pdHksIGZvciBp
+bnNpc3RpbmcgdGhhdCBwcm9ncmFtcyBiZWxvbmcgb24KdGFibGVzLCBhbmQgdG8gYSBoYW5kLWRy
+YXduIG9yYW5nZS1tYXJrZXIgc3lzdGVtIGRpYWdyYW0sIGZvciBiZWluZyBhCmJldHRlciBzcGVj
+aWZpY2F0aW9uIHRoYW4gbW9zdCBzcGVjaWZpY2F0aW9ucy4KICA8L3NlY3Rpb24+CgogIDxyZWZl
+cmVuY2VzPgogICAgPHJlZiBpZD0iQUNNIDIwMTciPkFDTS4gMjAxNy4gQUNNIE1hc3RlciBBcnRp
+Y2xlIFRlbXBsYXRlIGFuZCB0aGUgYWNtYXJ0IGRvY3VtZW50IGNsYXNzLiBBc3NvY2lhdGlvbiBm
+b3IgQ29tcHV0aW5nIE1hY2hpbmVyeSwgTmV3IFlvcmssIE5ZLiBodHRwczovL3d3dy5hY20ub3Jn
+L3B1YmxpY2F0aW9ucy9wcm9jZWVkaW5ncy10ZW1wbGF0ZTwvcmVmPgogICAgPHJlZiBpZD0iQm9s
+ZHQgZXQgYWwuIDIwMTIiPlBoaWxpcHAgSC4gUG9sbC4gMjAxMi4gVGhlIExpbnV4IExpYmVydGlu
+ZSBPcGVuIEZvbnRzIFByb2plY3QuIGxpYmVydGluZS1mb250cy5vcmcuPC9yZWY+CiAgICA8cmVm
+IGlkPSJJU08vSUVDIDE4MDA0IDIwMTUiPklTTy9JRUMuIDIwMTUuIEluZm9ybWF0aW9uIHRlY2hu
+b2xvZ3kgLSBBdXRvbWF0aWMgaWRlbnRpZmljYXRpb24gYW5kIGRhdGEgY2FwdHVyZSB0ZWNobmlx
+dWVzIC0gUVIgQ29kZSBiYXIgY29kZSBzeW1ib2xvZ3kgc3BlY2lmaWNhdGlvbi4gSVNPL0lFQyAx
+ODAwNDoyMDE1LjwvcmVmPgogICAgPHJlZiBpZD0iSXNoaWkgYW5kIFVsbG1lciAxOTk3Ij5IaXJv
+c2hpIElzaGlpIGFuZCBCcnlnZyBVbGxtZXIuIDE5OTcuIFRhbmdpYmxlIGJpdHM6IHRvd2FyZHMg
+c2VhbWxlc3MgaW50ZXJmYWNlcyBiZXR3ZWVuIHBlb3BsZSwgYml0cyBhbmQgYXRvbXMuIEluIFBy
+b2NlZWRpbmdzIG9mIHRoZSBBQ00gU0lHQ0hJIENvbmZlcmVuY2Ugb24gSHVtYW4gRmFjdG9ycyBp
+biBDb21wdXRpbmcgU3lzdGVtcyAoQ0hJICc5NykuIEFDTSwgTmV3IFlvcmssIE5ZLCAyMzQtMjQx
+LiBodHRwczovL2RvaS5vcmcvMTAuMTE0NS8yNTg1NDkuMjU4NzE1PC9yZWY+CiAgICA8cmVmIGlk
+PSJLYXRvIGFuZCBCaWxsaW5naHVyc3QgMTk5OSI+SGlyb2thenUgS2F0byBhbmQgTWFyayBCaWxs
+aW5naHVyc3QuIDE5OTkuIE1hcmtlciB0cmFja2luZyBhbmQgSE1EIGNhbGlicmF0aW9uIGZvciBh
+IHZpZGVvLWJhc2VkIGF1Z21lbnRlZCByZWFsaXR5IGNvbmZlcmVuY2luZyBzeXN0ZW0uIEluIFBy
+b2NlZWRpbmdzIG9mIHRoZSAybmQgSUVFRSBhbmQgQUNNIEludGVybmF0aW9uYWwgV29ya3Nob3Ag
+b24gQXVnbWVudGVkIFJlYWxpdHkgKElXQVIgJzk5KS4gSUVFRSwgODUtOTQuIGh0dHBzOi8vZG9p
+Lm9yZy8xMC4xMTA5L0lXQVIuMTk5OS44MDM4MDk8L3JlZj4KICAgIDxyZWYgaWQ9IktudXRoIDE5
+ODQiPkRvbmFsZCBFLiBLbnV0aC4gMTk4NC4gTGl0ZXJhdGUgUHJvZ3JhbW1pbmcuIFRoZSBDb21w
+dXRlciBKb3VybmFsIDI3LCAyICgxOTg0KSwgOTctMTExLiBodHRwczovL2RvaS5vcmcvMTAuMTA5
+My9jb21qbmwvMjcuMi45NzwvcmVmPgogICAgPHJlZiBpZD0iT2xzb24gMjAxMSI+RWR3aW4gT2xz
+b24uIDIwMTEuIEFwcmlsVGFnOiBBIHJvYnVzdCBhbmQgZmxleGlibGUgdmlzdWFsIGZpZHVjaWFs
+IHN5c3RlbS4gSW4gUHJvY2VlZGluZ3Mgb2YgdGhlIElFRUUgSW50ZXJuYXRpb25hbCBDb25mZXJl
+bmNlIG9uIFJvYm90aWNzIGFuZCBBdXRvbWF0aW9uIChJQ1JBICcxMSkuIElFRUUsIDM0MDAtMzQw
+Ny4gaHR0cHM6Ly9kb2kub3JnLzEwLjExMDkvSUNSQS4yMDExLjU5Nzk1NjE8L3JlZj4KICAgIDxy
+ZWYgaWQ9Ik91c3RlcmhvdXQgMTk5MCI+Sm9obiBLLiBPdXN0ZXJob3V0LiAxOTkwLiBUY2w6IEFu
+IEVtYmVkZGFibGUgQ29tbWFuZCBMYW5ndWFnZS4gSW4gUHJvY2VlZGluZ3Mgb2YgdGhlIFVTRU5J
+WCBXaW50ZXIgMTk5MCBUZWNobmljYWwgQ29uZmVyZW5jZS4gVVNFTklYIEFzc29jaWF0aW9uLCAx
+MzMtMTQ2LjwvcmVmPgogICAgPHJlZiBpZD0iUmVlZCBhbmQgU29sb21vbiAxOTYwIj5JcnZpbmcg
+Uy4gUmVlZCBhbmQgR3VzdGF2ZSBTb2xvbW9uLiAxOTYwLiBQb2x5bm9taWFsIENvZGVzIE92ZXIg
+Q2VydGFpbiBGaW5pdGUgRmllbGRzLiBKb3VybmFsIG9mIHRoZSBTb2NpZXR5IGZvciBJbmR1c3Ry
+aWFsIGFuZCBBcHBsaWVkIE1hdGhlbWF0aWNzIDgsIDIgKDE5NjApLCAzMDAtMzA0LiBodHRwczov
+L2RvaS5vcmcvMTAuMTEzNy8wMTA4MDE4PC9yZWY+CiAgICA8cmVmIGlkPSJSaXp3YW4gYW5kIE1p
+Y2hhdWQtQWdyYXdhbCAyMDIzIj5PbWFyIFJpendhbiBhbmQgTmF2ZWVuIE1pY2hhdWQtQWdyYXdh
+bC4gMjAyMy4gRm9sayBDb21wdXRlcjogYSBwaHlzaWNhbCBjb21wdXRpbmcgc3lzdGVtLiBodHRw
+czovL2ZvbGsuY29tcHV0ZXI8L3JlZj4KICAgIDxyZWYgaWQ9IlZpY3RvciBldCBhbC4gMjAxNyI+
+QnJldCBWaWN0b3IsIEx1a2UgSWFubmluaSwgVG9ieSBTY2hhY2htYW4sIFBhdWxhIFRlLCBKb3No
+IEhvcm93aXR6LCBhbmQgQ2hhaW0gR2luZ29sZC4gMjAxNy4gRHluYW1pY2xhbmQuIGh0dHBzOi8v
+ZHluYW1pY2xhbmQub3JnPC9yZWY+CiAgICA8cmVmIGlkPSJXZWlzZXIgMTk5MSI+TWFyayBXZWlz
+ZXIuIDE5OTEuIFRoZSBDb21wdXRlciBmb3IgdGhlIDIxc3QgQ2VudHVyeS4gU2NpZW50aWZpYyBB
+bWVyaWNhbiAyNjUsIDMgKDE5OTEpLCA5NC0xMDQuIGh0dHBzOi8vZG9pLm9yZy8xMC4xMDM4L3Nj
+aWVudGlmaWNhbWVyaWNhbjA5OTEtOTQ8L3JlZj4KICAgIDxyZWYgaWQ9IldlbGxuZXIgMTk5MyI+
+UGllcnJlIFdlbGxuZXIuIDE5OTMuIEludGVyYWN0aW5nIHdpdGggcGFwZXIgb24gdGhlIERpZ2l0
+YWxEZXNrLiBDb21tdW4uIEFDTSAzNiwgNyAoMTk5MyksIDg3LTk2LiBodHRwczovL2RvaS5vcmcv
+MTAuMTE0NS8xNTk1NDQuMTU5NjMwPC9yZWY+CiAgICA8cmVmIGlkPSJZdXNjaHVrIDIwMDciPk9s
+ZWggWXVzY2h1ay4gMjAwNy4gUGFwZXJCYWNrOiBmcmVlIGFwcGxpY2F0aW9uIHRoYXQgYWxsb3dz
+IGJhY2tpbmcgdXAgZmlsZXMgb24gb3JkaW5hcnkgcGFwZXIuIG9sbHlkYmcuZGUvUGFwZXJiYWsu
+PC9yZWY+CiAgPC9yZWZlcmVuY2VzPgo8L3doaXRlcGFwZXI+Cg==
+-->

@@ -104,12 +104,46 @@ recompression are handled (see [`tests/pageframe.tcl`](tests/pageframe.tcl)).
 Perspective / rotation rectification is the CV layer's job (future
 work, cf. [`../smokesignal`](../smokesignal)).
 
+## The white paper: a self-demoing document
+
+[`docs/whitepaper/WhitePaper.xml`](docs/whitepaper/WhitePaper.xml) is an
+ACM-style research white paper on this toolkit — abstract, numbered
+sections, and an ACM-reference-format bibliography — and it is also a
+printable program: one canonical XML source builds every edition via
+[`bin/whitepaper.tcl`](bin/whitepaper.tcl), typeset in the vendored
+**Libertinus Serif** (the ACM's Linux Libertine typeface lineage, OFL,
+[`fonts/`](fonts/)).
+
+```sh
+tclsh bin/whitepaper.tcl build            # emits docs/whitepaper/build/*
+tclsh bin/whitepaper.tcl extract <file>   # recover the XML from any edition
+```
+
+| edition | what it is |
+|---|---|
+| [`WhitePaper.md`](docs/whitepaper/build/WhitePaper.md) / [`WhitePaper.html`](docs/whitepaper/build/WhitePaper.html) | readable editions (HTML uses the vendored Libertinus webfonts) |
+| [`WhitePaper.8.5x11.p01.png`](docs/whitepaper/build/WhitePaper.8.5x11.p01.png) … p05 | **US Letter page frames**: paper text typeset in the middle, thin data frame around it; absolute 8.5"x11" sizing, page number, and `paper=usletter` self-encoded in every frame |
+| [`WhitePaper.pdf`](docs/whitepaper/build/WhitePaper.pdf) | the printed paper (the page frames, as a PDF) |
+| [`WhitePaper.pp.pdf`](docs/whitepaper/build/WhitePaper.pp.pdf) | PDF with the canonical XML embedded (extractable) |
+| [`WhitePaper.pp.xml`](docs/whitepaper/build/WhitePaper.pp.xml) / [`.pp.md`](docs/whitepaper/build/WhitePaper.pp.md) / [`.pp.html`](docs/whitepaper/build/WhitePaper.pp.html) | payload-carrying editions |
+| [`WhitePaper.pp.html.folk`](docs/whitepaper/build/WhitePaper.pp.html.folk) / [`.pp.html.rust`](docs/whitepaper/build/WhitePaper.pp.html.rust) | carrier programs that reproduce the HTML byte-exactly when run |
+| [`WhitePaper.pp.go`](docs/whitepaper/build/WhitePaper.pp.go) / [`.pp.cpp`](docs/whitepaper/build/WhitePaper.pp.cpp) | carrier programs that reproduce the full PDF — embedded images, diagrams, formatting — byte-exactly when run |
+
+Every page of the PDF decodes with `bin/printout.tcl decode`: it reports
+`doc=WhitePaper`, `paper=usletter`, `page=N/pages=M`, the physical page
+size in mm, the recovered scale, and the XML prefix (with the origin URL
+for the rest). The full XML also rides losslessly in each page PNG's
+`tEXt` chunk and in the `.pp.*` editions.
+
 ## Tests
 
 ```sh
 tclsh tests/press.tcl       # 12 checks: all format-pair roundtrips, byte-exact
 tclsh tests/pageframe.tcl   # 22 checks: AST + page frame, incl. simulated
                             # screenshot (up/downscale) and rescan (blur+JPEG)
+tclsh tests/whitepaper.tcl  # 26 checks: all editions build, payloads
+                            # round-trip, US Letter self-description,
+                            # carriers reproduce byte-exactly
 ```
 
 ## Layout

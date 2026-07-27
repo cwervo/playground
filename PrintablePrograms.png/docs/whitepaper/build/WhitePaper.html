@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>PrintablePrograms.png: Byte-Exact Recovery of Programs from Physically Printed Pages</title>
+<style>
+
+@font-face { font-family: 'Libertinus Serif'; src: url('../../fonts/LibertinusSerif-Regular.woff2') format('woff2'); font-weight: 400; }
+@font-face { font-family: 'Libertinus Serif'; src: url('../../fonts/LibertinusSerif-Bold.woff2') format('woff2'); font-weight: 700; }
+@font-face { font-family: 'Libertinus Serif'; src: url('../../fonts/LibertinusSerif-Italic.woff2') format('woff2'); font-style: italic; }
+body { font-family: 'Libertinus Serif', 'Linux Libertine', Georgia, serif;
+       max-width: 42em; margin: 2em auto; padding: 0 1.5em;
+       font-size: 12pt; line-height: 1.45; color: #111; background: #fff; }
+h1 { font-size: 17pt; text-align: center; line-height: 1.25; }
+.authors { text-align: center; margin: 0.8em 0; }
+.authors .aff { font-style: italic; font-size: 10pt; color: #333; }
+.date, .keywords { text-align: center; font-size: 10pt; color: #333; }
+h2 { font-size: 12pt; text-transform: uppercase; letter-spacing: 0.04em; margin-top: 1.6em; }
+.abstract { margin: 1.4em 2.2em; font-size: 10.5pt; }
+.abstract b { text-transform: uppercase; letter-spacing: 0.04em; }
+.refs { font-size: 10pt; }
+.refs li { margin-bottom: 0.45em; }
+p { text-align: justify; hyphens: auto; }
+footer { margin-top: 2.5em; font-size: 9pt; color: #555; border-top: 1px solid #ccc; padding-top: 0.8em; }
+</style>
+</head>
+<body>
+<h1>PrintablePrograms.png: Byte-Exact Recovery of Programs from Physically Printed Pages</h1>
+<div class="authors"><div><b>AndrÃ©s Cuervo</b> <span class="aff">playground / folk.computer community</span></div><div><b>Claude</b> <span class="aff">Anthropic (pair programmer)</span></div></div>
+<div class="date">July 27, 2026</div>
+<div class="keywords"><i>Keywords:</i> printable programs, visual codes, fiducial markers, paper computing, Tcl, program archival</div>
+<div class="abstract"><b>Abstract.</b> The dominant carriers of software are invisible: magnetic domains,
+charge wells, and radio packets. We present PrintablePrograms.png, a
+toolkit that makes the printed page a first-class program carrier. A
+program is typeset legibly in the middle of a page and simultaneously
+encoded, byte-exactly, into a thin frame of saturated color cells
+around the page edge. The frame self-describes its geometry, physical
+scale, color palette, and network origin, so a screenshot, scan, or
+photograph of the page suffices to reconstruct the program with no
+out-of-band knowledge. We describe the format, an eight-color
+modulation scheme with per-print calibration, a CRC-guarded
+repetition-coded packet layout, and a family of format converters that
+route every representation through a canonical XML document carrying
+both byte-exact source and a structural AST. This paper is itself a
+demonstration: its canonical XML source builds the PDF, HTML, and
+Markdown editions you may be reading, and each printed page of the PDF
+carries this document in its own data frame.</div>
+<h2>1&nbsp;&nbsp;Introduction</h2>
+<p>Programs on paper have a long history: type-in listings in hobbyist</p>
+<p>magazines, punched cards, and archival microfilm all treated paper as</p>
+<p>a distribution medium. Paper is durable, human-inspectable,</p>
+<p>self-powered, and survives institutional collapse better than any</p>
+<p>spinning or charged medium. What paper lost, when software grew, was</p>
+<p>byte-exactness: retyping a listing introduces errors, and OCR of</p>
+<p>source code remains unreliable precisely where it matters (identifiers,</p>
+<p>punctuation, whitespace).</p>
+<p>PrintablePrograms.png restores byte-exactness while keeping</p>
+<p>legibility. Every printed page carries two synchronized channels: a</p>
+<p>human channel (the program text, typeset at a minimum physical size of</p>
+<p>12pt) and a machine channel (a border band of large color cells that</p>
+<p>encodes the program plus enough metadata to decode itself). The two</p>
+<p>channels cover for each other: the machine channel makes recovery</p>
+<p>exact; the human channel makes the artifact auditable, quotable, and</p>
+<p>partially recoverable even when the machine channel is damaged.</p>
+<p>The design descends from a lineage of physical-computing systems: the</p>
+<p>DigitalDesk's insistence that paper and computation share a surface</p>
+<p>[Wellner 1993], tangible interfaces [Ishii and Ullmer 1997], Weiser's</p>
+<p>vision of computation receding into the environment [Weiser 1991], and</p>
+<p>the communal computing rooms of Dynamicland [Victor et al. 2017] and</p>
+<p>Folk Computer [Rizwan and Michaud-Agrawal 2023], where programs are</p>
+<p>literally pieces of paper on tables. Those systems locate programs by</p>
+<p>fiducial tags and fetch the source over a network; a PrintablePrograms</p>
+<p>page needs no network, though it names one as a fallback.</p>
+<h2>2&nbsp;&nbsp;Related Work</h2>
+<p>Two-dimensional visual codes are mature technology: QR codes [ISO/IEC</p>
+<p>18004 2015] and Data Matrix reach kilobyte capacities with strong</p>
+<p>Reed-Solomon error correction [Reed and Solomon 1960], and robust</p>
+<p>fiducial systems such as ARToolKit [Kato and Billinghurst 1999] and</p>
+<p>AprilTag [Olson 2011] solve detection and pose. PaperBack [Yuschuk</p>
+<p>2007] demonstrated dense full-page archival backup (hundreds of</p>
+<p>kilobytes per page) at the cost of legibility: the page becomes a</p>
+<p>uniform gray texture. Literate programming [Knuth 1984] made the</p>
+<p>printed program a publication artifact but kept recovery manual.</p>
+<p>PrintablePrograms.png occupies a deliberate middle point: the page</p>
+<p>remains, at a glance, a document -- title, code, margins -- and the</p>
+<p>machine channel is confined to a decorative-looking border. Capacity</p>
+<p>is sacrificed (kilobytes, not megabytes) for a page that a human would</p>
+<p>pin to a wall. The frame is self-describing in a way that dense</p>
+<p>archival formats are not: physical dimensions, cell pitch, palette,</p>
+<p>and origin URL are all recovered from the pixels themselves.</p>
+<h2>3&nbsp;&nbsp;Format Design</h2>
+<p>A page is a cell grid. A quiet white margin (for printer comfort;</p>
+<p>detection does not require it) surrounds a band of color cells; the</p>
+<p>interior holds the typeset program. Cells modulate three bits each</p>
+<p>through an eight-color palette at the corners of the RGB cube --</p>
+<p>black, red, green, blue, cyan, magenta, yellow, white -- the colors</p>
+<p>maximally separated under the subtractive gamut of consumer inkjet</p>
+<p>inks. QR-style finder fiducials occupy all four corners. Beside the</p>
+<p>top-left fiducial sit a calibration strip (the eight palette colors in</p>
+<p>fixed order, letting the decoder re-learn the palette per print) and</p>
+<p>three self-description words: band thickness, grid width, and grid</p>
+<p>height, each 24 bits. Self-encoding the grid dimensions makes cell</p>
+<p>recovery immune to accumulated pitch error, which defeats</p>
+<p>run-length-only estimation on wide grids.</p>
+<p>The band payload is a single packet: magic, version, a header of</p>
+<p>key=value lines (hostname, IP, program identifier, a UTC-millisecond</p>
+<p>filename, page and cell dimensions in millimeters, creation time,</p>
+<p>origin URL), the leading bytes of the program, and a CRC32. The packet</p>
+<p>repeats to fill the band; a decoder accepts the first copy whose CRC</p>
+<p>verifies. Because physical dimensions ride in the header, every</p>
+<p>artifact encodes its own absolute scale: a decoder reports pixels per</p>
+<p>millimeter for any raster it is handed, and US Letter editions of this</p>
+<p>paper are emitted with fixed 8.5 by 11 inch geometry declared in the</p>
+<p>frame itself.</p>
+<p>When a program exceeds band capacity the frame carries a prefix, a</p>
+<p>complete=0 flag, and the origin URL from which the full program can be</p>
+<p>fetched (http://ip/folk-data/program/filename); the typeset human</p>
+<p>channel carries the rest of the meaning.</p>
+<h2>4&nbsp;&nbsp;Toolchain</h2>
+<p>The toolkit is implemented in Tcl [Ousterhout 1990], the language of</p>
+<p>the Folk Computer ecosystem it serves. A canonical XML document is the</p>
+<p>hub of all conversions: it carries the byte-exact source (base64), a</p>
+<p>per-command breakdown, and a full abstract syntax tree with typed</p>
+<p>words and nested scripts, from which a semantically equivalent program</p>
+<p>can be regenerated. The press (bin/press.tcl) converts any pair among</p>
+<p>.tcl, .xml, .png, .jpg; raster carriers hold the XML in PNG tEXt</p>
+<p>chunks and JPEG COM segments, so a lossy JPEG still round-trips the</p>
+<p>source byte-exactly. The printout tool (bin/printout.tcl) emits and</p>
+<p>decodes page frames; the decoder assumes only an axis-aligned raster</p>
+<p>and tolerates anisotropic rescaling, blur, and recompression.</p>
+<p>Perspective and rotation rectification are delegated to the</p>
+<p>surrounding computer-vision layer, as in AprilTag-based rooms.</p>
+<p>The white paper tool (bin/whitepaper.tcl) is the toolkit eating its</p>
+<p>own cooking: it typesets this document from WhitePaper.xml into US</p>
+<p>Letter page frames set in the Libertinus revival of Linux Libertine --</p>
+<p>the ACM's standard typeface family [Boldt et al. 2012; ACM 2017] --</p>
+<p>and emits every published edition, including carrier programs in</p>
+<p>folk, Rust, Go, and C++ that reproduce the PDF, images, diagrams, and</p>
+<p>formatting from constants embedded in their own source.</p>
+<h2>5&nbsp;&nbsp;Evaluation</h2>
+<p>The test suites hold 34 checks. Digital round trips are byte-exact</p>
+<p>across every format pair, including chains through lossy JPEG.</p>
+<p>Physical-channel simulations decode byte-exactly after 137 percent</p>
+<p>upscale, 63 percent downscale, and a rescan simulation of 80 percent</p>
+<p>rescale with Gaussian blur and JPEG quality 80. A committed sample</p>
+<p>(storyboard.printout.rescan.jpg) demonstrates recovery from degraded</p>
+<p>pixels using no metadata. Capacity at default geometry (2mm cells,</p>
+<p>12-cell band) is roughly 1.7 kilobytes per US Letter page, sufficient</p>
+<p>for the programs the Folk community actually prints; larger programs</p>
+<p>degrade gracefully to prefix plus origin.</p>
+<h2>6&nbsp;&nbsp;Limitations and Future Work</h2>
+<p>The decoder requires an axis-aligned image; camera-in-the-wild</p>
+<p>decoding needs the perspective rectification that fiducial systems</p>
+<p>already provide. Error correction is repetition plus CRC; Reed-Solomon</p>
+<p>coding would multiply usable capacity under damage. The sketch that</p>
+<p>motivated this work calls for burn-blend barcode layers encoding six</p>
+<p>degrees of freedom of pose and scale per storyboard frame, paper-size</p>
+<p>preset families, and transpiled carriers (.tk.folk, .c.folk,</p>
+<p>.folk.rs, .folk.go); the mm-parameterized geometry and the carrier</p>
+<p>generators in this paper are the first steps of that roadmap.</p>
+<h2>7&nbsp;&nbsp;Acknowledgments</h2>
+<p>To the Folk Computer community, for insisting that programs belong on</p>
+<p>tables, and to a hand-drawn orange-marker system diagram, for being a</p>
+<p>better specification than most specifications.</p>
+<h2>References</h2>
+<ul class="refs">
+<li>ACM. 2017. ACM Master Article Template and the acmart document class. Association for Computing Machinery, New York, NY. https://www.acm.org/publications/proceedings-template</li>
+<li>Philipp H. Poll. 2012. The Linux Libertine Open Fonts Project. libertine-fonts.org.</li>
+<li>ISO/IEC. 2015. Information technology - Automatic identification and data capture techniques - QR Code bar code symbology specification. ISO/IEC 18004:2015.</li>
+<li>Hiroshi Ishii and Brygg Ullmer. 1997. Tangible bits: towards seamless interfaces between people, bits and atoms. In Proceedings of the ACM SIGCHI Conference on Human Factors in Computing Systems (CHI '97). ACM, New York, NY, 234-241. https://doi.org/10.1145/258549.258715</li>
+<li>Hirokazu Kato and Mark Billinghurst. 1999. Marker tracking and HMD calibration for a video-based augmented reality conferencing system. In Proceedings of the 2nd IEEE and ACM International Workshop on Augmented Reality (IWAR '99). IEEE, 85-94. https://doi.org/10.1109/IWAR.1999.803809</li>
+<li>Donald E. Knuth. 1984. Literate Programming. The Computer Journal 27, 2 (1984), 97-111. https://doi.org/10.1093/comjnl/27.2.97</li>
+<li>Edwin Olson. 2011. AprilTag: A robust and flexible visual fiducial system. In Proceedings of the IEEE International Conference on Robotics and Automation (ICRA '11). IEEE, 3400-3407. https://doi.org/10.1109/ICRA.2011.5979561</li>
+<li>John K. Ousterhout. 1990. Tcl: An Embeddable Command Language. In Proceedings of the USENIX Winter 1990 Technical Conference. USENIX Association, 133-146.</li>
+<li>Irving S. Reed and Gustave Solomon. 1960. Polynomial Codes Over Certain Finite Fields. Journal of the Society for Industrial and Applied Mathematics 8, 2 (1960), 300-304. https://doi.org/10.1137/0108018</li>
+<li>Omar Rizwan and Naveen Michaud-Agrawal. 2023. Folk Computer: a physical computing system. https://folk.computer</li>
+<li>Bret Victor, Luke Iannini, Toby Schachman, Paula Te, Josh Horowitz, and Chaim Gingold. 2017. Dynamicland. https://dynamicland.org</li>
+<li>Mark Weiser. 1991. The Computer for the 21st Century. Scientific American 265, 3 (1991), 94-104. https://doi.org/10.1038/scientificamerican0991-94</li>
+<li>Pierre Wellner. 1993. Interacting with paper on the DigitalDesk. Commun. ACM 36, 7 (1993), 87-96. https://doi.org/10.1145/159544.159630</li>
+<li>Oleh Yuschuk. 2007. PaperBack: free application that allows backing up files on ordinary paper. ollydbg.de/Paperbak.</li>
+</ul>
+<footer>Built from WhitePaper.xml by PrintablePrograms.png. The PDF edition's US Letter page frames carry this document's canonical XML; decode any printed page with <code>bin/printout.tcl decode</code>.</footer>
+</body>
+</html>

@@ -6,7 +6,7 @@
 # to a pure-Tcl solid PNG so the pipeline never breaks. The raster is
 # purely cosmetic -- the authoritative payload lives in metadata chunks.
 
-namespace eval ::printable::render {
+namespace eval ::printable::typeset {
 
     proc magick {} {
         foreach c {magick convert} {

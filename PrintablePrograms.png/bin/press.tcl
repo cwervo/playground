@@ -55,12 +55,12 @@ proc fromCanonicalXml {xml outPath srcPath} {
             if {[kindOf $srcPath] in {png jpg}} {
                 # keep the existing raster when converting image -> image
                 if {[kindOf $srcPath] eq "jpg"} {
-                    ::printable::render::jpgToPngRaster $srcPath $outPath
+                    ::printable::typeset::jpgToPngRaster $srcPath $outPath
                 } else {
                     file copy -force $srcPath $outPath
                 }
             } else {
-                ::printable::render::codePng $source $outPath
+                ::printable::typeset::codePng $source $outPath
             }
             set png [::printable::pngcodec::readFile $outPath]
             ::printable::pngcodec::writeFile $outPath [::printable::pngcodec::embed $png $xml]
@@ -76,9 +76,9 @@ proc fromCanonicalXml {xml outPath srcPath} {
                 return
             } else {
                 set source [::printable::tclxml::xmlToTcl $xml]
-                ::printable::render::codePng $source $tmp
+                ::printable::typeset::codePng $source $tmp
             }
-            ::printable::render::pngToJpgRaster $tmp $outPath
+            ::printable::typeset::pngToJpgRaster $tmp $outPath
             file delete -force $tmp
             set jpg [::printable::jpgcodec::readFile $outPath]
             ::printable::jpgcodec::writeFile $outPath [::printable::jpgcodec::embed $jpg $xml]
