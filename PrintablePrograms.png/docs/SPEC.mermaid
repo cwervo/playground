@@ -1,0 +1,71 @@
+%% PrintablePrograms.png tech spec -- scoped from the "Time Bandits Storyboards" sketch
+%% (src PNG fanning out to PDF/HTML/Keynote/folk formats).
+%%
+%% Phase 1 (BUILT): the seed converters. XML is the canonical hub; PNG and
+%% JPEG are lossless carriers (payload in PNG tEXt / JPEG COM metadata,
+%% human-readable code rendered on the raster, IBM Plex Mono when available,
+%% bordered frame per the sketch).
+%%
+%% Phase 2+ (PLANNED): everything else in the sketch hangs off the same hub.
+
+flowchart TB
+    subgraph seed["Phase 1 - seed converters (BUILT: PrintablePrograms.png/bin/press.tcl)"]
+        TCL[".tcl<br/>Tcl program"]
+        XML[".xml<br/>canonical hub<br/>&lt;tclprogram&gt; doc<br/>base64 source + parsed &lt;commands&gt;"]
+        PNG[".png<br/>raster: code set in mono font, bordered<br/>payload: tEXt chunk 'printable'"]
+        JPG[".jpg / .jpeg<br/>raster: lossy transcode of PNG<br/>payload: COM segments 'printable:i/n'"]
+
+        TCL <-->|"tclToXml / xmlToTcl<br/>(lib/tclxml.tcl)"| XML
+        XML <-->|"embed / extract tEXt<br/>(lib/pngcodec.tcl)"| PNG
+        PNG <-->|"raster via ImageMagick<br/>payload via COM surgery<br/>(lib/jpgcodec.tcl)"| JPG
+        XML <-->|"chained through PNG or direct COM"| JPG
+    end
+
+    subgraph frame["Phase 2 - print-survivable data frame (BUILT: bin/printout.tcl)"]
+        FOLKFRAME[".folk.png data frame<br/>~6cm color-cell band, 8-color palette, 3 bits/cell<br/>corner fiducials + calibration strip + quiet margin<br/>header: hostname, IP, program id,<br/>filename (UTC-ms), page/cell mm = self-encoded scale<br/>payload: program prefix, CRC32, repeated copies<br/>overflow -> pull from http://ip/folk-data/program/file"]
+        AST["real AST in canonical XML<br/>(lib/tclast.tcl: words, nesting,<br/>cmdsub/brace scripts, regeneration)"]
+    end
+
+    subgraph folk["Phase 3 - folk carriers (PLANNED, from sketch)"]
+        PNGFOLK[".png.folk<br/>base64 PNG packed into a folk program"]
+        FOLKPNG[".folk.png<br/>folk code set in IBM Plex Mono,<br/>RGB burn-blend barcodes encoding<br/>6DOF position + scale"]
+        FOLKSIZES[".folk.A3/.A4/.A5/.A6/.A7.png<br/>.folk.usletter.png / .folk.8.5x11.png<br/>.folk.80x40mm.png<br/>paper-size render targets"]
+        FOLKTCL[".folk.tcl / .tcl.folk"]
+        TKFOLK[".tk.folk / .tk.tcl.folk"]
+        CFOLK[".c.folk / .c.tcl.folk"]
+        FOLKRS[".folk.rs (Rust)"]
+        FOLKGO[".folk.go (Go)"]
+    end
+
+    subgraph docs["Phase 4 - document/deck targets (PLANNED, from sketch)"]
+        PDF[".pdf"]
+        HTML[".html"]
+        KEY[".key (Keynote)"]
+        PPX[".ppx / .pptx"]
+        HC[".hypercard ???"]
+        CUSTOMXML["custom XML formats<br/>(Go or Rust converter)"]
+    end
+
+    SRC(("src (PNG)<br/>storyboards")) --> seed
+    TCL -->|"printout.tcl encode"| FOLKFRAME
+    FOLKFRAME -->|"decode from screenshot/print<br/>(scale self-recovering)"| TCL
+    XML --- AST
+    FOLKFRAME -.->|"burn-blend + 6DOF pose layer"| FOLKPNG
+    XML -.->|"same hub pattern:<br/>payload + carrier"| PNGFOLK
+    XML -.-> FOLKTCL
+    FOLKPNG -.-> FOLKSIZES
+    FOLKTCL -.-> TKFOLK
+    FOLKTCL -.-> CFOLK
+    FOLKTCL -.-> FOLKRS
+    FOLKTCL -.-> FOLKGO
+    XML -.-> CUSTOMXML
+    CUSTOMXML -.-> PDF
+    CUSTOMXML -.-> HTML
+    CUSTOMXML -.-> KEY
+    CUSTOMXML -.-> PPX
+    CUSTOMXML -.-> HC
+
+    classDef built fill:#2d4f2d,stroke:#7cc37c,color:#e8ffe8
+    classDef planned fill:#3a2f1e,stroke:#ff9e64,color:#ffe8d0,stroke-dasharray: 5 5
+    class TCL,XML,PNG,JPG,FOLKFRAME,AST built
+    class PNGFOLK,FOLKPNG,FOLKSIZES,FOLKTCL,TKFOLK,CFOLK,FOLKRS,FOLKGO,PDF,HTML,KEY,PPX,HC,CUSTOMXML planned

@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<tclprogram xmlns="https://github.com/cwervo/playground/PrintablePrograms.png" name="hello.tcl" generator="PrintablePrograms.png">
+  <source encoding="base64">
+IyBoZWxsby50Y2wgLS0gUHJpbnRhYmxlUHJvZ3JhbXMgc2FtcGxlIHByb2dyYW0KcHJvYyBncmVl
+dCB7d2hvfSB7CiAgICByZXR1cm4gIkhlbGxvLCAkd2hvISIKfQoKZm9yZWFjaCBuYW1lIHt3b3Js
+ZCBmb2xrIHByaW50YWJsZX0gewogICAgcHV0cyBbZ3JlZXQgJG5hbWVdCn0KCiMgYSBtdWx0aS1s
+aW5lIGNvbW1hbmQgd2l0aCBicmFjZXMsIHF1b3RlcywgYW5kICJzcGVjaWFsIiA8Y2hhcnM+ICYg
+c3R1ZmYKc2V0IGJhbm5lciB7CiAgKy0tLS0tLS0tLS0tLS0tLS0tLS0tKwogIHwgIHByaW50YWJs
+ZSBkZW1vICAgIHwKICArLS0tLS0tLS0tLS0tLS0tLS0tLS0rCn0KcHV0cyAkYmFubmVyCg==
+  </source>
+  <commands>
+    <command name="#"># hello.tcl -- PrintablePrograms sample program</command>
+    <command name="proc">proc greet {who} {
+    return &quot;Hello, $who!&quot;
+}</command>
+    <command name="foreach">foreach name {world folk printable} {
+    puts [greet $name]
+}</command>
+    <command name="#"># a multi-line command with braces, quotes, and &quot;special&quot; &lt;chars&gt; &amp; stuff</command>
+    <command name="set">set banner {
+  +--------------------+
+  |  printable demo    |
+  +--------------------+
+}</command>
+    <command name="puts">puts $banner</command>
+  </commands>
+  <ast>
+    <comment># hello.tcl -- PrintablePrograms sample program</comment>
+    <cmd>
+      <w t="bare">proc</w>
+      <w t="bare">greet</w>
+      <w t="brace">who</w>
+      <w t="brace">
+        <raw>
+    return &quot;Hello, $who!&quot;
+</raw>
+        <script>
+          <cmd>
+            <w t="bare">return</w>
+            <w t="quote">Hello, $who!</w>
+          </cmd>
+        </script>
+      </w>
+    </cmd>
+    <cmd>
+      <w t="bare">foreach</w>
+      <w t="bare">name</w>
+      <w t="brace">world folk printable</w>
+      <w t="brace">
+        <raw>
+    puts [greet $name]
+</raw>
+        <script>
+          <cmd>
+            <w t="bare">puts</w>
+            <w t="cmdsub">
+              <raw>greet $name</raw>
+              <script>
+                <cmd>
+                  <w t="bare">greet</w>
+                  <w t="bare">$name</w>
+                </cmd>
+              </script>
+            </w>
+          </cmd>
+        </script>
+      </w>
+    </cmd>
+    <comment># a multi-line command with braces, quotes, and &quot;special&quot; &lt;chars&gt; &amp; stuff</comment>
+    <cmd>
+      <w t="bare">set</w>
+      <w t="bare">banner</w>
+      <w t="brace">
+  +--------------------+
+  |  printable demo    |
+  +--------------------+
+</w>
+    </cmd>
+    <cmd>
+      <w t="bare">puts</w>
+      <w t="bare">$banner</w>
+    </cmd>
+  </ast>
+</tclprogram>
