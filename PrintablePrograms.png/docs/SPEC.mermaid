@@ -26,7 +26,17 @@ flowchart TB
         AST["real AST in canonical XML<br/>(lib/tclast.tcl: words, nesting,<br/>cmdsub/brace scripts, regeneration)"]
     end
 
-    subgraph folk["Phase 3 - folk carriers (PLANNED, from sketch)"]
+    subgraph paper["Phase 3 - self-demoing white paper (BUILT: bin/whitepaper.tcl)"]
+        WPXML["WhitePaper.xml<br/>canonical ACM-style paper source"]
+        WPED["editions: .md / .html / .pdf<br/>US Letter page frames (.8.5x11.pNN.png)<br/>absolute sizing self-encoded, Libertinus Serif"]
+        WPPP[".pp.* payload editions:<br/>.pp.pdf .pp.xml .pp.md .pp.html"]
+        WPCAR["self-reproducing carriers:<br/>.pp.html.folk .pp.html.rust (HTML)<br/>.pp.go .pp.cpp (full PDF)"]
+        WPXML --> WPED
+        WPXML --> WPPP
+        WPED --> WPCAR
+    end
+
+    subgraph folk["Phase 4 - folk carriers (PLANNED, from sketch)"]
         PNGFOLK[".png.folk<br/>base64 PNG packed into a folk program"]
         FOLKPNG[".folk.png<br/>folk code set in IBM Plex Mono,<br/>RGB burn-blend barcodes encoding<br/>6DOF position + scale"]
         FOLKSIZES[".folk.A3/.A4/.A5/.A6/.A7.png<br/>.folk.usletter.png / .folk.8.5x11.png<br/>.folk.80x40mm.png<br/>paper-size render targets"]
@@ -37,7 +47,7 @@ flowchart TB
         FOLKGO[".folk.go (Go)"]
     end
 
-    subgraph docs["Phase 4 - document/deck targets (PLANNED, from sketch)"]
+    subgraph docs["Phase 5 - document/deck targets (PLANNED, from sketch)"]
         PDF[".pdf"]
         HTML[".html"]
         KEY[".key (Keynote)"]
@@ -67,5 +77,5 @@ flowchart TB
 
     classDef built fill:#2d4f2d,stroke:#7cc37c,color:#e8ffe8
     classDef planned fill:#3a2f1e,stroke:#ff9e64,color:#ffe8d0,stroke-dasharray: 5 5
-    class TCL,XML,PNG,JPG,FOLKFRAME,AST built
+    class TCL,XML,PNG,JPG,FOLKFRAME,AST,WPXML,WPED,WPPP,WPCAR built
     class PNGFOLK,FOLKPNG,FOLKSIZES,FOLKTCL,TKFOLK,CFOLK,FOLKRS,FOLKGO,PDF,HTML,KEY,PPX,HC,CUSTOMXML planned

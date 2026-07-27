@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Talk.xml : canonical source of the PrintablePrograms.png talk.
+  bin/talk.tcl builds the HTML deck and the landscape 4:3 page-frame
+  slides, and assembles talk.landscape.pp.4:3.html.pdf -- a PDF whose
+  pages are printable programs and whose payload is the HTML deck.
+-->
+<talk xmlns="https://github.com/cwervo/playground/PrintablePrograms.png/talk">
+  <title>PrintablePrograms.png</title>
+  <subtitle>programs you can print out, pin up, photograph, and run again</subtitle>
+  <date>July 27, 2026</date>
+
+  <slide title="PrintablePrograms.png">
+programs you can print out, pin up,
+photograph, and run again
+
+Andres Cuervo + Claude
+July 27, 2026
+  </slide>
+
+  <slide title="Why paper?">
+- durable, human-inspectable, self-powered
+- survives institutional collapse better than any disk
+- magazines, punched cards, microfilm: paper was a carrier
+- what paper lost when software grew: BYTE-EXACTNESS
+- retyping fails; OCR fails exactly where it matters
+  </slide>
+
+  <slide title="Two synchronized channels">
+- HUMAN channel: the program, typeset >= 12pt,
+  #1010FF on white, IBM Plex Mono / Libertinus
+- MACHINE channel: a thin border band of color cells
+  that encodes the program byte-exactly
+- they cover for each other:
+  machine channel = exact recovery
+  human channel = auditable, quotable, damage-tolerant
+  </slide>
+
+  <slide title="Anatomy of a page frame">
+- 8 colors at the RGB cube corners, 3 bits per cell
+- QR-style finder fiducials in all four corners
+- calibration strip: re-learn the palette per print
+- band thickness + grid W x H self-encoded (24-bit words)
+- header: hostname, IP, program id, UTC-ms filename,
+  page + cell size in mm -> the page ENCODES ITS OWN SCALE
+- CRC32-guarded packet, repeated to fill the band
+  </slide>
+
+  <slide title="The press: every format, byte-exact">
+.tcl &lt;-&gt; .xml &lt;-&gt; .png &lt;-&gt; .jpg / .jpeg
+
+- canonical XML hub: base64 source + commands + real AST
+- PNG tEXt chunks + JPEG COM segments carry the payload
+- tcl -&gt; jpg -&gt; tcl through a lossy codec: byte-exact
+- decoder survives rescale, blur, JPEG recompression
+  </slide>
+
+  <slide title="Self-demoing white paper">
+- WhitePaper.xml -&gt; .md .html .pdf editions
+- five US Letter page frames, ACM-typeset in Libertinus
+- every printed page decodes to the paper's own source
+- carriers reproduce the PDF byte-exactly when run:
+  .pp.html.folk  .pp.html.rust  .pp.go  .pp.cpp
+- this talk is built the same way: each slide you are
+  looking at decodes to its own text
+  </slide>
+
+  <slide title="Numbers">
+- 60 checks green across three suites
+- ~1.7 KB per US Letter page at 2mm cells, 12-cell band
+- decodes after 137% up / 63% down / blur + JPEG q80
+- overflow degrades to prefix + origin URL:
+  http://ip/folk-data/program/filename
+  </slide>
+
+  <slide title="Roadmap">
+- perspective + rotation rectification (AprilTag-style CV)
+- Reed-Solomon instead of repetition coding
+- burn-blend 6DOF barcode layers per storyboard frame
+- paper-size families: A3..A7, usletter, 80x40mm
+- transpiled carriers: .tk.folk .c.folk .folk.rs .folk.go
+
+github.com/cwervo/playground -> PrintablePrograms.png
+  </slide>
+</talk>

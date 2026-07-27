@@ -51,9 +51,9 @@ switch -- $mode {
         set textpng ""
         if {!$notext} {
             set textpng $out.text-tmp.png
-            if {![::printable::render::codePng $source $textpng $dpi]} { set textpng "" }
+            if {![::printable::typeset::codePng $source $textpng $dpi]} { set textpng "" }
         }
-        set res [::printable::dataframe::encode -source $source -out $out \
+        set res [::printable::pageframe::encode -source $source -out $out \
                      -textpng $textpng {*}$opts]
         if {$textpng ne ""} { file delete -force $textpng }
 
@@ -68,7 +68,7 @@ switch -- $mode {
     }
     decode {
         set img [lindex $argv 1]
-        set res [::printable::dataframe::decode $img]
+        set res [::printable::pageframe::decode $img]
         puts "== metadata =="
         dict for {k v} [dict get $res meta] { puts [format "  %-16s %s" $k $v] }
         puts "  grid             [dict get $res grid]"

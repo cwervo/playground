@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>PrintablePrograms.png (talk)</title>
+<style>
+
+@font-face { font-family: 'Libertinus Serif'; src: url('../../fonts/LibertinusSerif-Regular.woff2') format('woff2'); }
+html, body { margin: 0; height: 100%; background: #222; }
+.slide { display: none; box-sizing: border-box; width: 100vw; height: 100vh;
+         padding: 7vh 9vw; background: #fff; color: #1010FF;
+         font-family: 'Libertinus Serif', Georgia, serif; }
+.slide.on { display: block; }
+.slide h1 { font-size: 6vh; margin: 0 0 4vh 0; border-bottom: 0.6vh solid #1010FF; padding-bottom: 1.5vh; }
+.slide pre { font-size: 3.6vh; line-height: 1.5; white-space: pre-wrap;
+             font-family: inherit; margin: 0; }
+.pgnum { position: fixed; right: 2vw; bottom: 2vh; color: #1010FF; font: 2.5vh Georgia, serif; }
+</style>
+</head>
+<body>
+<div class="slide on"><h1>PrintablePrograms.png</h1><pre>programs you can print out, pin up,
+photograph, and run again
+
+Andres Cuervo + Claude
+July 27, 2026</pre></div>
+<div class="slide"><h1>Why paper?</h1><pre>- durable, human-inspectable, self-powered
+- survives institutional collapse better than any disk
+- magazines, punched cards, microfilm: paper was a carrier
+- what paper lost when software grew: BYTE-EXACTNESS
+- retyping fails; OCR fails exactly where it matters</pre></div>
+<div class="slide"><h1>Two synchronized channels</h1><pre>- HUMAN channel: the program, typeset >= 12pt,
+  #1010FF on white, IBM Plex Mono / Libertinus
+- MACHINE channel: a thin border band of color cells
+  that encodes the program byte-exactly
+- they cover for each other:
+  machine channel = exact recovery
+  human channel = auditable, quotable, damage-tolerant</pre></div>
+<div class="slide"><h1>Anatomy of a page frame</h1><pre>- 8 colors at the RGB cube corners, 3 bits per cell
+- QR-style finder fiducials in all four corners
+- calibration strip: re-learn the palette per print
+- band thickness + grid W x H self-encoded (24-bit words)
+- header: hostname, IP, program id, UTC-ms filename,
+  page + cell size in mm -> the page ENCODES ITS OWN SCALE
+- CRC32-guarded packet, repeated to fill the band</pre></div>
+<div class="slide"><h1>The press: every format, byte-exact</h1><pre>.tcl <-> .xml <-> .png <-> .jpg / .jpeg
+
+- canonical XML hub: base64 source + commands + real AST
+- PNG tEXt chunks + JPEG COM segments carry the payload
+- tcl -> jpg -> tcl through a lossy codec: byte-exact
+- decoder survives rescale, blur, JPEG recompression</pre></div>
+<div class="slide"><h1>Self-demoing white paper</h1><pre>- WhitePaper.xml -> .md .html .pdf editions
+- five US Letter page frames, ACM-typeset in Libertinus
+- every printed page decodes to the paper's own source
+- carriers reproduce the PDF byte-exactly when run:
+  .pp.html.folk  .pp.html.rust  .pp.go  .pp.cpp
+- this talk is built the same way: each slide you are
+  looking at decodes to its own text</pre></div>
+<div class="slide"><h1>Numbers</h1><pre>- 60 checks green across three suites
+- ~1.7 KB per US Letter page at 2mm cells, 12-cell band
+- decodes after 137% up / 63% down / blur + JPEG q80
+- overflow degrades to prefix + origin URL:
+  http://ip/folk-data/program/filename</pre></div>
+<div class="slide"><h1>Roadmap</h1><pre>- perspective + rotation rectification (AprilTag-style CV)
+- Reed-Solomon instead of repetition coding
+- burn-blend 6DOF barcode layers per storyboard frame
+- paper-size families: A3..A7, usletter, 80x40mm
+- transpiled carriers: .tk.folk .c.folk .folk.rs .folk.go
+
+github.com/cwervo/playground -> PrintablePrograms.png</pre></div>
+<div class="pgnum"></div>
+<script>
+
+let i = 0; const S = document.querySelectorAll('.slide'), P = document.querySelector('.pgnum');
+function show(k){ i = (k + S.length) % S.length; S.forEach((s,j)=>s.classList.toggle('on', j===i)); P.textContent = (i+1)+' / '+S.length; }
+document.addEventListener('keydown', e=>{ if (e.key==='ArrowRight'||e.key===' ') show(i+1); if (e.key==='ArrowLeft') show(i-1); });
+document.addEventListener('click', ()=>show(i+1)); show(0);
+</script>
+</body>
+</html>

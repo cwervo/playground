@@ -25,7 +25,7 @@
 # Decoder assumptions: axis-aligned raster (screenshot, or a scan that
 # has been deskewed); arbitrary uniform or anisotropic scale is fine.
 
-namespace eval ::printable::dataframe {
+namespace eval ::printable::pageframe {
     variable MAGIC   "FKF1"
     variable VERSION 1
     variable FID     7      ;# fiducial is FID x FID cells
@@ -110,6 +110,7 @@ namespace eval ::printable::dataframe {
         array set o {
             -pagewmm 0 -pagehmm 0 -cellmm 2.0 -bandmm 0 -maxbandmm 60.0
             -quietmm 8.0 -dpi 150 -id 1 -textpng "" -host "" -ip "" -file ""
+            -extra ""
         }
         array set o $args
         if {$o(-host) eq ""} { set o(-host) [info hostname] }
@@ -123,15 +124,15 @@ namespace eval ::printable::dataframe {
         # header size estimate for band sizing (real header is built after
         # geometry is fixed; the 48-byte slack in needBytes absorbs digit
         # count differences)
-        set header_estimate "complete=0\nhost=$o(-host)\nip=$o(-ip)\nid=$o(-id)\nfile=$o(-file)\npage_mm=0000.0 0000.0\ncell_mm=$o(-cellmm)\nband_mm=000.0\ncreated=0000-00-00T00:00:00Z\norigin=http://$o(-ip)/folk-data/program/$o(-file)\n"
+        set header_estimate "complete=0\nhost=$o(-host)\nip=$o(-ip)\nid=$o(-id)\nfile=$o(-file)\npage_mm=0000.0 0000.0\ncell_mm=$o(-cellmm)\nband_mm=000.0\ncreated=0000-00-00T00:00:00Z\norigin=http://$o(-ip)/folk-data/program/$o(-file)\n$o(-extra)"
 
         set cellpx [expr {max(2, int(round($o(-cellmm) / 25.4 * $o(-dpi))))}]
         set minimal [expr {$o(-bandmm) == 0 || $o(-pagewmm) == 0 || $o(-pagehmm) == 0}]
         if {$minimal} {
             # interior sized to the text panel at its native (>=12pt) size
             set tw 0; set th 0
-            if {$o(-textpng) ne "" && [::printable::render::magick] ne ""} {
-                lassign [exec [::printable::render::magick] $o(-textpng) \
+            if {$o(-textpng) ne "" && [::printable::typeset::magick] ne ""} {
+                lassign [exec [::printable::typeset::magick] $o(-textpng) \
                              -format "%w %h" info:] tw th
             }
             set iw [expr {max(6, ($tw + 2*$cellpx + $cellpx - 1) / $cellpx)}]
@@ -176,6 +177,8 @@ namespace eval ::printable::dataframe {
         append header "page_mm=$o(-pagewmm) $o(-pagehmm)\ncell_mm=$o(-cellmm)\n"
         append header "band_mm=$o(-bandmm)\ncreated=[clock format [clock seconds] -gmt 1 -format %Y-%m-%dT%H:%M:%SZ]\n"
         append header "origin=http://$o(-ip)/folk-data/program/$o(-file)\n"
+        # caller-supplied extra header lines (key=value, newline separated)
+        if {$o(-extra) ne ""} { append header [string trimright $o(-extra) \n] \n }
 
         # fit as much of the program as the packet budget allows
         # 4 len prefix + 4 magic + 3 ver/hlen + header (incl. the
@@ -266,8 +269,8 @@ namespace eval ::printable::dataframe {
         # composite the human-readable code into the interior, centered.
         # The text is never scaled down: 12pt is a floor, and in minimal
         # mode the interior was sized to the text, not the other way round.
-        if {$o(-textpng) ne "" && [::printable::render::magick] ne ""} {
-            set im [::printable::render::magick]
+        if {$o(-textpng) ne "" && [::printable::typeset::magick] ne ""} {
+            set im [::printable::typeset::magick]
             lassign [exec $im $o(-textpng) -format "%w %h" info:] tw th
             set iwpx [expr {($W - 2*$T)*$cellpx}]
             set ihpx [expr {($H - 2*$T)*$cellpx}]
@@ -306,7 +309,7 @@ namespace eval ::printable::dataframe {
     proc decode {path} {
         variable FID
         variable palette
-        set im [::printable::render::magick]
+        set im [::printable::typeset::magick]
         if {$im eq ""} { error "ImageMagick required to decode rasters" }
 
         # locate the frame: trim the white margin

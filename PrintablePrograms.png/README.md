@@ -18,6 +18,7 @@ form that survives a color inkjet printer and a camera.
 | [`hello.png`](samples/hello.png) / [`hello.jpg`](samples/hello.jpg) | pressed images: code panel + the full canonical XML riding in PNG `tEXt` / JPEG `COM` metadata |
 | [`storyboard.png`](samples/storyboard.png) / [`storyboard.jpg`](samples/storyboard.jpg) | same, for [`storyboard.tcl`](samples/storyboard.tcl) |
 | [`hello.xml`](samples/hello.xml) | the canonical `<tclprogram>` document: byte-exact base64 source + `<commands>` + real `<ast>` |
+| [`packingslip.anon.printout.png`](samples/packingslip.anon.printout.png) | a framed *photograph*: PII destroyed by pixelation before encoding; the band decodes to a redaction-manifest descriptor |
 
 ![a printable program page](samples/storyboard.printout.png)
 
@@ -104,12 +105,65 @@ recompression are handled (see [`tests/pageframe.tcl`](tests/pageframe.tcl)).
 Perspective / rotation rectification is the CV layer's job (future
 work, cf. [`../smokesignal`](../smokesignal)).
 
+## The white paper: a self-demoing document
+
+[`docs/whitepaper/WhitePaper.xml`](docs/whitepaper/WhitePaper.xml) is an
+ACM-style research white paper on this toolkit — abstract, numbered
+sections, and an ACM-reference-format bibliography — and it is also a
+printable program: one canonical XML source builds every edition via
+[`bin/whitepaper.tcl`](bin/whitepaper.tcl), typeset in the vendored
+**Libertinus Serif** (the ACM's Linux Libertine typeface lineage, OFL,
+[`fonts/`](fonts/)).
+
+```sh
+tclsh bin/whitepaper.tcl build            # emits docs/whitepaper/build/*
+tclsh bin/whitepaper.tcl extract <file>   # recover the XML from any edition
+```
+
+| edition | what it is |
+|---|---|
+| [`WhitePaper.md`](docs/whitepaper/build/WhitePaper.md) / [`WhitePaper.html`](docs/whitepaper/build/WhitePaper.html) | readable editions (HTML uses the vendored Libertinus webfonts) |
+| [`WhitePaper.8.5x11.p01.png`](docs/whitepaper/build/WhitePaper.8.5x11.p01.png) … p05 | **US Letter page frames**: paper text typeset in the middle, thin data frame around it; absolute 8.5"x11" sizing, page number, and `paper=usletter` self-encoded in every frame |
+| [`WhitePaper.pdf`](docs/whitepaper/build/WhitePaper.pdf) | the printed paper (the page frames, as a PDF) |
+| [`WhitePaper.pp.pdf`](docs/whitepaper/build/WhitePaper.pp.pdf) | PDF with the canonical XML embedded (extractable) |
+| [`WhitePaper.pp.xml`](docs/whitepaper/build/WhitePaper.pp.xml) / [`.pp.md`](docs/whitepaper/build/WhitePaper.pp.md) / [`.pp.html`](docs/whitepaper/build/WhitePaper.pp.html) | payload-carrying editions |
+| [`WhitePaper.pp.html.folk`](docs/whitepaper/build/WhitePaper.pp.html.folk) / [`.pp.html.rust`](docs/whitepaper/build/WhitePaper.pp.html.rust) | carrier programs that reproduce the HTML byte-exactly when run |
+| [`WhitePaper.pp.go`](docs/whitepaper/build/WhitePaper.pp.go) / [`.pp.cpp`](docs/whitepaper/build/WhitePaper.pp.cpp) | carrier programs that reproduce the full PDF — embedded images, diagrams, formatting — byte-exactly when run |
+
+Every page of the PDF decodes with `bin/printout.tcl decode`: it reports
+`doc=WhitePaper`, `paper=usletter`, `page=N/pages=M`, the physical page
+size in mm, the recovered scale, and the XML prefix (with the origin URL
+for the rest). The full XML also rides losslessly in each page PNG's
+`tEXt` chunk and in the `.pp.*` editions.
+
+## The talk: landscape 4:3 printable slides
+
+[`docs/talk/Talk.xml`](docs/talk/Talk.xml) →
+[`bin/talk.tcl`](bin/talk.tcl) builds a slide deck the same way the
+paper is built:
+
+- [`talk.html`](docs/talk/build/talk.html) — HTML deck (arrow keys /
+  click to advance), Libertinus + `#1010FF` on white
+- [`talk.landscape.4x3.sNN.png`](docs/talk/build/talk.landscape.4x3.s01.png)
+  — eight landscape 4:3 (10"×7.5") page frames; every slide's band
+  decodes to **that slide's own text**, with `paper=4:3-landscape-10x7.5in`,
+  `slide=N/slides=M`, and absolute size self-encoded; the full HTML deck
+  rides in each PNG's `tEXt` chunk
+- [`talk.landscape.pp.4:3.html.pdf`](docs/talk/build/talk.landscape.pp.4:3.html.pdf)
+  — the deck as a printable PDF whose payload is the HTML edition
+  (`talk.tcl extract` recovers it byte-exactly)
+
 ## Tests
 
 ```sh
 tclsh tests/press.tcl       # 12 checks: all format-pair roundtrips, byte-exact
 tclsh tests/pageframe.tcl   # 22 checks: AST + page frame, incl. simulated
                             # screenshot (up/downscale) and rescan (blur+JPEG)
+tclsh tests/whitepaper.tcl  # 26 checks: all editions build, payloads
+                            # round-trip, US Letter self-description,
+                            # carriers reproduce byte-exactly
+tclsh tests/talk.tcl        # 10 checks: deck builds, PDF/tEXt payloads
+                            # round-trip, 4:3 slide self-description
 ```
 
 ## Layout
