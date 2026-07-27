@@ -135,6 +135,23 @@ size in mm, the recovered scale, and the XML prefix (with the origin URL
 for the rest). The full XML also rides losslessly in each page PNG's
 `tEXt` chunk and in the `.pp.*` editions.
 
+## The talk: landscape 4:3 printable slides
+
+[`docs/talk/Talk.xml`](docs/talk/Talk.xml) →
+[`bin/talk.tcl`](bin/talk.tcl) builds a slide deck the same way the
+paper is built:
+
+- [`talk.html`](docs/talk/build/talk.html) — HTML deck (arrow keys /
+  click to advance), Libertinus + `#1010FF` on white
+- [`talk.landscape.4x3.sNN.png`](docs/talk/build/talk.landscape.4x3.s01.png)
+  — eight landscape 4:3 (10"×7.5") page frames; every slide's band
+  decodes to **that slide's own text**, with `paper=4:3-landscape-10x7.5in`,
+  `slide=N/slides=M`, and absolute size self-encoded; the full HTML deck
+  rides in each PNG's `tEXt` chunk
+- [`talk.landscape.pp.4:3.html.pdf`](docs/talk/build/talk.landscape.pp.4:3.html.pdf)
+  — the deck as a printable PDF whose payload is the HTML edition
+  (`talk.tcl extract` recovers it byte-exactly)
+
 ## Tests
 
 ```sh
@@ -144,6 +161,8 @@ tclsh tests/pageframe.tcl   # 22 checks: AST + page frame, incl. simulated
 tclsh tests/whitepaper.tcl  # 26 checks: all editions build, payloads
                             # round-trip, US Letter self-description,
                             # carriers reproduce byte-exactly
+tclsh tests/talk.tcl        # 10 checks: deck builds, PDF/tEXt payloads
+                            # round-trip, 4:3 slide self-description
 ```
 
 ## Layout
