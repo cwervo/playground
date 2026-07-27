@@ -96,6 +96,28 @@ set d [::convertkit::dataframe::decode $bframe]
 check "prefix recovered matches program start" [string equal -length 200 [dict get $d source] $big]
 check "complete=0 in metadata" [expr {[dict get $d meta complete] == 0}]
 
+# --- minimal mode: geometry auto-sized, full round trip --------------------
+puts "== minimal mode (auto geometry) =="
+set mframe [file join $outdir minimal.png]
+set res [::convertkit::dataframe::encode -source $src -out $mframe \
+    -cellmm 2.0 -quietmm 6 -dpi 120 \
+    -host testhost -ip 10.0.0.42 -id 10]
+check "minimal frame fits full program" [dict get $res complete]
+set d [::convertkit::dataframe::decode $mframe]
+check "minimal frame decodes byte-exact" [expr {[dict get $d source] eq $src}]
+# minimal really is smaller than the old fixed default for this program
+scan [dict get $res grid] "%dx%d cells, band %d" mw mh mt
+check "auto band is thinner than a 6cm band" [expr {$mt < 30}]
+
+# minimal mode still handles oversize programs via the band-depth fallback
+set mbig [file join $outdir minimal-big.png]
+set res [::convertkit::dataframe::encode -source $big -out $mbig \
+    -cellmm 2.0 -quietmm 6 -dpi 120 -maxbandmm 26 \
+    -host testhost -ip 10.0.0.42 -id 11]
+set d [::convertkit::dataframe::decode $mbig]
+check "minimal+capped oversize decodes its prefix" \
+    [string equal -length 100 [dict get $d source] $big]
+
 puts "----"
 puts "pass: $pass  fail: $fail"
 exit [expr {$fail > 0}]

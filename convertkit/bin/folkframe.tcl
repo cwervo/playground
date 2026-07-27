@@ -2,8 +2,11 @@
 # folkframe.tcl -- print-survivable data-frame encoder/decoder CLI.
 #
 #   encode: tclsh folkframe.tcl encode program.tcl out.png ?options?
-#     -pagewmm N -pagehmm N   physical page size (default 210x148, A5 landscape)
-#     -bandmm N               data band width (default 60 = the ~6cm border)
+#     default is MINIMAL: the page grows just enough to hold the 12pt
+#     text panel, the band just enough to hold one packet (<= -maxbandmm)
+#     -pagewmm N -pagehmm N   fixed physical page size (0 = minimal)
+#     -bandmm N               fixed data band width (0 = minimal)
+#     -maxbandmm N            band cap in minimal mode (default 60)
 #     -cellmm N               data cell size (default 2)
 #     -quietmm N              white quiet margin (default 8)
 #     -dpi N                  render resolution (default 150)
@@ -39,10 +42,16 @@ switch -- $mode {
         set notext [expr {"-notext" in $opts}]
         set opts [lsearch -all -inline -not -exact $opts -notext]
 
+        # render the text panel at the frame's DPI so the 12pt minimum is
+        # a physical 12pt on the printed page
+        set dpi 150
+        if {[set i [lsearch -exact $opts -dpi]] >= 0} {
+            set dpi [lindex $opts $i+1]
+        }
         set textpng ""
         if {!$notext} {
             set textpng $out.text-tmp.png
-            if {![::convertkit::render::codePng $source $textpng]} { set textpng "" }
+            if {![::convertkit::render::codePng $source $textpng $dpi]} { set textpng "" }
         }
         set res [::convertkit::dataframe::encode -source $source -out $out \
                      -textpng $textpng {*}$opts]

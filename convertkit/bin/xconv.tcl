@@ -60,7 +60,7 @@ proc fromCanonicalXml {xml outPath srcPath} {
                     file copy -force $srcPath $outPath
                 }
             } else {
-                ::convertkit::render::codePng $source $outPath [file tail $srcPath]
+                ::convertkit::render::codePng $source $outPath
             }
             set png [::convertkit::pngcodec::readFile $outPath]
             ::convertkit::pngcodec::writeFile $outPath [::convertkit::pngcodec::embed $png $xml]
@@ -76,7 +76,7 @@ proc fromCanonicalXml {xml outPath srcPath} {
                 return
             } else {
                 set source [::convertkit::tclxml::xmlToTcl $xml]
-                ::convertkit::render::codePng $source $tmp [file tail $srcPath]
+                ::convertkit::render::codePng $source $tmp
             }
             ::convertkit::render::pngToJpgRaster $tmp $outPath
             file delete -force $tmp

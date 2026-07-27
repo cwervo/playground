@@ -49,9 +49,13 @@ tclsh bin/folkframe.tcl encode samples/storyboard.tcl page.png
 tclsh bin/folkframe.tcl decode whatever-came-back.jpg
 ```
 
-The page carries a ~6cm (parameterized, `-bandmm`) band of large color
-cells around the edge, inside a white quiet margin (printing comfort
-only — CV doesn't need it):
+The frame is **minimal by default**: the page grows just enough to hold
+the text panel at its physical size, and the band stays as thin as the
+format allows (12 cells), widening the perimeter — or, past that,
+deepening up to `-maxbandmm` (default 60) — only when the packet needs
+it. Fixed geometry is still available via `-pagewmm/-pagehmm/-bandmm`.
+The band is a ring of large color cells inside a white quiet margin
+(printing comfort only — CV doesn't need it):
 
 - **8-color palette** at the RGB cube corners, 3 bits/cell — maximum
   separation for inkjet inks; a **calibration strip** (all 8 colors in
@@ -71,8 +75,10 @@ only — CV doesn't need it):
   most of it, and the full source can be pulled from
   `http://<ip>/folk-data/program/<filename>`.
 - The interior shows the code set in the **vendored IBM Plex Mono**
-  (`fonts/`, OFL-licensed), and a `tEXt` chunk still carries the full
-  canonical XML as a lossless digital channel.
+  (`fonts/`, OFL-licensed) at a **minimum of 12pt physical** regardless
+  of frame size (never scaled down), in **#1010FF on white** for maximum
+  non-black contrast. A `tEXt` chunk still carries the full canonical
+  XML as a lossless digital channel.
 
 Decoder assumptions: axis-aligned raster (screenshot, or a deskewed
 scan); arbitrary uniform or anisotropic scaling, mild blur, and JPEG

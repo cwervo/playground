@@ -104,8 +104,11 @@ namespace eval ::convertkit::dataframe {
     proc encode {args} {
         variable FID
         variable palette
+        # -pagewmm/-pagehmm/-bandmm of 0 mean "minimal": the page grows
+        # just enough to hold the text panel, and the band grows just
+        # enough (up to -maxbandmm) to hold the packet.
         array set o {
-            -pagewmm 210.0 -pagehmm 148.0 -cellmm 2.0 -bandmm 60.0
+            -pagewmm 0 -pagehmm 0 -cellmm 2.0 -bandmm 0 -maxbandmm 60.0
             -quietmm 8.0 -dpi 150 -id 1 -textpng "" -host "" -ip "" -file ""
         }
         array set o $args
@@ -117,9 +120,52 @@ namespace eval ::convertkit::dataframe {
                 -format %Y%m%d-%H%M%S]-[format %03d [expr {$ms%1000}]]Z.folk.png
         }
 
-        set W [expr {int(round($o(-pagewmm) / $o(-cellmm)))}]
-        set H [expr {int(round($o(-pagehmm) / $o(-cellmm)))}]
-        set T [expr {int(round($o(-bandmm) / $o(-cellmm)))}]
+        # header size estimate for band sizing (real header is built after
+        # geometry is fixed; the 48-byte slack in needBytes absorbs digit
+        # count differences)
+        set header_estimate "complete=0\nhost=$o(-host)\nip=$o(-ip)\nid=$o(-id)\nfile=$o(-file)\npage_mm=0000.0 0000.0\ncell_mm=$o(-cellmm)\nband_mm=000.0\ncreated=0000-00-00T00:00:00Z\norigin=http://$o(-ip)/folk-data/program/$o(-file)\n"
+
+        set cellpx [expr {max(2, int(round($o(-cellmm) / 25.4 * $o(-dpi))))}]
+        set minimal [expr {$o(-bandmm) == 0 || $o(-pagewmm) == 0 || $o(-pagehmm) == 0}]
+        if {$minimal} {
+            # interior sized to the text panel at its native (>=12pt) size
+            set tw 0; set th 0
+            if {$o(-textpng) ne "" && [::convertkit::render::magick] ne ""} {
+                lassign [exec [::convertkit::render::magick] $o(-textpng) \
+                             -format "%w %h" info:] tw th
+            }
+            set iw [expr {max(6, ($tw + 2*$cellpx + $cellpx - 1) / $cellpx)}]
+            set ih [expr {max(6, ($th + 2*$cellpx + $cellpx - 1) / $cellpx)}]
+            # keep the band as thin as the format allows and grow the
+            # perimeter (interior) to fit one full packet; only deepen
+            # the band (up to -maxbandmm) if the text panel already
+            # provides more perimeter than needed can't happen -- deeper
+            # bands are the fallback when the interior must stay small
+            set needBytes [expr {4 + 4 + 3
+                + [string length [encoding convertto utf-8 $header_estimate]]
+                + [string length [encoding convertto utf-8 $o(-source)]] + 4 + 4 + 48}]
+            set needCells [expr {($needBytes*8 + 2) / 3}]
+            set T [expr {$FID + 5}]
+            set needSum [expr {($needCells + 2*$T - 1) / (2*$T)}]   ;# min iw+ih
+            if {$iw + $ih < $needSum} {
+                set extra [expr {$needSum - $iw - $ih}]
+                incr iw [expr {($extra + 1) / 2}]
+                incr ih [expr {$extra / 2}]
+            }
+            # cap runaway pages: past ~2x A4 perimeter, deepen the band
+            # instead, then truncate at -maxbandmm (prefix + origin URL)
+            set maxT [expr {int(round($o(-maxbandmm) / $o(-cellmm)))}]
+            while {2*$T*($iw+$ih) < $needCells && $T < $maxT} { incr T }
+            set W [expr {$iw + 2*$T}]
+            set H [expr {$ih + 2*$T}]
+            set o(-pagewmm) [format %.1f [expr {$W * $o(-cellmm)}]]
+            set o(-pagehmm) [format %.1f [expr {$H * $o(-cellmm)}]]
+            set o(-bandmm)  [format %.1f [expr {$T * $o(-cellmm)}]]
+        } else {
+            set W [expr {int(round($o(-pagewmm) / $o(-cellmm)))}]
+            set H [expr {int(round($o(-pagehmm) / $o(-cellmm)))}]
+            set T [expr {int(round($o(-bandmm) / $o(-cellmm)))}]
+        }
         if {$T < $FID + 5} { error "band too thin: need >= [expr {$FID+5}] cells, got $T" }
         if {$W <= 2*$T + 2 || $H <= 2*$T + 2} { error "page too small for band" }
 
@@ -190,7 +236,6 @@ namespace eval ::convertkit::dataframe {
         }
 
         # ---- rasterize ----------------------------------------------------
-        set cellpx  [expr {max(2, int(round($o(-cellmm) / 25.4 * $o(-dpi))))}]
         set quietpx [expr {int(round($o(-quietmm) / 25.4 * $o(-dpi)))}]
         set imgW [expr {$W*$cellpx + 2*$quietpx}]
         set imgH [expr {$H*$cellpx + 2*$quietpx}]
@@ -218,15 +263,18 @@ namespace eval ::convertkit::dataframe {
         append png [::convertkit::pngcodec::buildChunk IEND ""]
         ::convertkit::pngcodec::writeFile $o(-out) $png
 
-        # composite the human-readable code into the interior
+        # composite the human-readable code into the interior, centered.
+        # The text is never scaled down: 12pt is a floor, and in minimal
+        # mode the interior was sized to the text, not the other way round.
         if {$o(-textpng) ne "" && [::convertkit::render::magick] ne ""} {
             set im [::convertkit::render::magick]
-            set ix [expr {$quietpx + $T*$cellpx + $cellpx}]
-            set iy $ix
-            set iw [expr {($W - 2*$T)*$cellpx - 2*$cellpx}]
-            set ih [expr {($H - 2*$T)*$cellpx - 2*$cellpx}]
+            lassign [exec $im $o(-textpng) -format "%w %h" info:] tw th
+            set iwpx [expr {($W - 2*$T)*$cellpx}]
+            set ihpx [expr {($H - 2*$T)*$cellpx}]
+            set ix [expr {$quietpx + $T*$cellpx + max(0, ($iwpx - $tw)/2)}]
+            set iy [expr {$quietpx + $T*$cellpx + max(0, ($ihpx - $th)/2)}]
             catch {
-                exec $im $o(-out) \( $o(-textpng) -resize ${iw}x${ih}\> \) \
+                exec $im $o(-out) $o(-textpng) \
                     -gravity NorthWest -geometry +$ix+$iy -composite $o(-out)
             }
         }

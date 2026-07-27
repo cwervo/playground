@@ -30,19 +30,23 @@ namespace eval ::convertkit::render {
         return ""
     }
 
-    # Render source text to a bordered PNG at $path. Returns 1 if
-    # ImageMagick did the rendering, 0 if the blank fallback was used.
-    proc codePng {text path {title ""}} {
+    # Render source text to a PNG at $path: #1010FF on white (maximum
+    # non-black contrast), minimum 12pt regardless of output size --
+    # -density makes -pointsize a physical size, so 12pt stays 12pt at
+    # any DPI. Returns 1 if ImageMagick did the rendering, 0 if the
+    # blank fallback was used.
+    proc codePng {text path {dpi 96} {pointsize 12}} {
+        if {$pointsize < 12} { set pointsize 12 }
         set im [magick]
         if {$im ne ""} {
             set font [pickFont]
-            set args [list -background "#16161e" -fill "#c8d3f5" -pointsize 14]
+            set args [list -density $dpi -background white -fill "#1010FF" \
+                          -pointsize $pointsize]
             if {$font ne ""} { lappend args -font $font }
             # label:<text> inline: default IM security policy forbids @file reads
             set ok [expr {![catch {
                 exec $im {*}$args label:$text \
-                    -bordercolor "#ff9e64" -border 6 \
-                    -bordercolor "#16161e" -border 18 \
+                    -bordercolor white -border 12 \
                     png:$path
             } err]}]
             if {$ok} { return 1 }
