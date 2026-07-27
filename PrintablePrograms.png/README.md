@@ -18,6 +18,7 @@ form that survives a color inkjet printer and a camera.
 | [`hello.png`](samples/hello.png) / [`hello.jpg`](samples/hello.jpg) | pressed images: code panel + the full canonical XML riding in PNG `tEXt` / JPEG `COM` metadata |
 | [`storyboard.png`](samples/storyboard.png) / [`storyboard.jpg`](samples/storyboard.jpg) | same, for [`storyboard.tcl`](samples/storyboard.tcl) |
 | [`hello.xml`](samples/hello.xml) | the canonical `<tclprogram>` document: byte-exact base64 source + `<commands>` + real `<ast>` |
+| [`packingslip.anon.printout.png`](samples/packingslip.anon.printout.png) | a framed *photograph*: PII destroyed by pixelation before encoding; the band decodes to a redaction-manifest descriptor |
 
 ![a printable program page](samples/storyboard.printout.png)
 
