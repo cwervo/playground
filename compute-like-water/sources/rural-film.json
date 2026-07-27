@@ -1,0 +1,14 @@
+{
+  "id": "rural-film",
+  "type": "film",
+  "title": "Rural Electrification (period film)",
+  "author": "U.S. Department of Agriculture / REA era production",
+  "publisher": "Internet Archive",
+  "date_published": "1930s–1940s (item digitized 2015)",
+  "url": "https://archive.org/details/RuralElectrification",
+  "image_url": null,
+  "alt_text": "Digitized period film documenting the rural electrification drive; available as MPEG original with MP4/OGV derives and a torrent with webseeds.",
+  "license": "Public domain (U.S. federal government work)",
+  "accessed": "2026-07-27",
+  "notes": "archive.org was unreachable from the build sandbox (egress 403, verified 2026-07-27); file listing supplied by Andrés Cuervo: .mpg original 679.5MB, .mp4 derive 177.9MB, .ogv 128.9MB."
+}

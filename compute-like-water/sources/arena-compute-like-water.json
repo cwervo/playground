@@ -1,0 +1,14 @@
+{
+  "id": "arena-compute-like-water",
+  "type": "arena-channel",
+  "title": "compute-like-water",
+  "author": "Andrés Cuervo",
+  "publisher": "Are.na",
+  "date_published": null,
+  "url": "https://www.are.na/andres-cuervo/compute-like-water",
+  "image_url": null,
+  "alt_text": "An Are.na channel collecting imagery and references around the idea of computation as an ambient utility — compute that flows like water.",
+  "license": "Various; see individual blocks on Are.na",
+  "accessed": "2026-07-27",
+  "notes": "Organizing metaphor for this talk. NOTE: are.na was unreachable from the build sandbox (egress policy 403/CONNECT-rejected on www.are.na and api.are.na, verified 2026-07-27), so individual blocks could not be enumerated or mirrored; the channel is cited as a whole and slide imagery is drawn from public-domain sources instead."
+}

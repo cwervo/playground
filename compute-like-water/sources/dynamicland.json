@@ -1,0 +1,14 @@
+{
+  "id": "dynamicland",
+  "type": "research-org",
+  "title": "Dynamicland: a communal computing space",
+  "author": "Bret Victor and the Dynamicland research group",
+  "publisher": "dynamicland.org",
+  "date_published": "2017–present",
+  "url": "https://dynamicland.org",
+  "image_url": null,
+  "alt_text": "A nonprofit research lab building a humane dynamic medium: computation embedded in a physical room, operated communally with paper and hands rather than screens — compute as ambient as room light.",
+  "license": "© Dynamicland",
+  "accessed": "2026-07-27",
+  "notes": "The closest existing demonstration of 'compute like water': computation as a shared property of a place, not a possession of a device."
+}
