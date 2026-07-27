@@ -1,0 +1,131 @@
+# TheHistoryOf chapter source. Compiled by bin/compile.tcl via the
+# PrintablePrograms.png framework into a PNG page sequence + PDF.
+
+[meta]
+id = "08-printed-computation"
+title = "Printed Computational Data"
+subtitle = "From the Jacquard loom and the punched card to line-printer listings, Dynamicland, and programs that live on paper"
+date = "2026-07-27"
+
+[[section]]
+heading = "Holes in cards: Jacquard to Hollerith"
+body = """
+Programs were printed before they were stored. Joseph Marie
+Jacquard's loom attachment (1804) wove figured silk under the
+control of chains of punched cards -- the pattern is the
+program, and the program is a physical object you can hold,
+copy, splice, and archive. Charles Babbage adopted the card for
+the Analytical Engine, and Ada Lovelace's famous note observed
+that the engine "weaves algebraical patterns just as the
+Jacquard-loom weaves flowers and leaves." A portrait of Jacquard
+woven by his own loom from 24,000 cards hung where Babbage could
+show it to guests: the first demo of stored programs was a
+picture [1].
+
+Herman Hollerith made the punched card an instrument of the
+state. His electric tabulating machines counted the 1890 US
+census in a fraction of the projected time, one card per person
+[2]. Hollerith's Tabulating Machine Company merged into CTR in
+1911, renamed International Business Machines in 1924; with
+rivals Powers/Remington Rand and Bull in Europe, the tabulating-
+card corporations -- descendants of the abacus by way of the
+adding machine -- became the infrastructure of censuses,
+insurance, railroads, and armies decades before electronics.
+"""
+
+[[section]]
+heading = "The punched-card century"
+body = """
+The 80-column IBM card (1928 format) became the atom of data
+processing for fifty years. Von Neumann's team programmed ENIAC
+successors and the machines of the "First Draft" architecture
+[3] from cards and paper tape; a program was a deck, a card was
+a line, and dropping a tray was a catastrophe with a physical
+meaning. Card culture ran deep: drum card layouts, JCL decks,
+the printed sentence on every card -- do not fold, spindle, or
+mutilate -- entering the language as a protest slogan about
+being reduced to data.
+
+Output was printed too. The chain line printer put programs on
+continuous greenbar paper with sprocket holes down both sides --
+the tractor-feed perforations that edge every listing from the
+1950s through the 1980s. Program listings were the archival
+format: source decks were fragile, so shops bound listings,
+mailed listings, audited listings. Whole operating systems
+survive today because a listing was printed and kept -- the
+recovered Apollo Guidance Computer source is transcribed from
+scanned printouts [4]. Home computing kept the faith: 1980s
+magazines published programs as pages of type-in listings, and
+Cauzin's Softstrip (1985) printed software as scannable data
+strips on the magazine page -- direct ancestors of the QR code
+and of this repository's own experiments.
+"""
+
+[[section]]
+heading = "Paper comes back: Dynamicland and its kin"
+body = """
+When Bret Victor's lab turned from screens to rooms, the punched
+card's lesson returned: computation you can hold. Dynamicland
+[5], the Oakland research space Victor founded (with Realtalk,
+its operating system), makes programs physical objects -- sheets
+of paper marked with colored dots, recognized by cameras, given
+behavior by projection. Programs are on the table, visible to
+everyone, editable with pen and scissors; agency over the
+computational medium is communal rather than individual. The
+influences are explicit: Sutherland's Sketchpad, Engelbart's
+augmentation, Kay's Dynabook (see those chapters), Papert's
+constructionism -- the whole lineage of this series, landed on
+paper.
+
+Dynamicland's example spawned an open ecosystem. Paper Programs
+(2017), a browser-based homage, lets anyone with a webcam and
+projector run JavaScript from printed pages [6]. Folk Computer
+[7], an open-source community project, continues the program
+with Tcl-based reactive "folk" programs recognized on printed
+pages -- the direct context for this repository: the
+PrintablePrograms.png framework that typeset the whitepaper you
+are reading encodes each chapter's TOML source into a print-
+survivable color band, so the paper itself carries the program.
+From the Jacquard card to the folk page, the medium keeps
+insisting: a program is a document, and a document can compute.
+"""
+
+[[citations]]
+label = "Computer History Museum, Punched Cards exhibit (Jacquard loom through the IBM card)"
+url = "https://www.computerhistory.org/revolution/punched-cards/2"
+
+[[citations]]
+label = "Herman Hollerith and the 1890 census tabulator, Columbia University Computing History"
+url = "http://www.columbia.edu/cu/computinghistory/hollerith.html"
+
+[[citations]]
+label = "John von Neumann, First Draft of a Report on the EDVAC (1945), reprinted in IEEE Annals of the History of Computing"
+url = "https://doi.org/10.1109/85.238389"
+
+[[citations]]
+label = "Apollo 11 Guidance Computer source code, transcribed from printed listings (Virtual AGC project)"
+url = "https://github.com/chrislgarry/Apollo-11"
+
+[[citations]]
+label = "Dynamicland: a communal computing space by Bret Victor and collaborators; Realtalk documentation and zines"
+url = "https://dynamicland.org/"
+
+[[citations]]
+label = "Paper Programs, by Jan Paul Posma: run JavaScript from printed pages"
+url = "https://paperprograms.org/"
+
+[[citations]]
+label = "Folk Computer: an open-source physical computing system (Tcl)"
+url = "https://folk.computer/"
+
+[[citations]]
+label = "Bret Victor, The Humane Representation of Thought (2014) -- the argument for dynamic media beyond the screen"
+url = "https://vimeo.com/115154289"
+
+[[citations]]
+label = "IBM Heritage: the punched card"
+url = "https://www.ibm.com/history/punched-card"
+
+[[citations]]
+label = "Cauzin Softstrip reader and printed software strips (1985), Internet Archive software collection"
+url = "https://archive.org/details/softstrip"

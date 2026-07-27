@@ -1,0 +1,100 @@
+# TheHistoryOf chapter source. Compiled by bin/compile.tcl via the
+# PrintablePrograms.png framework into a PNG page sequence + PDF.
+
+[meta]
+id = "03-squeak"
+title = "Squeak"
+subtitle = "Back to the future: the PARC Smalltalk lineage reborn as free, self-hosting, media-rich software in 1996"
+date = "2026-07-27"
+
+[[section]]
+heading = "The band gets back together"
+body = """
+By the mid-1990s the original Learning Research Group ideas were
+locked inside commercial Smalltalks licensed by the seat. Alan
+Kay's team at Apple -- Dan Ingalls, Ted Kaehler, John Maloney,
+Scott Wallace -- wanted a Smalltalk they could give to children,
+researchers, and themselves: free, portable, and malleable all
+the way down. Their solution, described in the OOPSLA '97 paper
+"Back to the Future: The Story of Squeak, A Practical Smalltalk
+Written in Itself" [1], was an act of software archaeology and
+bootstrapping at once.
+
+They started from the Apple Smalltalk-80 image, then wrote the
+new virtual machine in a subset of Smalltalk itself (Slang)
+which a Smalltalk program translates to C. The result: the VM
+that runs the image is written and debugged inside the image it
+runs. Squeak was released in 1996, months before the team moved
+to Disney Imagineering; because Apple's license made it free
+with sources, it spread immediately to every platform with a C
+compiler.
+"""
+
+[[section]]
+heading = "Morphic, Etoys, and children again"
+body = """
+Squeak absorbed Morphic, the direct-manipulation UI framework
+from Self (Maloney and Randall Smith's earlier work), making
+every on-screen object grabbable, inspectable, and scriptable
+while the system runs. On top of Morphic the team built Etoys, a
+tile-scripting environment in the Dynabook tradition (see that
+chapter): children script cars, animations, and simulations by
+dragging tiles, with the full Smalltalk beneath the tiles when
+they outgrow them.
+
+Etoys shipped on the One Laptop per Child XO-1, putting a direct
+descendant of the PARC vision in the hands of millions of
+children -- the closest the literal Dynabook program ever came
+to its intended audience. Squeak also carried Kay's media
+ambitions: real-time sound synthesis, MIDI, movies, 3D (Croquet
+and later Open Cobalt built shared 3D worlds on it), and network
+media, all inside one image.
+"""
+
+[[section]]
+heading = "Community, forks, and continuity"
+body = """
+After Disney, stewardship passed to a worldwide community
+(squeak.org [2]), with Viewpoints Research Institute -- Kay's
+nonprofit -- using Squeak as the substrate for experiments like
+the STEPS project (reinventing personal computing in 20,000
+lines). The relicensing to MIT/Apache cleared the way for
+inclusion in Linux distributions. Croquet, Seaside (the
+continuation-based web framework), and Scratch -- MIT's
+blocks language for children, whose first generations were
+implemented in Squeak -- are all its descendants or tenants.
+
+Squeak remains actively developed (releases through the 6.x
+line), still delivered as a bit-identical image that opens with
+the same live objects on every operating system. Its most
+consequential fork, Pharo (2008), gets its own chapter: where
+Squeak stayed loyal to media and education, Pharo aimed the same
+substrate at professional software engineering. Together they
+kept the original PARC system -- not a reimplementation, the
+actual continuously-evolved image -- alive into the 2020s: the
+oldest living codebase of the personal-computing revolution.
+"""
+
+[[citations]]
+label = "Dan Ingalls, Ted Kaehler, John Maloney, Scott Wallace, Alan Kay: Back to the Future: The Story of Squeak, A Practical Smalltalk Written in Itself, OOPSLA 1997"
+url = "https://dl.acm.org/doi/10.1145/263698.263754"
+
+[[citations]]
+label = "Squeak official site: downloads, documentation, community"
+url = "https://squeak.org/"
+
+[[citations]]
+label = "Squeak/Smalltalk history resources and weekly news, including the BYTE archive pointer"
+url = "https://news.squeak.org/"
+
+[[citations]]
+label = "Etoys for the One Laptop per Child project"
+url = "http://www.squeakland.org/"
+
+[[citations]]
+label = "Viewpoints Research Institute writings (STEPS reports and Kay papers)"
+url = "http://www.vpri.org/writings.php"
+
+[[citations]]
+label = "BYTE Magazine August 1981 Smalltalk issue -- the prehistory Squeak resumed, Internet Archive"
+url = "https://archive.org/details/byte-magazine-1981-08"

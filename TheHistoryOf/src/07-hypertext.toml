@@ -1,0 +1,142 @@
+# TheHistoryOf chapter source. Compiled by bin/compile.tcl via the
+# PrintablePrograms.png framework into a PNG page sequence + PDF.
+
+[meta]
+id = "07-hypertext"
+title = "Hypertext"
+subtitle = "From the memex through HyperCard and the Web to peer-to-peer protocols: the long argument about how documents should link"
+date = "2026-07-27"
+
+[[section]]
+heading = "Academic hypertext: memex, NLS, and the conferences"
+body = """
+The founding document is Vannevar Bush's 1945 Atlantic essay
+"As We May Think" [1], which imagined the memex: a desk that
+stores a library on microfilm and lets its owner build durable
+associative trails between documents. Ted Nelson named the idea
+hypertext in the early 1960s (see the Xanadu chapter), and
+Douglas Engelbart built the first working system: NLS, whose
+1968 "Mother of All Demos" [2] showed linking, structured
+documents, shared screens, and the mouse in one afternoon.
+
+The academic tradition matured through the 1970s and 80s:
+Andries van Dam's HES and FRESS at Brown (students writing
+term papers in hypertext in 1969), ZOG at CMU, Intermedia at
+Brown, NoteCards at Xerox PARC, and from 1987 the ACM Hypertext
+conference series, which treated links, anchors, versioning,
+and navigation as a research field with rigor the later web
+largely ignored.
+"""
+
+[[section]]
+heading = "Private hypertext: HyperCard and the Knowledge Navigator"
+body = """
+In 1987 hypertext went consumer. Bill Atkinson's HyperCard
+shipped free with every Macintosh: stacks of cards, buttons,
+links, and the HyperTalk scripting language readable by
+ordinary people. Millions of teachers, artists, and hobbyists
+built stacks -- the game Myst began as one -- making HyperCard
+the largest authorship explosion between BASIC and the web. The
+Internet Archive today preserves and emulates thousands of
+stacks in the browser [3]. Its limits were also instructive:
+stacks were single-machine and links stopped at the edge of the
+local disk -- private hypertext, awaiting a network.
+
+The same year, Apple's Knowledge Navigator concept film [4]
+imagined the networked endpoint: a professor conversing with a
+software agent that follows links across the world's knowledge.
+Fiction, but influential fiction -- it framed the tablet, the
+voice assistant, and the linked global corpus as one artifact,
+a generation early.
+"""
+
+[[section]]
+heading = "CERN and the Web"
+body = """
+Tim Berners-Lee's 1989 proposal at CERN -- "Vague, but
+exciting", per the margin note -- yielded in 1990-91 the URL,
+HTTP, and HTML, and the first site at info.cern.ch [5]. The
+web made the engineering trade Nelson refused: links are cheap,
+one-way, unversioned, and allowed to break. That cheapness --
+plus the 1993 decision to release the technology royalty-free
+-- is why it won, absorbing Gopher, WAIS, and the hypertext
+research agenda alike. Mosaic, Netscape, and the browser wars
+industrialized it; the W3C's own short history [6] tells the
+story from inside.
+
+What was lost is the standing complaint of this whole series:
+bidirectional links, transclusion, versioning, provenance, and
+authorship as a first-class right rather than a platform
+privilege.
+"""
+
+[[section]]
+heading = "P2P hypertext: Scuttlebutt, DAT, Beaker, IPFS, Bluesky"
+body = """
+The 2010s produced a counter-tradition: hypertexts that are
+internet-adjacent but not web-standard, distributing documents
+peer-to-peer with cryptographic identity instead of servers.
+Secure Scuttlebutt [7] builds a social web from append-only
+signed logs that replicate through gossip -- famously usable
+off-grid, sneakernet included. The Dat protocol [8] (now the
+Hypercore stack) gives versioned, syncable archives addressed
+by key; Beaker Browser [9] (2016-2022) made Dat browsable and
+writable -- a personal web server in every browser tab, the
+closest anyone has come to HyperCard-on-the-network. IPFS [10]
+provides content-addressed storage where a document's address
+is the hash of its content -- Xanadu's permanent documents,
+rebuilt on Merkle DAGs.
+
+Bluesky's AT Protocol [11] carries the line into social media:
+user data lives in signed, portable repositories; identity is
+a DID you can move between hosts; the network is an open
+commons of feeds and moderation services rather than one
+company's database. Each system trades away some of the web's
+universality to recover properties the academic tradition
+prized -- provenance, permanence, user ownership. The argument
+Bush started in 1945 is still open, and still productive.
+"""
+
+[[citations]]
+label = "Vannevar Bush, As We May Think, The Atlantic, July 1945"
+url = "https://www.theatlantic.com/magazine/archive/1945/07/as-we-may-think/303881/"
+
+[[citations]]
+label = "The Mother of All Demos, presented by Douglas Engelbart (1968), on YouTube; context at the Doug Engelbart Institute, dougengelbart.org"
+url = "https://www.youtube.com/watch?v=yJDv-zdhzMY"
+
+[[citations]]
+label = "HyperCard on the Archive: emulated HyperCard stacks collection, Internet Archive"
+url = "https://archive.org/details/hypercardstacks"
+
+[[citations]]
+label = "Apple, Knowledge Navigator concept video (1987), DigiBarn copy on YouTube"
+url = "https://www.youtube.com/watch?v=-jiBLQyUi38"
+
+[[citations]]
+label = "The birthplace of the Web: info.cern.ch, home of the first website (restored)"
+url = "https://info.cern.ch/"
+
+[[citations]]
+label = "W3C, A Little History of the World Wide Web"
+url = "https://www.w3.org/History.html"
+
+[[citations]]
+label = "Secure Scuttlebutt: protocol guide and community"
+url = "https://scuttlebutt.nz/"
+
+[[citations]]
+label = "Dat protocol / Hypercore: versioned peer-to-peer data"
+url = "https://dat-ecosystem.org/"
+
+[[citations]]
+label = "Beaker Browser: an experimental peer-to-peer web browser (archived project)"
+url = "https://github.com/beakerbrowser/beaker"
+
+[[citations]]
+label = "Juan Benet, IPFS: Content Addressed, Versioned, P2P File System, 2014"
+url = "https://arxiv.org/abs/1407.3561"
+
+[[citations]]
+label = "The AT Protocol (Bluesky), specifications and documentation"
+url = "https://atproto.com/"

@@ -1,0 +1,125 @@
+# TheHistoryOf chapter source. Compiled by bin/compile.tcl via the
+# PrintablePrograms.png framework into a PNG page sequence + PDF.
+
+[meta]
+id = "01-smalltalk"
+title = "Smalltalk"
+subtitle = "Message-passing, children, and the invention of object-oriented personal computing at Xerox PARC"
+date = "2026-07-27"
+
+[[section]]
+heading = "Starting point: The Early History of Smalltalk"
+body = """
+The definitive first-person account of Smalltalk is Alan Kay's
+"The Early History of Smalltalk," written for the second ACM
+History of Programming Languages conference (HOPL II, 1993).
+This whitepaper takes as its starting point the annotated,
+reader-repaired hypertext edition maintained by Bret Victor at
+worrydream.com [1] -- itself an artifact of the hypertext
+tradition covered elsewhere in this series -- and the original
+ACM publication [2]. A vendored copy of that edition, including
+Kay's scanned figures, travels with this repository in
+TheHistoryOf/EarlyHistoryOfSmalltalk.
+
+Kay's essay frames Smalltalk not as a programming language
+project but as a medium: "a new medium for communication," whose
+design fell out of a question about what computers could be for
+children. Everything below is a compressed map of that story and
+what happened after it.
+"""
+
+[[section]]
+heading = "1960s roots: Sketchpad, Simula, the FLEX machine"
+body = """
+Three streams feed Smalltalk. Ivan Sutherland's Sketchpad (1963)
+demonstrated that a display could hold live, constrained,
+manipulable objects -- "the first object-oriented graphics
+system" in spirit. Simula (Dahl and Nygaard, 1962-67) carried
+the idea of classes of activity records into ALGOL's world; Kay
+encountered it as a graduate student at Utah in 1966 and read
+its tape listings until the idea clicked: each object could be a
+little computer. And Kay's own FLEX machine (with Ed Cheadle,
+1967-69) tried to build a personal computer for nonexperts,
+whose failures -- it was, in Kay's words, too much like a
+"shotgun marriage" of ideas -- taught him what a truly simple,
+uniform system would have to feel like.
+
+The fourth stream was biological. Kay, a former biology major,
+kept returning to the cell as the model: thousands of quasi-
+autonomous units communicating by messages, with the complexity
+hidden behind membranes. "The big idea is messaging," he would
+later insist -- not classes, not inheritance.
+"""
+
+[[section]]
+heading = "PARC and the children"
+body = """
+In 1970 Xerox founded the Palo Alto Research Center, and Kay's
+Learning Research Group set out to build the interim Dynabook
+(see the Dynabook chapter): hardware called the Alto, and a
+software medium for it. Smalltalk-71 was a paper design;
+Smalltalk-72 became real after Dan Ingalls implemented, in BASIC
+and then assembly, a scheme Kay had bet he could fit on one
+page. Everything was an object; computation was objects sending
+messages; children in Palo Alto schools -- Adele Goldberg's
+studies with twelve-year-olds are the famous ones -- built
+drawing tools, animations, and music systems in it.
+
+Smalltalk-76 (Ingalls) added classes, inheritance, and the
+bytecode virtual machine shape that survives today. The overlap-
+ping-window, icon, menu interface built to surround it became,
+by way of the famous 1979 Steve Jobs visit, the direct ancestor
+of the Lisa, the Macintosh, and every desktop since. Kay's talk
+"Doing with Images Makes Symbols" [5] narrates this whole UI
+lineage from Sketchpad and NLS through Smalltalk.
+"""
+
+[[section]]
+heading = "Smalltalk-80 and release to the world"
+body = """
+Smalltalk-80 was the cleaned-up, portable system Xerox finally
+released. The August 1981 issue of BYTE magazine [3] -- the one
+with the hot-air balloon leaving Smalltalk island on the cover
+-- introduced it to the industry, with articles by Goldberg,
+Ingalls, Robson, and the rest of the Learning Research Group.
+The "Blue Book" (Goldberg and Robson, Smalltalk-80: The Language
+and its Implementation, 1983) [4] specified the virtual machine
+so exactly that new implementations could be, and repeatedly
+were, bootstrapped straight from its pages -- the property that
+later made Squeak possible (see the Squeak chapter).
+
+Commercial descendants (ParcPlace's ObjectWorks/VisualWorks,
+Digitalk, IBM VisualAge) carried Smalltalk through the late
+1980s and 1990s. Its ideas -- objects, messages, the class
+browser, the debugger you can program in, refactoring, unit
+testing (Kent Beck's SUnit begat JUnit and the xUnit family),
+model-view-controller -- leaked into essentially every
+subsequent language and IDE, usually with the dynamism filed
+off. Kay's HOPL essay ends with a warning that remains the
+series' theme: the computer revolution hasn't happened yet.
+"""
+
+[[citations]]
+label = "Alan Kay, The Early History of Smalltalk, annotated hypertext edition maintained by Bret Victor"
+url = "https://worrydream.com/EarlyHistoryOfSmalltalk/"
+note = "Vendored in this repo at TheHistoryOf/EarlyHistoryOfSmalltalk (fork of github.com/worrydream/EarlyHistoryOfSmalltalk)."
+
+[[citations]]
+label = "Alan C. Kay, The Early History of Smalltalk, HOPL II, ACM, 1993"
+url = "https://dl.acm.org/doi/10.1145/155360.155364"
+
+[[citations]]
+label = "BYTE Magazine vol. 6 no. 8, August 1981: the Smalltalk-80 issue, on the Internet Archive"
+url = "https://archive.org/details/byte-magazine-1981-08"
+
+[[citations]]
+label = "Adele Goldberg and David Robson, Smalltalk-80: The Language and its Implementation (the Blue Book), free scan via Stephane Ducasse's collection of Smalltalk books"
+url = "http://stephane.ducasse.free.fr/FreeBooks.html"
+
+[[citations]]
+label = "Alan Kay, Doing with Images Makes Symbols: Communicating with Computers (1987), Internet Archive"
+url = "https://archive.org/details/Dr._Alan_Kay_Doing_With_Images_Makes_Symbols_Communicating_With_Computers_1987"
+
+[[citations]]
+label = "Ivan Sutherland, Sketchpad: A Man-Machine Graphical Communication System (1963); demo footage survives in Alan Kay's 1987 lecture above"
+url = "https://dspace.mit.edu/handle/1721.1/14979"
