@@ -1,0 +1,96 @@
+# TheHistoryOf chapter source. Compiled by bin/compile.tcl via the
+# PrintablePrograms.png framework into a PNG page sequence + PDF.
+
+[meta]
+id = "04-pharo"
+title = "Pharo"
+subtitle = "A clean-room fork of Squeak aimed at professional software engineering, research, and industrial use"
+date = "2026-07-27"
+
+[[section]]
+heading = "Why fork Squeak?"
+body = """
+By the late 2000s Squeak was simultaneously a children's medium,
+a research playground, and the only serious free Smalltalk --
+and those constituencies pulled in different directions. In 2008
+Stephane Ducasse and Marcus Denker announced Pharo [1]: a fork
+whose goal was not media or pedagogy but a clean, MIT-licensed,
+professional Smalltalk platform. The early releases were largely
+subtractive: Etoys and accumulated experiments were removed, the
+licensing of every remaining method was audited, and the kernel
+was shrunk toward something bootstrappable and explainable.
+
+The name signals the intent -- a pharos, a lighthouse: an
+environment meant to guide serious engineering. Where Squeak's
+loyalty was to the Dynabook, Pharo's was to the working
+programmer, while keeping the property that makes Smalltalk
+Smalltalk: a fully live system of objects you inspect, modify,
+and debug while it runs.
+"""
+
+[[section]]
+heading = "What Pharo changed"
+body = """
+Pharo rebuilt the tower floor by floor while living in it. The
+compiler, the class builder, and reflection were reworked
+(slots, first-class instance variables, metalinks); the Morphic
+UI gave way to new graphics stacks (Bloc) and the Glamorous
+Toolkit school of "moldable" tools grew out of Pharo's
+inspector. Iceberg brought native Git integration -- ending the
+era when Smalltalk code lived only inside images -- and the
+image itself became reproducible: modern Pharo is bootstrapped
+from source, not descended by copy from the 1970s PARC image.
+
+The open books mattered as much as the code: Pharo by Example
+and its successors, free from the Pharo books collection [2],
+gave the platform the approachable canonical documentation
+commercial Smalltalks never had. A consortium of companies and
+universities [3] funds engineers, which has kept releases on an
+annual cadence (Pharo 12 and beyond) across Intel and ARM,
+desktop and headless server.
+"""
+
+[[section]]
+heading = "Research vehicle and industrial tool"
+body = """
+Pharo became the standard vehicle for a strand of European
+programming-language and software-analysis research: Moose
+(software analysis), Roassal (visualization), and hundreds of
+papers use it as their substrate, continuing the Smalltalk
+tradition of the system as laboratory. On the industrial side it
+powers domain tools in finance, logistics, and modeling --
+often through Seaside and Teapot web stacks or through
+GemStone/S compatibility for object databases.
+
+In the arc of this series Pharo is the demonstration that the
+1970s live-object medium is not a museum piece: stripped,
+relicensed, re-bootstrapped, and pointed at Git and CI, the same
+fundamental design -- everything is an object, the tools are
+made of the same stuff as the programs, the system is always
+running -- competes on modern terms. The lighthouse is the old
+PARC light, re-housed.
+"""
+
+[[citations]]
+label = "Pharo official site: the immersive programming experience"
+url = "https://pharo.org/"
+
+[[citations]]
+label = "Pharo open books collection (Pharo by Example, Pharo with Style, and others), free downloads"
+url = "https://books.pharo.org/"
+
+[[citations]]
+label = "Pharo Consortium: the funding and governance body"
+url = "https://consortium.pharo.org/"
+
+[[citations]]
+label = "Pharo source repository"
+url = "https://github.com/pharo-project/pharo"
+
+[[citations]]
+label = "Stephane Ducasse's free Smalltalk books archive (including the Smalltalk-80 Blue Book lineage Pharo descends from)"
+url = "http://stephane.ducasse.free.fr/FreeBooks.html"
+
+[[citations]]
+label = "Moose: software and data analysis platform built on Pharo"
+url = "https://moosetechnology.org/"

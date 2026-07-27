@@ -1,0 +1,101 @@
+# TheHistoryOf chapter source. Compiled by bin/compile.tcl via the
+# PrintablePrograms.png framework into a PNG page sequence + PDF.
+
+[meta]
+id = "06-xanadu"
+title = "Xanadu"
+subtitle = "Ted Nelson's fifty-year project for a better hypertext than the one we got"
+date = "2026-07-27"
+
+[[section]]
+heading = "1960: the file structure for the changing"
+body = """
+Ted Nelson -- who coined the words hypertext and hypermedia --
+began Project Xanadu in 1960 as a graduate student, imagining a
+writing system for documents that change: every draft kept,
+every quotation linked to its source, every connection visible
+from both ends. His 1965 ACM paper, "A File Structure for the
+Complex, the Changing and the Indeterminate" [1], introduced
+the "evolutionary list file" and zippered lists -- the first
+published design for what he would call hypertext.
+
+Xanadu's requirements hardened into a famous list: documents
+are permanent and versioned; links are bidirectional and never
+break; any document can transclude -- include by reference,
+not by copy -- any part of any other, with visible provenance;
+and authors are paid automatically through micropayment when
+their words are transcluded. It is copyright, citation, and
+publishing rebuilt as a single data structure.
+"""
+
+[[section]]
+heading = "Computer Lib / Dream Machines"
+body = """
+In 1974, unable to wait for the industry, Nelson self-published
+Computer Lib / Dream Machines [2]: two books printed back-to-
+back and upside down relative to each other, in oversized
+scrapbook layout. Computer Lib told lay readers "you can and
+must understand computers NOW"; Dream Machines catalogued the
+possible futures -- hypertext, hypermedia, "thinkertoys" --
+years before personal computers existed to run them. It became
+the underground bible of the microcomputer generation and the
+most direct print ancestor of the web's culture of self-
+publishing.
+
+Implementation attempts cycled through decades: the 1979 "gold"
+design at Swarthmore, Autodesk's funding of Xanadu Operating
+Company (1988-1992), later releases of the code as open source,
+and demonstration systems like XanaduSpace and OpenXanadu.
+Wired's 1995 epic "The Curse of Xanadu" [3] pronounced it the
+longest-running vaporware story in computing; Nelson's reply,
+"Errors in 'The Curse of Xanadu'", is itself a lesson in
+document-versus-document dispute that Xanadu links would have
+made navigable.
+"""
+
+[[section]]
+heading = "The web as the wrong hypertext"
+body = """
+When Tim Berners-Lee's World Wide Web spread in the 1990s (see
+the Hypertext chapter), it implemented the cheapest tenth of
+the hypertext idea: one-way links that break, no versioning, no
+transclusion, no provenance, copy-paste instead of quotation-
+by-reference. Nelson has spent the decades since as hypertext's
+loyal opposition, arguing in books (Literary Machines, Possiplex)
+and lectures that the web, PDF, and word processors simulate
+paper instead of surpassing it.
+
+Xanadu's ghost is remarkably productive. Bidirectional links
+returned in wikis and in "tools for thought" (Roam, Obsidian);
+transclusion lives in spreadsheet references, in quote-tweets,
+in Git submodules; content-addressing and permanent documents
+are the premise of IPFS and the peer-to-peer hypertexts in this
+series' Hypertext chapter; micropayment-for-content keeps being
+reinvented. Project Xanadu persists at xanadu.com [4], still
+insisting -- correctly -- that the deep hypertext has not yet
+been built.
+"""
+
+[[citations]]
+label = "T. H. Nelson, Complex Information Processing: A File Structure for the Complex, the Changing and the Indeterminate, ACM National Conference, 1965"
+url = "https://dl.acm.org/doi/10.1145/800197.806036"
+
+[[citations]]
+label = "Ted Nelson, Computer Lib / Dream Machines (1974), scan on the Internet Archive"
+url = "https://archive.org/details/computer-lib-dream-machines"
+
+[[citations]]
+label = "Gary Wolf, The Curse of Xanadu, Wired, June 1995"
+url = "https://www.wired.com/1995/06/xanadu/"
+
+[[citations]]
+label = "Project Xanadu, official site"
+url = "https://xanadu.com/"
+
+[[citations]]
+label = "Ted Nelson demonstrates OpenXanadu and XanaduSpace, on his YouTube channel (TheTedNelson)"
+url = "https://www.youtube.com/@TheTedNelson"
+
+[[citations]]
+label = "Vannevar Bush, As We May Think, The Atlantic, July 1945 -- the memex essay Nelson built upon"
+url = "https://www.theatlantic.com/magazine/archive/1945/07/as-we-may-think/303881/"

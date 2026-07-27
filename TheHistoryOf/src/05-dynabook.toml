@@ -1,0 +1,97 @@
+# TheHistoryOf chapter source. Compiled by bin/compile.tcl via the
+# PrintablePrograms.png framework into a PNG page sequence + PDF.
+
+[meta]
+id = "05-dynabook"
+title = "The Dynabook"
+subtitle = "A personal computer for children of all ages: the 1968-1972 vision that personal computing keeps almost fulfilling"
+date = "2026-07-27"
+
+[[section]]
+heading = "The cardboard model"
+body = """
+The Dynabook is the most influential computer never built. Alan
+Kay conceived it between 1968 and 1972: a dynamic medium the
+size of a notebook, under two pounds, with a keyboard and stylus
+and network connection, owned by a child. Kay carried a cardboard
+mockup around Xerox PARC to keep the target concrete. The
+canonical statement is his 1972 paper "A Personal Computer for
+Children of All Ages" [1], which opens with a scene of two
+children playing a physics game on their personal machines in a
+park -- and then insists the machine's real purpose is not
+consumption but authorship: simulating, composing, and reasoning
+in a medium as fluid as paper and as alive as a conversation.
+
+The intellectual scaffolding came from Seymour Papert's work
+with Logo and children at MIT (later crystallized in Mindstorms
+[2]), from Jerome Bruner's theories of enactive, iconic, and
+symbolic learning, and from Marshall McLuhan: the medium is the
+message, so build the medium that makes every reader a writer.
+"""
+
+[[section]]
+heading = "The interim Dynabook"
+body = """
+Because the real Dynabook was beyond 1970s hardware, PARC built
+"interim Dynabooks": the Alto workstation running Smalltalk (see
+the Smalltalk chapter). Bitmapped display, overlapping windows,
+children scripting animations -- the Alto/Smalltalk system was
+explicitly a desk-bound stand-in for the notebook in the park.
+Kay's 1977 Scientific American article with Adele Goldberg,
+"Personal Dynamic Media," restated the vision as the metamedium:
+a single device that can simulate all other media.
+
+Douglas Engelbart's 1968 "Mother of All Demos" [3] is the
+sibling vision -- augmentation of adult knowledge workers where
+Kay aimed at children's learning -- and the two programs
+together define the axis along which personal computing has
+oscillated ever since: empowering tool versus consumption
+appliance.
+"""
+
+[[section]]
+heading = "Almost-Dynabooks"
+body = """
+The lineage of hardware that looks like the Dynabook is long:
+the GRiD Compass, the Apple Newton and the 1987 Knowledge
+Navigator concept film (see the Hypertext chapter), the laptop
+itself, the OLPC XO-1 -- which shipped Squeak Etoys and is the
+closest institutional attempt at the actual program -- and the
+iPad, which Kay pointedly declined to bless: the form factor
+arrived without the authorship. A tablet on which a child
+cannot inspect, modify, and build the software she uses is, in
+Kay's terms, television with a glass keyboard.
+
+That critique keeps the Dynabook alive as a measuring stick.
+Kay's own later efforts (Squeak, Etoys, the Viewpoints STEPS
+program [4]) and the systems in this series' final chapter --
+Dynamicland above all -- are explicit attempts to finish the
+Dynabook program: not a device but a literacy, in which
+simulation and dynamic media are things ordinary people read
+and write. The revolution the cardboard model promised is, by
+its inventor's own accounting, still pending.
+"""
+
+[[citations]]
+label = "Alan C. Kay, A Personal Computer for Children of All Ages, ACM National Conference, Boston, 1972"
+url = "https://dl.acm.org/doi/10.1145/800193.1971922"
+
+[[citations]]
+label = "Seymour Papert, Mindstorms: Children, Computers, and Powerful Ideas (1980), on the Internet Archive"
+url = "https://archive.org/details/mindstormschildr00pape"
+
+[[citations]]
+label = "The Mother of All Demos, presented by Douglas Engelbart (1968), on YouTube"
+url = "https://www.youtube.com/watch?v=yJDv-zdhzMY"
+
+[[citations]]
+label = "Viewpoints Research Institute writings: Kay's Dynabook papers and the STEPS reports"
+url = "http://www.vpri.org/writings.php"
+
+[[citations]]
+label = "Alan Kay, Doing with Images Makes Symbols (1987) -- the Dynabook/UI lineage told by its author, Internet Archive"
+url = "https://archive.org/details/Dr._Alan_Kay_Doing_With_Images_Makes_Symbols_Communicating_With_Computers_1987"
+
+[[citations]]
+label = "One Laptop per Child XO-1 (shipped Squeak Etoys), project history"
+url = "https://en.wikipedia.org/wiki/OLPC_XO"

@@ -323,10 +323,14 @@ namespace eval ::printable::dataframe {
 
         # cell pitch from the top-left fiducial's solid 7-cell top edge;
         # probe several rows into the fiducial so resampled/blurred edges
-        # (screenshots, scans) don't fool the run measurement
+        # (screenshots, scans) don't fool the run measurement.  The probe
+        # depth is bounded by the best run seen so far: the fiducial is
+        # square, so rows deeper than its measured top-edge width are
+        # outside it, and on large grids they hit random data cells whose
+        # dark runs would inflate the pitch.
         set run 0
         set maxDy [expr {max(4, $bh / 25)}]
-        for {set dy 1} {$dy <= $maxDy} {incr dy} {
+        for {set dy 1} {$dy <= $maxDy && $dy <= max(8, $run)} {incr dy} {
             set y [expr {$by + $dy}]
             # skip antialiased light pixels at the bbox edge, then count
             set x $bx
