@@ -1,4 +1,4 @@
-# tclast.tcl -- a real Tcl AST for convertkit.
+# tclast.tcl -- a real Tcl AST for PrintablePrograms.png.
 #
 # Parses a Tcl script into a structured tree that captures the semantics
 # of the program:
@@ -20,7 +20,7 @@
 # authoritative channel; the AST is the *reconstructable semantics*
 # channel for the printed page.
 
-namespace eval ::convertkit::tclast {
+namespace eval ::printable::tclast {
 
     # commands whose trailing brace words are themselves scripts
     variable scriptBodies {
@@ -115,7 +115,7 @@ namespace eval ::convertkit::tclast {
     proc parseScript {script} {
         variable scriptBodies
         set nodes {}
-        foreach cmd [::convertkit::tclxml::splitCommands $script] {
+        foreach cmd [::printable::tclxml::splitCommands $script] {
             if {[string index $cmd 0] eq "#"} {
                 lappend nodes [list comment $cmd]
                 continue
@@ -171,7 +171,7 @@ namespace eval ::convertkit::tclast {
 
     # --- XML emission ------------------------------------------------------
 
-    proc esc {s} { ::convertkit::tclxml::xmlEscape $s }
+    proc esc {s} { ::printable::tclxml::xmlEscape $s }
 
     proc astToXml {nodes {indent "    "}} {
         set out ""

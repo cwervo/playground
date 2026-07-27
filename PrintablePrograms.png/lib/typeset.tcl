@@ -1,4 +1,4 @@
-# render.tcl -- visible raster generation for convertkit.
+# render.tcl -- visible raster generation for PrintablePrograms.png.
 #
 # The sketch calls for "a PNG with code set in IBM Plex Mono & a border
 # around the frame". We approximate that with ImageMagick when it's on
@@ -6,7 +6,7 @@
 # to a pure-Tcl solid PNG so the pipeline never breaks. The raster is
 # purely cosmetic -- the authoritative payload lives in metadata chunks.
 
-namespace eval ::convertkit::render {
+namespace eval ::printable::render {
 
     proc magick {} {
         foreach c {magick convert} {
@@ -51,7 +51,7 @@ namespace eval ::convertkit::render {
             } err]}]
             if {$ok} { return 1 }
         }
-        ::convertkit::pngcodec::writeFile $path [::convertkit::pngcodec::blankPng]
+        ::printable::pngcodec::writeFile $path [::printable::pngcodec::blankPng]
         return 0
     }
 

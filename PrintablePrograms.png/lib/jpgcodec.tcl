@@ -1,13 +1,13 @@
-# jpgcodec.tcl -- pure-Tcl JPEG COM-segment surgery for convertkit.
+# jpgcodec.tcl -- pure-Tcl JPEG COM-segment surgery for PrintablePrograms.png.
 #
 # JPEG compression is lossy, so the payload can't live in pixels; it
 # rides in COM (0xFFFE) comment segments instead, which survive any
 # JPEG-aware tool that preserves metadata. Payloads longer than one
 # segment (max 65531 bytes of data) are split across several COM
-# segments, each prefixed with "convertkit:<i>/<n>:".
+# segments, each prefixed with "printable:<i>/<n>:".
 
-namespace eval ::convertkit::jpgcodec {
-    variable prefix "convertkit"
+namespace eval ::printable::jpgcodec {
+    variable prefix "printable"
     variable maxData 60000  ;# per-segment payload budget, under the 65533 limit
 
     proc readFile {path} {
@@ -43,7 +43,7 @@ namespace eval ::convertkit::jpgcodec {
         return $out
     }
 
-    # Insert (or replace) convertkit COM segments right after SOI.
+    # Insert (or replace) printable COM segments right after SOI.
     proc embed {jpgData text} {
         variable prefix
         variable maxData
@@ -61,7 +61,7 @@ namespace eval ::convertkit::jpgcodec {
         return "\xff\xd8$coms[string range $stripped 2 end]"
     }
 
-    # Remove any existing convertkit COM segments.
+    # Remove any existing printable COM segments.
     proc strip {jpgData} {
         variable prefix
         set out "\xff\xd8"
@@ -78,7 +78,7 @@ namespace eval ::convertkit::jpgcodec {
         return $out
     }
 
-    # Reassemble the payload from convertkit COM segments.
+    # Reassemble the payload from printable COM segments.
     proc extract {jpgData} {
         variable prefix
         if {![isJpg $jpgData]} { error "not a JPEG file" }
@@ -93,10 +93,10 @@ namespace eval ::convertkit::jpgcodec {
                 set parts($i) $part
             }
         }
-        if {$total < 0} { error "no convertkit payload found in JPEG" }
+        if {$total < 0} { error "no printable payload found in JPEG" }
         set b64 ""
         for {set i 1} {$i <= $total} {incr i} {
-            if {![info exists parts($i)]} { error "convertkit payload segment $i/$total missing" }
+            if {![info exists parts($i)]} { error "printable payload segment $i/$total missing" }
             append b64 $parts($i)
         }
         return [encoding convertfrom utf-8 [binary decode base64 $b64]]

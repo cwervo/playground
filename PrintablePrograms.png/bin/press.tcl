@@ -1,7 +1,7 @@
 #!/usr/bin/env tclsh
-# xconv.tcl -- convertkit's extension-driven converter.
+# press.tcl -- the PrintablePrograms format press.
 #
-#   tclsh xconv.tcl input.ext output.ext
+#   tclsh press.tcl input.ext output.ext
 #
 # Supported extensions: .tcl .xml .png .jpg .jpeg
 # Every conversion routes through the canonical XML document:
@@ -12,7 +12,7 @@
 # embedded Tcl source, regardless of lossy raster codecs in between.
 
 set libdir [file join [file dirname [file dirname [file normalize [info script]]]] lib]
-foreach mod {tclxml tclast pngcodec jpgcodec render} {
+foreach mod {tclxml tclast pngcodec jpgcodec typeset} {
     source [file join $libdir $mod.tcl]
 }
 
@@ -38,10 +38,10 @@ proc kindOf {path} {
 # --- read any input into the canonical XML document ---------------------
 proc toCanonicalXml {path} {
     switch -- [kindOf $path] {
-        tcl { return [::convertkit::tclxml::tclToXml [slurpText $path] [file tail $path]] }
+        tcl { return [::printable::tclxml::tclToXml [slurpText $path] [file tail $path]] }
         xml { return [slurpText $path] }
-        png { return [::convertkit::pngcodec::extract [::convertkit::pngcodec::readFile $path]] }
-        jpg { return [::convertkit::jpgcodec::extract [::convertkit::jpgcodec::readFile $path]] }
+        png { return [::printable::pngcodec::extract [::printable::pngcodec::readFile $path]] }
+        jpg { return [::printable::jpgcodec::extract [::printable::jpgcodec::readFile $path]] }
     }
 }
 
@@ -49,53 +49,53 @@ proc toCanonicalXml {path} {
 proc fromCanonicalXml {xml outPath srcPath} {
     switch -- [kindOf $outPath] {
         xml { spitText $outPath $xml }
-        tcl { spitText $outPath [::convertkit::tclxml::xmlToTcl $xml] }
+        tcl { spitText $outPath [::printable::tclxml::xmlToTcl $xml] }
         png {
-            set source [::convertkit::tclxml::xmlToTcl $xml]
+            set source [::printable::tclxml::xmlToTcl $xml]
             if {[kindOf $srcPath] in {png jpg}} {
                 # keep the existing raster when converting image -> image
                 if {[kindOf $srcPath] eq "jpg"} {
-                    ::convertkit::render::jpgToPngRaster $srcPath $outPath
+                    ::printable::render::jpgToPngRaster $srcPath $outPath
                 } else {
                     file copy -force $srcPath $outPath
                 }
             } else {
-                ::convertkit::render::codePng $source $outPath
+                ::printable::render::codePng $source $outPath
             }
-            set png [::convertkit::pngcodec::readFile $outPath]
-            ::convertkit::pngcodec::writeFile $outPath [::convertkit::pngcodec::embed $png $xml]
+            set png [::printable::pngcodec::readFile $outPath]
+            ::printable::pngcodec::writeFile $outPath [::printable::pngcodec::embed $png $xml]
         }
         jpg {
-            set tmp "$outPath.convertkit-tmp.png"
+            set tmp "$outPath.printable-tmp.png"
             if {[kindOf $srcPath] eq "png"} {
                 file copy -force $srcPath $tmp
             } elseif {[kindOf $srcPath] eq "jpg"} {
                 file copy -force $srcPath $outPath
-                set jpg [::convertkit::jpgcodec::readFile $outPath]
-                ::convertkit::jpgcodec::writeFile $outPath [::convertkit::jpgcodec::embed $jpg $xml]
+                set jpg [::printable::jpgcodec::readFile $outPath]
+                ::printable::jpgcodec::writeFile $outPath [::printable::jpgcodec::embed $jpg $xml]
                 return
             } else {
-                set source [::convertkit::tclxml::xmlToTcl $xml]
-                ::convertkit::render::codePng $source $tmp
+                set source [::printable::tclxml::xmlToTcl $xml]
+                ::printable::render::codePng $source $tmp
             }
-            ::convertkit::render::pngToJpgRaster $tmp $outPath
+            ::printable::render::pngToJpgRaster $tmp $outPath
             file delete -force $tmp
-            set jpg [::convertkit::jpgcodec::readFile $outPath]
-            ::convertkit::jpgcodec::writeFile $outPath [::convertkit::jpgcodec::embed $jpg $xml]
+            set jpg [::printable::jpgcodec::readFile $outPath]
+            ::printable::jpgcodec::writeFile $outPath [::printable::jpgcodec::embed $jpg $xml]
         }
     }
 }
 
 proc main {argv} {
     if {[llength $argv] != 2} {
-        puts stderr "usage: xconv.tcl input.(tcl|xml|png|jpg|jpeg) output.(tcl|xml|png|jpg|jpeg)"
+        puts stderr "usage: press.tcl input.(tcl|xml|png|jpg|jpeg) output.(tcl|xml|png|jpg|jpeg)"
         exit 2
     }
     lassign $argv in out
-    if {![file exists $in]} { puts stderr "xconv: no such file: $in"; exit 1 }
+    if {![file exists $in]} { puts stderr "press: no such file: $in"; exit 1 }
     set xml [toCanonicalXml $in]
     fromCanonicalXml $xml $out $in
-    puts "xconv: $in -> $out ([kindOf $in] -> [kindOf $out])"
+    puts "press: $in -> $out ([kindOf $in] -> [kindOf $out])"
 }
 
 main $argv

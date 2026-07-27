@@ -1,13 +1,13 @@
-# pngcodec.tcl -- pure-Tcl PNG chunk surgery for convertkit.
+# pngcodec.tcl -- pure-Tcl PNG chunk surgery for PrintablePrograms.png.
 #
 # The payload (the canonical XML document) travels in a tEXt chunk with
-# keyword "convertkit", base64-encoded so it stays Latin-1 safe. The
+# keyword "printable", base64-encoded so it stays Latin-1 safe. The
 # visible raster is a rendering of the code (done elsewhere, via
 # ImageMagick when available); this module only reads/writes chunks, so
 # it works on any valid PNG.
 
-namespace eval ::convertkit::pngcodec {
-    variable keyword "convertkit"
+namespace eval ::printable::pngcodec {
+    variable keyword "printable"
     variable pngsig  "\x89PNG\r\n\x1a\n"
 
     proc readFile {path} {
@@ -45,7 +45,7 @@ namespace eval ::convertkit::pngcodec {
         return $out
     }
 
-    # Insert (or replace) the convertkit tEXt chunk right before IEND.
+    # Insert (or replace) the printable tEXt chunk right before IEND.
     proc embed {pngData text} {
         variable keyword
         if {![isPng $pngData]} { error "not a PNG file" }
@@ -61,7 +61,7 @@ namespace eval ::convertkit::pngcodec {
         return $out
     }
 
-    # Pull the convertkit payload back out of a PNG.
+    # Pull the printable payload back out of a PNG.
     proc extract {pngData} {
         variable keyword
         if {![isPng $pngData]} { error "not a PNG file" }
@@ -72,7 +72,7 @@ namespace eval ::convertkit::pngcodec {
                 return [encoding convertfrom utf-8 [binary decode base64 $b64]]
             }
         }
-        error "no convertkit payload found in PNG"
+        error "no printable payload found in PNG"
     }
 
     # Minimal fallback raster: a solid-color 320x200 RGBA PNG built with

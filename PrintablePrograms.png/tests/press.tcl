@@ -1,11 +1,11 @@
 #!/usr/bin/env tclsh
-# roundtrip.tcl -- convertkit test suite.
-# Runs every bidirectional pair through xconv and verifies the Tcl
+# roundtrip.tcl -- PrintablePrograms roundtrip test suite.
+# Runs every bidirectional pair through the press and verifies the Tcl
 # source survives byte-exactly. Exit 0 = all green.
 
 set here   [file dirname [file normalize [info script]]]
 set root   [file dirname $here]
-set xconv  [file join $root bin xconv.tcl]
+set press   [file join $root bin press.tcl]
 set outdir [file join $here out]
 file delete -force $outdir
 file mkdir $outdir
@@ -23,8 +23,8 @@ proc check {label ok} {
 }
 
 proc convert {in out} {
-    global xconv
-    exec [info nameofexecutable] $xconv $in $out
+    global press
+    exec [info nameofexecutable] $press $in $out
 }
 
 foreach sample [glob [file join $root samples *.tcl]] {

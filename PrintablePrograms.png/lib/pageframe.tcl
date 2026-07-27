@@ -1,4 +1,4 @@
-# dataframe.tcl -- print-survivable pixel-domain data frame for convertkit.
+# dataframe.tcl -- print-survivable pixel-domain data frame for PrintablePrograms.png.
 #
 # Encodes program metadata + as much of the program as fits into a band
 # of saturated color cells around the page edge, designed to survive a
@@ -25,7 +25,7 @@
 # Decoder assumptions: axis-aligned raster (screenshot, or a scan that
 # has been deskewed); arbitrary uniform or anisotropic scale is fine.
 
-namespace eval ::convertkit::dataframe {
+namespace eval ::printable::dataframe {
     variable MAGIC   "FKF1"
     variable VERSION 1
     variable FID     7      ;# fiducial is FID x FID cells
@@ -130,8 +130,8 @@ namespace eval ::convertkit::dataframe {
         if {$minimal} {
             # interior sized to the text panel at its native (>=12pt) size
             set tw 0; set th 0
-            if {$o(-textpng) ne "" && [::convertkit::render::magick] ne ""} {
-                lassign [exec [::convertkit::render::magick] $o(-textpng) \
+            if {$o(-textpng) ne "" && [::printable::render::magick] ne ""} {
+                lassign [exec [::printable::render::magick] $o(-textpng) \
                              -format "%w %h" info:] tw th
             }
             set iw [expr {max(6, ($tw + 2*$cellpx + $cellpx - 1) / $cellpx)}]
@@ -258,16 +258,16 @@ namespace eval ::convertkit::dataframe {
 
         set ihdr [binary format IIccccc $imgW $imgH 8 2 0 0 0]
         set png "\x89PNG\r\n\x1a\n"
-        append png [::convertkit::pngcodec::buildChunk IHDR $ihdr]
-        append png [::convertkit::pngcodec::buildChunk IDAT [zlib compress $raw]]
-        append png [::convertkit::pngcodec::buildChunk IEND ""]
-        ::convertkit::pngcodec::writeFile $o(-out) $png
+        append png [::printable::pngcodec::buildChunk IHDR $ihdr]
+        append png [::printable::pngcodec::buildChunk IDAT [zlib compress $raw]]
+        append png [::printable::pngcodec::buildChunk IEND ""]
+        ::printable::pngcodec::writeFile $o(-out) $png
 
         # composite the human-readable code into the interior, centered.
         # The text is never scaled down: 12pt is a floor, and in minimal
         # mode the interior was sized to the text, not the other way round.
-        if {$o(-textpng) ne "" && [::convertkit::render::magick] ne ""} {
-            set im [::convertkit::render::magick]
+        if {$o(-textpng) ne "" && [::printable::render::magick] ne ""} {
+            set im [::printable::render::magick]
             lassign [exec $im $o(-textpng) -format "%w %h" info:] tw th
             set iwpx [expr {($W - 2*$T)*$cellpx}]
             set ihpx [expr {($H - 2*$T)*$cellpx}]
@@ -306,7 +306,7 @@ namespace eval ::convertkit::dataframe {
     proc decode {path} {
         variable FID
         variable palette
-        set im [::convertkit::render::magick]
+        set im [::printable::render::magick]
         if {$im eq ""} { error "ImageMagick required to decode rasters" }
 
         # locate the frame: trim the white margin

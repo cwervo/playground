@@ -1,7 +1,7 @@
 #!/usr/bin/env tclsh
-# folkframe.tcl -- print-survivable data-frame encoder/decoder CLI.
+# printout.tcl -- print-survivable data-frame encoder/decoder CLI.
 #
-#   encode: tclsh folkframe.tcl encode program.tcl out.png ?options?
+#   encode: tclsh printout.tcl encode program.tcl out.png ?options?
 #     default is MINIMAL: the page grows just enough to hold the 12pt
 #     text panel, the band just enough to hold one packet (<= -maxbandmm)
 #     -pagewmm N -pagehmm N   fixed physical page size (0 = minimal)
@@ -13,18 +13,18 @@
 #     -host S -ip S -id N -file S    identity overrides (auto-detected)
 #     -notext                 skip the human-readable code rendering
 #
-#   decode: tclsh folkframe.tcl decode image.(png|jpg|...)
+#   decode: tclsh printout.tcl decode image.(png|jpg|...)
 #     prints recovered metadata (incl. self-encoded physical scale) and
 #     writes the recovered source next to the image as <image>.recovered.tcl
 
 set libdir [file join [file dirname [file dirname [file normalize [info script]]]] lib]
-foreach mod {tclxml tclast pngcodec jpgcodec render dataframe} {
+foreach mod {tclxml tclast pngcodec jpgcodec typeset pageframe} {
     source [file join $libdir $mod.tcl]
 }
 
 proc usage {} {
-    puts stderr "usage: folkframe.tcl encode program.tcl out.png ?-option value ...?"
-    puts stderr "       folkframe.tcl decode image"
+    puts stderr "usage: printout.tcl encode program.tcl out.png ?-option value ...?"
+    puts stderr "       printout.tcl decode image"
     exit 2
 }
 
@@ -51,24 +51,24 @@ switch -- $mode {
         set textpng ""
         if {!$notext} {
             set textpng $out.text-tmp.png
-            if {![::convertkit::render::codePng $source $textpng $dpi]} { set textpng "" }
+            if {![::printable::render::codePng $source $textpng $dpi]} { set textpng "" }
         }
-        set res [::convertkit::dataframe::encode -source $source -out $out \
+        set res [::printable::dataframe::encode -source $source -out $out \
                      -textpng $textpng {*}$opts]
         if {$textpng ne ""} { file delete -force $textpng }
 
         # also stow the full canonical XML in a tEXt chunk: the digital
         # copy stays lossless even when the band only fits a prefix
-        set xml [::convertkit::tclxml::tclToXml $source [file tail $src]]
-        set png [::convertkit::pngcodec::readFile $out]
-        ::convertkit::pngcodec::writeFile $out [::convertkit::pngcodec::embed $png $xml]
+        set xml [::printable::tclxml::tclToXml $source [file tail $src]]
+        set png [::printable::pngcodec::readFile $out]
+        ::printable::pngcodec::writeFile $out [::printable::pngcodec::embed $png $xml]
 
         dict for {k v} $res { puts [format "  %-10s %s" $k $v] }
-        puts "folkframe: $src -> $out"
+        puts "printout: $src -> $out"
     }
     decode {
         set img [lindex $argv 1]
-        set res [::convertkit::dataframe::decode $img]
+        set res [::printable::dataframe::decode $img]
         puts "== metadata =="
         dict for {k v} [dict get $res meta] { puts [format "  %-16s %s" $k $v] }
         puts "  grid             [dict get $res grid]"

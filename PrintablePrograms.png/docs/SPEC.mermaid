@@ -1,4 +1,4 @@
-%% convertkit tech spec -- scoped from the "Time Bandits Storyboards" sketch
+%% PrintablePrograms.png tech spec -- scoped from the "Time Bandits Storyboards" sketch
 %% (src PNG fanning out to PDF/HTML/Keynote/folk formats).
 %%
 %% Phase 1 (BUILT): the seed converters. XML is the canonical hub; PNG and
@@ -9,11 +9,11 @@
 %% Phase 2+ (PLANNED): everything else in the sketch hangs off the same hub.
 
 flowchart TB
-    subgraph seed["Phase 1 - seed converters (BUILT: convertkit/bin/xconv.tcl)"]
+    subgraph seed["Phase 1 - seed converters (BUILT: PrintablePrograms.png/bin/press.tcl)"]
         TCL[".tcl<br/>Tcl program"]
         XML[".xml<br/>canonical hub<br/>&lt;tclprogram&gt; doc<br/>base64 source + parsed &lt;commands&gt;"]
-        PNG[".png<br/>raster: code set in mono font, bordered<br/>payload: tEXt chunk 'convertkit'"]
-        JPG[".jpg / .jpeg<br/>raster: lossy transcode of PNG<br/>payload: COM segments 'convertkit:i/n'"]
+        PNG[".png<br/>raster: code set in mono font, bordered<br/>payload: tEXt chunk 'printable'"]
+        JPG[".jpg / .jpeg<br/>raster: lossy transcode of PNG<br/>payload: COM segments 'printable:i/n'"]
 
         TCL <-->|"tclToXml / xmlToTcl<br/>(lib/tclxml.tcl)"| XML
         XML <-->|"embed / extract tEXt<br/>(lib/pngcodec.tcl)"| PNG
@@ -21,7 +21,7 @@ flowchart TB
         XML <-->|"chained through PNG or direct COM"| JPG
     end
 
-    subgraph frame["Phase 2 - print-survivable data frame (BUILT: bin/folkframe.tcl)"]
+    subgraph frame["Phase 2 - print-survivable data frame (BUILT: bin/printout.tcl)"]
         FOLKFRAME[".folk.png data frame<br/>~6cm color-cell band, 8-color palette, 3 bits/cell<br/>corner fiducials + calibration strip + quiet margin<br/>header: hostname, IP, program id,<br/>filename (UTC-ms), page/cell mm = self-encoded scale<br/>payload: program prefix, CRC32, repeated copies<br/>overflow -> pull from http://ip/folk-data/program/file"]
         AST["real AST in canonical XML<br/>(lib/tclast.tcl: words, nesting,<br/>cmdsub/brace scripts, regeneration)"]
     end
@@ -47,7 +47,7 @@ flowchart TB
     end
 
     SRC(("src (PNG)<br/>storyboards")) --> seed
-    TCL -->|"folkframe.tcl encode"| FOLKFRAME
+    TCL -->|"printout.tcl encode"| FOLKFRAME
     FOLKFRAME -->|"decode from screenshot/print<br/>(scale self-recovering)"| TCL
     XML --- AST
     FOLKFRAME -.->|"burn-blend + 6DOF pose layer"| FOLKPNG
