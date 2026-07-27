@@ -18,6 +18,10 @@ namespace eval ::convertkit::render {
     proc pickFont {} {
         set im [magick]
         if {$im eq ""} { return "" }
+        # vendored IBM Plex Mono wins (fonts/ sits next to lib/)
+        set vendored [file join [file dirname [file dirname [file normalize \
+                          [dict get [info frame 0] file]]]] fonts IBMPlexMono-Regular.ttf]
+        if {[file exists $vendored]} { return $vendored }
         if {![catch {exec $im -list font} fonts]} {
             foreach want {IBM-Plex-Mono IBMPlexMono DejaVu-Sans-Mono Liberation-Mono Courier} {
                 if {[string first $want $fonts] >= 0} { return $want }

@@ -38,26 +38,71 @@ tclsh bin/xconv.tcl samples/hello.tcl hello.jpg    # any pair works
 tclsh bin/xconv.tcl hello.jpg recovered.tcl
 ```
 
+## Phase 2: print-survivable data frame (`bin/folkframe.tcl`)
+
+Total reconstruction from a screenshot or a color-inkjet printout — no
+file metadata involved, pixels only:
+
+```sh
+tclsh bin/folkframe.tcl encode samples/storyboard.tcl page.png
+# print it / screenshot it / photograph it (axis-aligned), then:
+tclsh bin/folkframe.tcl decode whatever-came-back.jpg
+```
+
+The page carries a ~6cm (parameterized, `-bandmm`) band of large color
+cells around the edge, inside a white quiet margin (printing comfort
+only — CV doesn't need it):
+
+- **8-color palette** at the RGB cube corners, 3 bits/cell — maximum
+  separation for inkjet inks; a **calibration strip** (all 8 colors in
+  a known order) lets the decoder re-learn the palette per print.
+- **QR-style finder fiducials** in all four corners give the cell pitch;
+  the band thickness and exact grid dimensions are **self-encoded** next
+  to the calibration strip, so cell-count recovery is immune to pitch
+  measurement error at any scale.
+- **Header**: hostname, IP, program id, filename
+  (`YYYYMMDD-HHMMSS-mmmZ.folk.png`, UTC), page + cell size in mm — the
+  artifact **encodes its own physical scale** (`scale_px_per_mm` is
+  reported on decode), created timestamp, and origin URL.
+- **Payload**: as much of the program as fits. The whole packet is
+  CRC32-guarded and repeated to fill the band; the decoder takes the
+  first copy that checks out. If the program is too long
+  (`complete=0`), the printed prefix + the human-readable text carry
+  most of it, and the full source can be pulled from
+  `http://<ip>/folk-data/program/<filename>`.
+- The interior shows the code set in the **vendored IBM Plex Mono**
+  (`fonts/`, OFL-licensed), and a `tEXt` chunk still carries the full
+  canonical XML as a lossless digital channel.
+
+Decoder assumptions: axis-aligned raster (screenshot, or a deskewed
+scan); arbitrary uniform or anisotropic scaling, mild blur, and JPEG
+recompression are handled (see `tests/dataframe.tcl`). Perspective /
+rotation rectification is the CV layer's job (future work, cf.
+`../smokesignal`).
+
 ## Tests
 
 ```sh
-tclsh tests/roundtrip.tcl
+tclsh tests/roundtrip.tcl   # 12 checks: all format-pair roundtrips, byte-exact
+tclsh tests/dataframe.tcl   # 18 checks: AST + data frame, incl. simulated
+                            # screenshot (up/downscale) and rescan (blur+JPEG)
 ```
-
-Runs every sample through all round-trip chains (12 checks) and verifies
-byte-identical recovery.
 
 ## Layout
 
 ```
 bin/xconv.tcl      extension-driven CLI dispatcher
+bin/folkframe.tcl  print-survivable data-frame encoder/decoder CLI
 lib/tclxml.tcl     Tcl <-> canonical XML
+lib/tclast.tcl     real Tcl AST: parse, XML emission, source regeneration
 lib/pngcodec.tcl   pure-Tcl PNG chunk read/write + tEXt embed/extract
 lib/jpgcodec.tcl   pure-Tcl JPEG COM-segment embed/extract
-lib/render.tcl     code-to-raster rendering (ImageMagick, with fallback)
+lib/render.tcl     code-to-raster rendering (ImageMagick + vendored font)
+lib/dataframe.tcl  pixel-domain data frame: encoder + screenshot/scan decoder
+fonts/             vendored IBM Plex Mono (OFL)
 docs/SPEC.mermaid  full ecosystem tech spec (built + planned phases)
 samples/           sample .tcl programs + pre-generated demo artifacts
-tests/             round-trip test suite
+tests/             test suites
 ```
 
 ## Requirements

@@ -48,6 +48,13 @@ namespace eval ::convertkit::tclxml {
             append out "</command>\n"
         }
         append out "  </commands>\n"
+        # structured AST (semantic view; requires tclast.tcl to be loaded)
+        if {[namespace exists ::convertkit::tclast]
+            && ![catch {::convertkit::tclast::parseScript $source} ast]} {
+            append out "  <ast>\n"
+            append out [::convertkit::tclast::astToXml $ast]
+            append out "  </ast>\n"
+        }
         append out "</tclprogram>\n"
         return $out
     }

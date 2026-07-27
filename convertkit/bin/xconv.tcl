@@ -12,7 +12,7 @@
 # embedded Tcl source, regardless of lossy raster codecs in between.
 
 set libdir [file join [file dirname [file dirname [file normalize [info script]]]] lib]
-foreach mod {tclxml pngcodec jpgcodec render} {
+foreach mod {tclxml tclast pngcodec jpgcodec render} {
     source [file join $libdir $mod.tcl]
 }
 

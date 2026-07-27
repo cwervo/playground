@@ -24,4 +24,61 @@ byAgIHwKICArLS0tLS0tLS0tLS0tLS0tLS0tLS0rCn0KcHV0cyAkYmFubmVyCg==
 }</command>
     <command name="puts">puts $banner</command>
   </commands>
+  <ast>
+    <comment># hello.tcl -- convertkit sample program</comment>
+    <cmd>
+      <w t="bare">proc</w>
+      <w t="bare">greet</w>
+      <w t="brace">who</w>
+      <w t="brace">
+        <raw>
+    return &quot;Hello, $who!&quot;
+</raw>
+        <script>
+          <cmd>
+            <w t="bare">return</w>
+            <w t="quote">Hello, $who!</w>
+          </cmd>
+        </script>
+      </w>
+    </cmd>
+    <cmd>
+      <w t="bare">foreach</w>
+      <w t="bare">name</w>
+      <w t="brace">world folk convertkit</w>
+      <w t="brace">
+        <raw>
+    puts [greet $name]
+</raw>
+        <script>
+          <cmd>
+            <w t="bare">puts</w>
+            <w t="cmdsub">
+              <raw>greet $name</raw>
+              <script>
+                <cmd>
+                  <w t="bare">greet</w>
+                  <w t="bare">$name</w>
+                </cmd>
+              </script>
+            </w>
+          </cmd>
+        </script>
+      </w>
+    </cmd>
+    <comment># a multi-line command with braces, quotes, and &quot;special&quot; &lt;chars&gt; &amp; stuff</comment>
+    <cmd>
+      <w t="bare">set</w>
+      <w t="bare">banner</w>
+      <w t="brace">
+  +--------------------+
+  |  convertkit demo   |
+  +--------------------+
+</w>
+    </cmd>
+    <cmd>
+      <w t="bare">puts</w>
+      <w t="bare">$banner</w>
+    </cmd>
+  </ast>
 </tclprogram>
