@@ -1,0 +1,11 @@
+{
+  "id": "PLsample",
+  "title": "Sample Playlist",
+  "uploader": "Sample Channel",
+  "webpage_url": "https://www.youtube.com/playlist?list=PLsample",
+  "entries": [
+    {"id": "dQw4w9WgXcQ", "title": "First Video"},
+    {"id": "9bZkp7q19f0", "title": "Second Video"},
+    {"id": "", "title": "unavailable entry"}
+  ]
+}

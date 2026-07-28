@@ -1,0 +1,9 @@
+{
+  "transcript": "hello world goodbye",
+  "words": [
+    {"word": "hello", "alignedWord": "hello", "case": "success", "start": 0.34, "end": 0.71,
+     "phones": [{"phone": "hh_B", "duration": 0.1}, {"phone": "ah_I", "duration": 0.13}, {"phone": "l_I", "duration": 0.07}, {"phone": "ow_E", "duration": 0.07}]},
+    {"word": "world", "alignedWord": "world", "case": "success", "start": 0.75, "end": 1.10, "phones": []},
+    {"word": "goodbye", "case": "not-found-in-audio"}
+  ]
+}
