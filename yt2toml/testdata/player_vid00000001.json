@@ -1,0 +1,15 @@
+{
+  "videoDetails": {
+    "videoId": "vid00000001",
+    "title": "Building a Tiny Compiler Part 1",
+    "author": "Test Channel",
+    "channelId": "UCtestchannel",
+    "lengthSeconds": "612",
+    "viewCount": "12345",
+    "keywords": ["compilers", "go"],
+    "shortDescription": "Part one of a tiny compiler series.\nWith a second line."
+  },
+  "captions": {"playerCaptionsTracklistRenderer": {"captionTracks": [
+    {"baseUrl": "/api/timedtext?v=vid00000001&lang=en", "languageCode": "en", "kind": "asr", "name": {"simpleText": "English (auto-generated)"}}
+  ]}}
+}

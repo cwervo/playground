@@ -1,0 +1,8 @@
+{
+  "events": [
+    {"tStartMs": 0, "dDurationMs": 1200, "segs": []},
+    {"tStartMs": 1240, "dDurationMs": 2740, "segs": [{"utf8": "hello "}, {"utf8": "and "}, {"utf8": "welcome"}]},
+    {"tStartMs": 4100, "dDurationMs": 3000, "segs": [{"utf8": "to this tiny\ncompiler series"}]},
+    {"tStartMs": 7500, "dDurationMs": 2100, "segs": [{"utf8": "let's get started"}]}
+  ]
+}

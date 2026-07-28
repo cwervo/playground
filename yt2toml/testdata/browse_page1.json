@@ -1,0 +1,7 @@
+{
+  "metadata": {"playlistMetadataRenderer": {"title": "Test Playlist"}},
+  "contents": {"listing": [
+    {"playlistVideoRenderer": {"videoId": "vid00000001", "title": {"runs": [{"text": "Building a Tiny Compiler Part 1"}]}}},
+    {"continuationItemRenderer": {"continuationEndpoint": {"continuationCommand": {"token": "CONTINUE_TOKEN_1"}}}}
+  ]}
+}

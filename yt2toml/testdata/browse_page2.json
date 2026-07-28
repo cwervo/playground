@@ -1,0 +1,7 @@
+{
+  "onResponseReceivedActions": [
+    {"appendContinuationItemsAction": {"continuationItems": [
+      {"playlistVideoRenderer": {"videoId": "vid00000002", "title": {"runs": [{"text": "Building a Tiny Compiler Part 2"}]}}}
+    ]}}
+  ]
+}
