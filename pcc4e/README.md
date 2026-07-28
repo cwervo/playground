@@ -58,6 +58,18 @@ Legend: ✅ supported · 🚧 in progress · 🗺️ roadmapped / not started
 | Audio modem (near-ultrasonic) | Bootstrap / low-bandwidth link | 🗺️ Roadmapped |
 | SMS / MMS / RCS (`pcc4e://` QR)| Out-of-band bootstrap  | 🗺️ Roadmapped  |
 
+## Prototypes
+
+- [`proto/DISCOVERY.md`](proto/DISCOVERY.md) — the discovery wire format both prototypes speak
+- [`go/`](go/) — reference discovery-node implementation in Go
+- [`zig/`](zig/) — wire-compatible discovery-node implementation in Zig
+
+Both are real, buildable, runnable multicast-UDP discovery nodes — not the full mDNS/DNS-SD
+spec, but the same shape (link-local multicast, periodic self-announce, no central server) that
+the transports section above calls out. A Go node and a Zig node running side by side discover
+each other on the `239.255.77.77:7777` group; see each subdirectory's README for real captured
+output from a 3-node (2× Go, 1× Zig) run.
+
 ## Status
 
 This is an early-stage project. Nothing here is production-ready or audited. Treat it as a spec
