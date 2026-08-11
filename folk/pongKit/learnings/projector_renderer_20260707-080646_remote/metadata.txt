@@ -1,0 +1,24 @@
+host=folk-cwe
+date=2026-07-07T12:06:47+00:00
+source=auto
+requested_drm_card=auto
+web_url=http://127.0.0.1:4273
+fps=30
+duration=4
+web_fps=5
+web_max_frames=80
+ffmpeg=ffmpeg version 6.1.1-3ubuntu5 Copyright (c) 2000-2023 the FFmpeg developers
+curl=curl 8.5.0 (x86_64-pc-linux-gnu) libcurl/8.5.0 OpenSSL/3.0.13 zlib/1.3 brotli/1.1.0 zstd/1.5.5 libidn2/2.3.7 libpsl/0.21.2 (+libidn2/2.3.7) libssh/0.10.6/openssl/zlib nghttp2/1.59.0 librtmp/2.3 OpenLDAP/2.6.7
+
+DRM connectors:
+card1-HDMI-A-1 status=connected mode=1920x1080
+card1-HDMI-A-2 status=disconnected mode=
+
+DRM cards:
+/dev/dri/card1 vendor=0x8086 device=0x46d1 
+
+KMS capture candidates
+----------------------
+/dev/dri/card1
+selected_drm_card=/dev/dri/card1
+video_capture=ok

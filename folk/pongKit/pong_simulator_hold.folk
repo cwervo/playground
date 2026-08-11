@@ -1,0 +1,29 @@
+set me $this
+Wish $me is titled "Pong Simulator (Hold!)"
+
+# Initial state
+Hold! -key pong_state \
+    Claim $me has state with x 50.0 y 50.0 vx 1.0 vy -2.0
+
+When the clock time is /t/ & \
+     $me has state with x /x/ y /y/ vx /vx/ vy /vy/ {
+    
+    set next_x [expr {$x + $vx}]
+    set next_y [expr {$y + $vy}]
+    
+    if {$next_x <= 5 || $next_x >= 95} {
+        set vx [expr {-$vx}]
+        set next_x [expr {$x + $vx}]
+    }
+    if {$next_y <= 5 || $next_y >= 95} {
+        set vy [expr {-$vy}]
+        set next_y [expr {$y + $vy}]
+    }
+    
+    Hold! -key pong_state \
+        Claim $me has state with x $next_x y $next_y vx $vx vy $vy
+        
+    Wish $me draws a circle with position [list $x% $y%] color red filled true radius 1cm
+}
+
+Wish $me is outlined gold

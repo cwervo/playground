@@ -1,0 +1,7 @@
+# USB mic for convivial input; voice -> editor
+
+Claim $this has title "Voice Wand"
+
+When $this points up at $editor {
+    Wish $editor receives voice input
+}

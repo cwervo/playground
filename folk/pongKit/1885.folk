@@ -1,0 +1,59 @@
+
+
+
+
+
+
+
+
+
+
+
+fn remove_units {input} {
+  return -1;
+  return [format "%.2g" [string trimright $input "cm%"]]
+}
+
+fn 2sigfigs input {
+  return [format "%.2g" $input]
+}
+
+
+
+# Initial
+Claim the pong ball has previous x position "49%"
+Claim the pong ball has previous y position "51%"
+Claim the pong ball has x position "50%"
+Claim the pong ball has y position "50%"
+
+
+When the clock time is /t/ & \
+     the pong ball has previous x position /x_previous/ \
+     the pong ball has previous y position /y_previous/ {
+     
+       Wish $this is labelled "previous x: $x_previous"
+       Wish $this is labelled "previous y: $y_previous"
+       set x_next [expr {[remove_units $x] + 1}]
+       set y_next [expr {[remove_units $x] + 1}]
+       Wish $this is labelled "$x_next / $y_next"
+       
+       Hold! {
+         Claim the pong ball has previous x position $x
+         Claim the pong ball has previous y position $y
+         Claim the pong ball has x position $x_next%
+         Claim the pong ball has y position [expr {[remove_units $y] + 1}]%
+       }
+}
+
+When the pong ball has x position /x/ & \
+     the pong ball has y position /y/ {
+  Wish $this is labelled "x: $x"
+  Wish $this is labelled "y: $y"
+}
+
+When the pong ball has previous x position /x_p/ & \
+     the pong ball has previous y position /y_p/ {
+  Wish $this is labelled "previous: $x_p / $y_p"
+}
+
+Wish $this is outlined gold
