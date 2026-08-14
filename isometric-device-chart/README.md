@@ -1,7 +1,34 @@
 # Necker cube device chart
 
-A 3-axis Cartesian chart drawn as a Necker cube in true one-point perspective,
-with Matplotlib in plain 2D — the pinhole projection is hand-rolled. The data
+A 3-axis Cartesian chart drawn as a Necker cube in true one-point perspective.
+
+## 3D engine version (Blender)
+
+`render3d.py` builds the scene with bpy and renders it with Cycles: each board
+is a **1 cm matte Lambertian sphere** (pure diffuse BSDF) inside a **10 cm
+true-cube wireframe** of thin ink cylinders, with the three origin axes
+highlighted as thicker warm-white cylinders and Freestyle **toon outlines** on
+the spheres. Palette is **WCMYK on sepia**: process Cyan / Magenta / Yellow
+for the device kinds, warm White for the axes, ink blacK for wireframe and
+outlines, on a sepia world background. The camera sits just outside the origin
+corner, nudged off the exact diagonal, aimed at (1,1,1).
+
+The script exports `anchors.json` with the projected pixel position of every
+sphere, tick, and axis end; `annotate.py` then lays crisp 2D typography over
+the render.
+
+```sh
+pip install bpy matplotlib     # Blender as a Python module (Python 3.11)
+python3 render3d.py            # writes render.png + anchors.json (DRAFT=1 for quick previews)
+python3 annotate.py            # writes esp32-necker3d.png
+```
+
+![3D render](esp32-necker3d.png)
+
+## Matplotlib version
+
+`chart.py` draws the same view with Matplotlib in plain 2D — the pinhole
+projection is hand-rolled. The data
 is normalized onto a unit cube; the camera sits just outside the origin corner
 (nudged off the exact diagonal so correlated points don't collapse onto the
 vanishing point) and is aimed at (1, 1, 1), which projects the far corner to
