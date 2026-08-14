@@ -1,8 +1,13 @@
-# Isometric device chart
+# Necker cube device chart
 
-A 3-axis Cartesian chart on a 45° axonometric ("military") perspective grid,
-drawn with Matplotlib in plain 2D — the projection is hand-rolled so the ground
-axes sit at exactly ±45° and all three axes read at full, equal length.
+A 3-axis Cartesian chart drawn as a Necker cube in true one-point perspective,
+with Matplotlib in plain 2D — the pinhole projection is hand-rolled. The data
+is normalized onto a unit cube; the camera sits just outside the origin corner
+(nudged off the exact diagonal so correlated points don't collapse onto the
+vanishing point) and is aimed at (1, 1, 1), which projects the far corner to
+the exact center of the frame. All 12 cube edges are drawn — the classic
+overlapping-squares Necker ambiguity — and depth is carried by
+perspective-scaled dot sizes plus each point's dashed drop to the z=0 floor.
 
 Axes use the classic R/G/B convention:
 
@@ -11,14 +16,13 @@ Axes use the classic R/G/B convention:
 - **Z (blue)** — power needs, estimated typical active draw (mA, WiFi on,
   backlight on where present)
 
-Dots are color- and shape-coded by kind of device; the dashed drop line ties
-each point to its position in the price × features ground plane.
+Dots are color- and shape-coded by kind of device.
 
 ```sh
-python3 chart.py   # writes esp32-isometric-light.png and esp32-isometric-dark.png
+python3 chart.py   # writes esp32-necker-light.png and esp32-necker-dark.png
 ```
 
-![light mode chart](esp32-isometric-light.png)
+![light mode chart](esp32-necker-light.png)
 
 ## Data
 
@@ -37,5 +41,6 @@ the length of the feature list.
 | Adafruit Feather ESP32-C6 | Headless dev board | 15 | WiFi 6, BLE 5, Zigbee/Thread, LiPo charge, STEMMA QT, NeoPixel (6) | 100 |
 | Adafruit Metro ESP32-S2 | Headless dev board | 20 | WiFi, 30+ GPIO, STEMMA QT, LiPo charge, NeoPixel (5) | 140 |
 
-Edit the `DEVICES` list in `chart.py` to add boards or correct numbers — the
-feature count and both renders update from it.
+Edit the `DEVICES` list in `chart.py` to add boards or correct numbers, or
+`CAM` to move the camera — the renders update from it. An earlier 45°
+axonometric version of this chart lives in the git history.
