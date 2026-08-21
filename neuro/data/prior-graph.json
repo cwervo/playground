@@ -1,0 +1,99 @@
+{
+  "schema": "neuro/prior-graph/v1",
+  "_doc": [
+    "This is NOT a correlation matrix estimated from data. With n=1 session, no empirical",
+    "correlation is estimable. This file encodes DIRECTED PRIOR EXPECTATIONS drawn from the",
+    "literature cited by the two vendor reports (Evoke r5.9.1 refs 1-150; Firefly BIR refs 1-23).",
+    "",
+    "Each edge says: 'published work expects metric A and metric B to co-deviate with sign s.'",
+    "The engine then asks a question that IS answerable from one subject:",
+    "  does this person's observed deviation pattern agree with the prior graph more than",
+    "  a randomly reshuffled deviation pattern would?",
+    "That is a permutation test on a concordance statistic, and it is reported as such."
+  ],
+
+  "hypotheses": [
+    {
+      "id": "H1",
+      "name": "Sympathetic over-arousal",
+      "plain": "The body's accelerator is stuck slightly on.",
+      "edges": [
+        { "a": "ans.vlf_ratio",  "b": "ans.hf_frac",    "sign": -1, "w": 1.0, "cite": "Shaffer & Ginsberg 2017; Usui & Nishida 2017" },
+        { "a": "ans.lf_hf",      "b": "eegz.c.beta1",   "sign":  1, "w": 0.8, "cite": "Thayer et al. 2009 (neurovisceral integration)" },
+        { "a": "eegz.c.alpha2",  "b": "eegz.c.beta1",   "sign":  1, "w": 0.9, "cite": "Firefly BIR readiness-state note; Wahbeh & Oken 2013" },
+        { "a": "eeg.paf_ec",     "b": "ans.lf_hf",      "sign":  1, "w": 0.7, "cite": "Wahbeh & Oken 2013 (peak HF-HRV and PAF higher in PTSD)" },
+        { "a": "psy.gad7",       "b": "eegz.c.beta1",   "sign":  1, "w": 0.7, "cite": "Clarke et al. 2020; Putman et al. 2013" },
+        { "a": "psy.pclc",       "b": "eeg.paf_ec",     "sign":  1, "w": 0.6, "cite": "Wahbeh & Oken 2013" },
+        { "a": "eegz.c.spindle", "b": "eegz.c.alpha2",  "sign": -1, "w": 0.4, "cite": "Firefly BIR sleep-disturbance note" }
+      ]
+    },
+    {
+      "id": "H2",
+      "name": "Timing slowed, capacity intact",
+      "plain": "Everything still works, it just runs late and unevenly.",
+      "edges": [
+        { "a": "erp.n100_lat", "b": "beh.rt",        "sign":  1, "w": 1.0, "cite": "Schubert et al. 2022; Naatanen & Picton 1987" },
+        { "a": "erp.p3a_lat",  "b": "beh.rt",        "sign":  1, "w": 0.9, "cite": "Kutas, McCarthy & Donchin 1977" },
+        { "a": "beh.rt",       "b": "beh.rt_sd",     "sign":  1, "w": 0.8, "cite": "Kofler et al. 2013; Karalunas et al. 2014" },
+        { "a": "erp.p3a_amp",  "b": "beh.commission","sign": -1, "w": 0.7, "cite": "Polich 2007; Friedman et al. 2001" },
+        { "a": "erp.n100_lat", "b": "srs.sensory",   "sign": -1, "w": 0.8, "cite": "Lijffijt et al. 2009; Wang et al. 2024" },
+        { "a": "beh.rt",       "b": "psy.phq9",      "sign":  1, "w": 0.6, "cite": "Castaneda et al. 2008; Behrens et al. 2023 (fatigue)" },
+        { "a": "erp.p3b_ratio","b": "beh.rt_sd",     "sign": -1, "w": 0.7, "cite": "Polich 2007 (P3b context updating)" }
+      ]
+    },
+    {
+      "id": "H3",
+      "name": "Mood driving the complaint",
+      "plain": "How bad it feels is tracking mood more than it is tracking performance.",
+      "edges": [
+        { "a": "psy.phq9",     "b": "srs.exec_attn",  "sign": -1, "w": 1.0, "cite": "Gifford et al. 2015; Castaneda et al. 2008" },
+        { "a": "psy.phq9",     "b": "srs.affect",     "sign": -1, "w": 1.0, "cite": "Malhi & Mann 2018" },
+        { "a": "psy.gad7",     "b": "srs.exec_attn",  "sign": -1, "w": 0.8, "cite": "Spitzer et al. 2006" },
+        { "a": "psy.pclc",     "b": "srs.memory",     "sign": -1, "w": 0.7, "cite": "Weathers et al. 2013" },
+        { "a": "srs.affect",   "b": "srs.motor",      "sign":  1, "w": 0.6, "cite": "de Lau et al. 2006 (subjective complaint clustering)" },
+        { "a": "psy.phq9",     "b": "ans.hf_frac",    "sign": -1, "w": 0.7, "cite": "Appelhans & Luecken 2006; McCraty & Shaffer 2015" },
+        { "a": "srs.exec_attn","b": "beh.commission", "sign": -1, "w": 0.9, "cite": "Barkley 1997; Wright et al. 2014", "note": "the edge this dataset breaks" }
+      ]
+    },
+    {
+      "id": "H4",
+      "name": "Allergic / inflammatory load",
+      "plain": "An immune system running hot can show up as brain fog.",
+      "edges": [
+        { "a": "spt.burden",   "b": "ans.vlf_ratio",  "sign":  1, "w": 0.8, "cite": "Usui & Nishida 2017; Liu et al. 2022" },
+        { "a": "spt.burden",   "b": "erp.n100_lat",   "sign":  1, "w": 0.6, "cite": "Firefly BIR note on sensory-reducing medication" },
+        { "a": "spt.burden",   "b": "beh.rt",         "sign":  1, "w": 0.6, "cite": "antihistamine + rhinitis psychomotor literature" },
+        { "a": "ans.vlf_ratio","b": "eegz.g.delta",   "sign":  1, "w": 0.5, "cite": "Kelly et al. 2023 (inflammation and cortical slowing)" },
+        { "a": "spt.burden",   "b": "srs.sensory",    "sign": -1, "w": 0.5, "cite": "self-report sensory domain" }
+      ]
+    },
+    {
+      "id": "H5",
+      "name": "Classic ADHD electrophysiology",
+      "plain": "The textbook ADHD brainwave picture.",
+      "edges": [
+        { "a": "eeg.tbr_eo",     "b": "srs.exec_attn",  "sign": -1, "w": 1.0, "cite": "Arns, Conners & Kraemer 2013; Snyder et al. 2015" },
+        { "a": "eeg.tbr_eo",     "b": "beh.commission", "sign":  1, "w": 0.9, "cite": "Wang T et al. 2024; Angelidis et al. 2016" },
+        { "a": "eegz.c.theta",   "b": "eeg.tbr_eo",     "sign":  1, "w": 1.0, "cite": "Clarke, Barry & Johnstone 2020" },
+        { "a": "erp.p3a_amp",    "b": "eeg.tbr_eo",     "sign": -1, "w": 0.8, "cite": "Polich 2007; Loo & Makeig 2012" },
+        { "a": "beh.omission",   "b": "eeg.tbr_eo",     "sign":  1, "w": 0.8, "cite": "Barkley 1997" },
+        { "a": "eegz.c.beta1",   "b": "eeg.tbr_eo",     "sign": -1, "w": 0.7, "cite": "Loo et al. 2017 (EEG-based subgroups)" }
+      ]
+    }
+  ],
+
+  "derived_metrics": {
+    "_doc": "Composites the C++ engine computes before scoring. Defined here so the definition travels with the data.",
+    "ans.vlf_ratio": { "expr": "ans.vlf / ans.lf", "ref": { "lo": 0, "hi": 0.5 }, "polarity": "lower_better",
+                       "note": "reproduces the vendor's 'HRV VLF value = 1.17, threshold > 0.5'" },
+    "ans.lf_hf":     { "expr": "ans.lf / ans.hf",  "ref": { "lo": 0.5, "hi": 2.0 }, "polarity": "lower_better" },
+    "ans.hf_frac":   { "expr": "ans.hf / ans.tp",  "ref": { "lo": 0.15, "hi": 0.5 }, "polarity": "higher_better" },
+    "ans.vlf_frac":  { "expr": "ans.vlf / ans.tp", "ref": { "lo": 0.0, "hi": 0.35 }, "polarity": "lower_better" },
+    "erp.p3b_ratio": { "expr": "erp.p3b_amp / erp.p3a_amp", "ref": { "lo": 0.5, "hi": 2.0 }, "polarity": "higher_better",
+                       "note": "the vendor states this criterion in prose but never prints the number" },
+    "spt.burden":    { "expr": "count(wheal_mm >= 3) / n_allergens", "ref": { "lo": 0, "hi": 0.15 }, "polarity": "lower_better" },
+    "spt.max_wheal": { "expr": "max(wheal_mm)", "ref": { "lo": 0, "hi": 3 }, "polarity": "lower_better" },
+    "beh.speed_cost":{ "expr": "beh.rt - 500", "ref": { "lo": -300, "hi": 0 }, "polarity": "lower_better" },
+    "erp.timing_sum":{ "expr": "(erp.n100_lat-250) + (erp.p3a_lat-450)", "ref": { "lo": -100, "hi": 0 }, "polarity": "lower_better" }
+  }
+}

@@ -1,0 +1,118 @@
+# neuro — one numeric pass in C++, one bytecode, four renderers.
+#
+#   make            build everything into build/
+#   make analyze    just the engine
+#   make dash       the self-contained browser dashboard
+#   make physical   SVG for print and plotter, STL and SCAD, pocket card
+#   make explore    launch the Tk explorer (needs a display)
+#   make disasm     read the drawing program as assembly
+#   make check      round-trip the display file through every host
+#   make whatif M=beh.rt V=430   re-derive with one value overridden
+#   make clean
+
+CXX      ?= g++
+CXXFLAGS ?= -std=c++17 -O2 -Wall -Wextra
+TCLSH    ?= tclsh
+WISH     ?= wish8.6
+
+SESSION  ?= data/session-2026-08-18.json
+PRIOR    ?= data/prior-graph.json
+PERM     ?= 200000
+SEED     ?= 20260818
+
+B        := build
+ENGINE   := $(B)/analyze
+NVM      := $(B)/dashboard.nvm
+HDRS     := src/nvm.hpp src/stats.hpp src/json.hpp
+
+.PHONY: all analyze dash physical explore disasm check whatif clean help
+
+all: dash physical
+	@echo
+	@echo "  built:"
+	@ls -1sh $(B) | sed 's/^/    /'
+
+# ---------------------------------------------------------------------------
+$(ENGINE): src/analyze.cpp $(HDRS) | $(B)
+	$(CXX) $(CXXFLAGS) -o $@ src/analyze.cpp
+
+$(B):
+	@mkdir -p $(B)
+
+analyze: $(ENGINE)
+
+# The display file is the only thing downstream targets depend on. Nothing else
+# in this project re-reads the session JSON, which is the guarantee that the
+# card, the plotter output and the browser cannot disagree with each other.
+$(NVM): $(ENGINE) $(SESSION) $(PRIOR)
+	./$(ENGINE) --session $(SESSION) --prior $(PRIOR) \
+	            --out $(NVM) --json $(B)/derived.json \
+	            --perm $(PERM) --seed $(SEED)
+
+nvm: $(NVM)
+
+# ---------------------------------------------------------------------------
+dash: $(B)/dashboard.html
+
+$(B)/dashboard.html: $(NVM) web/host.html web/bundle.tcl
+	$(TCLSH) web/bundle.tcl web/host.html $(NVM) $@
+
+# ---------------------------------------------------------------------------
+physical: $(B)/dashboard.svg $(B)/plot.svg $(B)/card.svg $(B)/comb.stl
+
+$(B)/dashboard.svg: $(NVM) physical/plot.tcl tcl/nvm.tcl
+	$(TCLSH) physical/plot.tcl $(NVM) $@ --mode print
+
+$(B)/plot.svg: $(NVM) physical/plot.tcl tcl/nvm.tcl
+	$(TCLSH) physical/plot.tcl $(NVM) $@ --mode pen
+
+$(B)/card.svg: $(NVM) physical/card.tcl tcl/nvm.tcl
+	$(TCLSH) physical/card.tcl $(NVM) $@
+
+$(B)/comb.stl: $(NVM) physical/solid.tcl tcl/nvm.tcl
+	$(TCLSH) physical/solid.tcl $(NVM) $(B)/comb
+
+# ---------------------------------------------------------------------------
+explore: $(NVM)
+	$(WISH) tcl/explore.tcl $(NVM)
+
+disasm: $(NVM)
+	@$(TCLSH) tcl/nvmdump.tcl $(NVM) --disasm
+
+dump: $(NVM)
+	@$(TCLSH) tcl/nvmdump.tcl $(NVM)
+
+# Every host reads the same bytes. If one of them stops agreeing with the
+# others, that is a bug in the host and not in the analysis, and this target is
+# how you find out which.
+check: $(NVM)
+	@echo "== container and symbol table =="
+	@$(TCLSH) tcl/nvmdump.tcl $(NVM) | head -12
+	@echo
+	@echo "== every host executes it =="
+	@$(TCLSH) physical/plot.tcl $(NVM) $(B)/check-print.svg --mode print
+	@$(TCLSH) physical/plot.tcl $(NVM) $(B)/check-pen.svg   --mode pen
+	@$(TCLSH) physical/card.tcl $(NVM) $(B)/check-card.svg
+	@$(TCLSH) physical/solid.tcl $(NVM) $(B)/check-comb
+	@$(TCLSH) web/bundle.tcl web/host.html $(NVM) $(B)/check-dash.html
+	@echo
+	@echo "== the analysis is reproducible from the seed =="
+	@./$(ENGINE) --session $(SESSION) --prior $(PRIOR) --perm $(PERM) --seed $(SEED) \
+	             --out $(B)/check.nvm --json $(B)/check.json 2>/dev/null
+	@cmp -s $(NVM) $(B)/check.nvm && echo "   byte-identical rebuild: ok" \
+	                              || echo "   REBUILD DIFFERS -- the pipeline is not deterministic"
+	@rm -f $(B)/check-*.svg $(B)/check-*.html $(B)/check-comb.* $(B)/check.nvm $(B)/check.json
+
+# Sketchpad's constraint drag from the command line.
+#   make whatif M=beh.rt V=430
+M ?= beh.rt
+V ?= 430
+whatif: $(ENGINE)
+	@./$(ENGINE) --session $(SESSION) --prior $(PRIOR) --perm 40000 \
+	             --override $(M)=$(V) --out $(B)/whatif.nvm --json $(B)/whatif.json
+
+clean:
+	rm -rf $(B)
+
+help:
+	@sed -n '2,14p' Makefile | sed 's/^# \?//'

@@ -1,0 +1,1254 @@
+<title>NeuroVM</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<style>
+/* ===========================================================================
+   Tokens.
+
+   Light is defined on bare :root, dark only overrides. Every colour has a
+   value before any media query runs, so a page rendered with no colour-scheme
+   signal at all still has a complete palette. The severity hues are the same
+   three the C++ emitter writes into the bytecode; they are declared here too so
+   the chrome and the canvas cannot drift.
+   =========================================================================== */
+:root {
+  --bg:            #f6f7f9;
+  --surface:       #ffffff;
+  --surface-1:     #eef0f4;
+  --surface-2:     #e4e7ed;
+  --ink:           #161920;
+  --ink-2:         #464c5c;
+  --muted:         #626879;   /* 5.19:1 on --bg, 4.87:1 on --surface-1 */
+  --rule:          #d5d9e2;
+  --accent:        #3a60be;   /* 5.45:1 */
+  --accent-ink:    #ffffff;   /* 5.84:1 on --accent */
+  --ok:            #2c6f5f;   /* 5.52:1 */
+  --border:        #8a6210;   /* 5.11:1 -- the amber the canvas fills with is
+                                 lighter, but amber as TEXT has to be darker to
+                                 clear 4.5:1, so chrome and fill are separate */
+  --deviant:       #b23f38;   /* 5.35:1, clears AA on all three surfaces */
+  --nodata:        #a0a4b0;
+  --subjective:    #8456b2;
+
+  --state-hover:   0.06;
+  --state-focus:   0.10;
+  --state-press:   0.14;
+
+  --r-sm: 4px;
+  --r-md: 8px;
+  --r-lg: 14px;
+
+  --sans: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, "Helvetica Neue", Arial, sans-serif;
+  --mono: ui-monospace, "SF Mono", "IBM Plex Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+
+  --rail: 60px;
+  --info: 380px;
+  color-scheme: light dark;
+}
+
+:root:not([data-theme="light"]) {
+  @media (prefers-color-scheme: dark) {
+    --bg:        #101218;
+    --surface:   #171a21;
+    --surface-1: #1e222b;
+    --surface-2: #262b36;
+    --ink:       #e9ebf1;
+    --ink-2:     #b6bccb;
+    --muted:     #838a9c;
+    --rule:      #2c313d;
+    --accent:    #7ea2ff;
+    --accent-ink:#0d1017;
+    --ok:        #58c3a6;
+    --border:    #e0a83f;
+    --deviant:   #ef7a6f;
+    --nodata:    #6b7180;
+    --subjective:#b98cea;
+    --state-hover: 0.09;
+    --state-focus: 0.14;
+    --state-press: 0.18;
+  }
+}
+:root[data-theme="dark"] {
+  --bg:        #101218;
+  --surface:   #171a21;
+  --surface-1: #1e222b;
+  --surface-2: #262b36;
+  --ink:       #e9ebf1;
+  --ink-2:     #b6bccb;
+  --muted:     #838a9c;
+  --rule:      #2c313d;
+  --accent:    #7ea2ff;
+  --accent-ink:#0d1017;
+  --ok:        #58c3a6;
+  --border:    #e0a83f;
+  --deviant:   #ef7a6f;
+  --nodata:    #6b7180;
+  --subjective:#b98cea;
+  --state-hover: 0.09;
+  --state-focus: 0.14;
+  --state-press: 0.18;
+}
+
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: 15px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  overflow: hidden;
+}
+
+/* --- app frame ---------------------------------------------------------- */
+#app { display: grid; grid-template-rows: auto 1fr auto; height: 100dvh; }
+
+/* --- top bar ------------------------------------------------------------ */
+header {
+  display: flex; align-items: center; gap: 18px;
+  padding: 8px 14px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--rule);
+  flex-wrap: wrap;
+}
+.wordmark {
+  font-family: var(--mono); font-size: 13px; font-weight: 600;
+  letter-spacing: 0.14em; text-transform: uppercase;
+  color: var(--ink); white-space: nowrap;
+}
+.wordmark span { color: var(--accent); }
+
+.grouplabel {
+  font-family: var(--mono); font-size: 9.5px; letter-spacing: 0.16em;
+  text-transform: uppercase; color: var(--muted);
+  margin-right: 2px; white-space: nowrap;
+}
+
+/* Numbered, always-visible toggles. Nothing here hides in a menu: the set of
+   available lenses is part of what the page is telling you. */
+.lenses { display: flex; gap: 6px; flex-wrap: wrap; }
+.lens {
+  position: relative; isolation: isolate;
+  display: inline-flex; align-items: center; gap: 7px;
+  min-height: 34px; padding: 0 11px 0 8px;
+  border: 1px solid var(--rule); border-radius: var(--r-md);
+  background: var(--surface-1); color: var(--ink-2);
+  font: inherit; font-size: 12.5px; cursor: pointer;
+  transition: color .12s ease, border-color .12s ease;
+}
+.lens .num {
+  font-family: var(--mono); font-size: 10px; font-weight: 700;
+  width: 17px; height: 17px; border-radius: var(--r-sm);
+  display: grid; place-items: center;
+  background: var(--surface-2); color: var(--muted);
+}
+/* Material-style state layer: a tinted overlay rather than a colour swap, so
+   hover, focus and press compose instead of overwriting one another. */
+.lens::after {
+  content: ""; position: absolute; inset: 0; border-radius: inherit;
+  background: currentColor; opacity: 0; z-index: -1;
+  transition: opacity .12s ease;
+}
+.lens:hover::after { opacity: var(--state-hover); }
+.lens:active::after { opacity: var(--state-press); }
+.lens[aria-pressed="true"] {
+  background: var(--accent); color: var(--accent-ink); border-color: var(--accent);
+}
+.lens[aria-pressed="true"] .num { background: rgba(0,0,0,.22); color: inherit; }
+
+.seg { display: inline-flex; border: 1px solid var(--rule); border-radius: var(--r-md); overflow: hidden; }
+.seg button {
+  min-height: 34px; padding: 0 13px; border: 0; background: var(--surface-1);
+  color: var(--ink-2); font: inherit; font-size: 12.5px; cursor: pointer;
+  border-right: 1px solid var(--rule);
+  position: relative; isolation: isolate;
+}
+.seg button:last-child { border-right: 0; }
+.seg button::after {
+  content: ""; position: absolute; inset: 0; background: currentColor;
+  opacity: 0; z-index: -1; transition: opacity .12s ease;
+}
+.seg button:hover::after { opacity: var(--state-hover); }
+.seg button[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); }
+
+.spacer { flex: 1 1 40px; }
+
+.iconbtn {
+  min-width: 34px; min-height: 34px; padding: 0 10px;
+  border: 1px solid var(--rule); border-radius: var(--r-md);
+  background: var(--surface-1); color: var(--ink-2);
+  font: inherit; font-size: 12.5px; cursor: pointer;
+  position: relative; isolation: isolate;
+}
+.iconbtn::after {
+  content: ""; position: absolute; inset: 0; border-radius: inherit;
+  background: currentColor; opacity: 0; z-index: -1; transition: opacity .12s ease;
+}
+.iconbtn:hover::after { opacity: var(--state-hover); }
+
+:where(button, [tabindex]):focus-visible {
+  outline: 2px solid var(--accent); outline-offset: 2px;
+}
+
+/* --- middle ------------------------------------------------------------- */
+main { display: grid; grid-template-columns: 1fr var(--info); min-height: 0; }
+main.noinfo { grid-template-columns: 1fr; }
+
+#stage { position: relative; min-width: 0; overflow: hidden; background: var(--bg); }
+#cv { display: block; width: 100%; height: 100%; touch-action: none; cursor: crosshair; }
+
+/* --- info view ---------------------------------------------------------- */
+/* Ableton keeps a permanent info box that describes whatever the pointer is
+   over. It is the single highest-value affordance in that program for someone
+   learning it, and it costs one panel. */
+aside {
+  border-left: 1px solid var(--rule); background: var(--surface);
+  overflow-y: auto; overscroll-behavior: contain; padding: 16px 18px 40px;
+}
+main.noinfo aside { display: none; }
+aside h2 { margin: 0 0 2px; font-size: 17px; font-weight: 650; letter-spacing: -0.01em; }
+aside .sev { font-size: 12px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; }
+.sev-0 { color: var(--ok); } .sev-1 { color: var(--border); }
+.sev-2 { color: var(--deviant); } .sev-3 { color: var(--nodata); }
+
+.readout { margin: 12px 0 4px; display: grid; grid-template-columns: auto 1fr; gap: 3px 14px;
+           font-family: var(--mono); font-size: 12px; }
+.readout dt { color: var(--muted); }
+.readout dd { margin: 0; color: var(--ink); font-variant-numeric: tabular-nums; }
+
+.reg-label {
+  font-family: var(--mono); font-size: 9.5px; letter-spacing: .16em;
+  text-transform: uppercase; color: var(--muted);
+  margin: 18px 0 5px; padding-top: 10px; border-top: 1px solid var(--rule);
+}
+.reg-body { font-size: 14px; color: var(--ink-2); }
+.reg-body.full { font-size: 13px; line-height: 1.62; }
+
+.links { margin-top: 6px; }
+.linkrow {
+  display: flex; align-items: baseline; gap: 8px; width: 100%;
+  padding: 5px 6px; margin-left: -6px;
+  border: 0; border-radius: var(--r-sm); background: none;
+  font: inherit; font-size: 12.5px; color: var(--ink-2);
+  text-align: left; cursor: pointer;
+}
+.linkrow:hover { background: var(--surface-1); }
+.linkrow .rel { color: var(--muted); font-size: 11px; min-width: 92px; }
+.linkrow .to { color: var(--accent); font-family: var(--mono); font-size: 11.5px; }
+.linkrow .hy { color: var(--muted); font-family: var(--mono); font-size: 10px; margin-left: auto; }
+
+.empty { color: var(--muted); font-size: 13.5px; }
+kbd {
+  font-family: var(--mono); font-size: 11px; padding: 1px 5px;
+  border: 1px solid var(--rule); border-bottom-width: 2px;
+  border-radius: var(--r-sm); background: var(--surface-1); color: var(--ink-2);
+}
+
+/* --- status line -------------------------------------------------------- */
+footer {
+  display: flex; align-items: center; gap: 14px;
+  padding: 6px 14px; min-height: 32px;
+  background: var(--surface); border-top: 1px solid var(--rule);
+  font-family: var(--mono); font-size: 11px; color: var(--muted);
+}
+footer .msg { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+footer .stat { font-variant-numeric: tabular-nums; }
+
+/* --- search ------------------------------------------------------------- */
+dialog {
+  border: 1px solid var(--rule); border-radius: var(--r-lg); padding: 0;
+  background: var(--surface); color: var(--ink);
+  width: min(520px, 92vw); box-shadow: 0 24px 64px rgba(0,0,0,.28);
+}
+dialog::backdrop { background: rgba(0,0,0,.4); }
+dialog input {
+  width: 100%; border: 0; border-bottom: 1px solid var(--rule);
+  background: none; color: var(--ink); font: inherit; font-size: 16px;
+  padding: 14px 16px; outline: none;
+}
+#hits { list-style: none; margin: 0; padding: 6px; max-height: 46vh; overflow-y: auto; }
+#hits li {
+  padding: 8px 10px; border-radius: var(--r-sm); cursor: pointer;
+  display: flex; gap: 10px; align-items: baseline;
+}
+#hits li[aria-selected="true"] { background: var(--surface-1); }
+#hits .id { font-family: var(--mono); font-size: 11.5px; color: var(--accent); }
+#hits .lb { font-size: 13px; color: var(--ink-2); }
+#hits .dv { margin-left: auto; font-family: var(--mono); font-size: 11px; }
+
+/* The canvas cannot be read by assistive technology, so the same data is also
+   emitted as a real table, visually hidden but present in the accessibility
+   tree and in the tab order. Not `display:none` and not `visibility:hidden` --
+   both remove it from that tree, which is the entire point of having it. */
+.sr-only {
+  position: absolute; width: 1px; height: 1px;
+  margin: -1px; padding: 0; overflow: hidden;
+  clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap;
+}
+/* ...except when something inside it has keyboard focus, at which point a
+   sighted keyboard user needs to see where they are. */
+.sr-only:focus-within {
+  position: static; width: auto; height: auto; margin: 0;
+  overflow: auto; clip: auto; clip-path: none; white-space: normal;
+  padding: 14px 18px; border-bottom: 1px solid var(--rule);
+  background: var(--surface); max-height: 40dvh;
+}
+.sr-only table { border-collapse: collapse; font-size: 12.5px; }
+.sr-only th, .sr-only td { text-align: left; padding: 2px 10px 2px 0; }
+.sr-only td.num { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+.sr-only button {
+  border: 0; background: none; font: inherit; color: var(--accent);
+  cursor: pointer; padding: 0; text-align: left;
+}
+
+@media (max-width: 900px) {
+  main { grid-template-columns: 1fr; grid-template-rows: 1fr auto; }
+  aside { border-left: 0; border-top: 1px solid var(--rule); max-height: 44dvh; }
+  :root { --info: auto; }
+}
+@media (prefers-reduced-motion: reduce) {
+  * { transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; }
+}
+</style>
+
+<div id="app">
+  <header>
+    <div class="wordmark">Neuro<span>VM</span></div>
+
+    <span class="grouplabel">lens</span>
+    <div class="lenses" id="lenses" role="group" aria-label="Hypothesis lenses"></div>
+
+    <span class="grouplabel">explain</span>
+    <div class="seg" id="reg" role="group" aria-label="Explanation register">
+      <button data-reg="plain" aria-pressed="false">Plain</button>
+      <button data-reg="full"  aria-pressed="false">Full fat</button>
+      <button data-reg="both"  aria-pressed="true">Both</button>
+    </div>
+
+    <div class="spacer"></div>
+    <button class="iconbtn" id="btn-fit"    title="Fit to width (0)">Fit</button>
+    <button class="iconbtn" id="btn-find"   title="Find a metric (/)">Find</button>
+    <button class="iconbtn" id="btn-info"   title="Toggle the info view (i)" aria-pressed="true">Info</button>
+    <button class="iconbtn" id="btn-theme"  title="Light, dark, or follow the system">Theme</button>
+  </header>
+
+  <main id="main">
+    <div id="stage">
+      <canvas id="cv" aria-hidden="true"></canvas>
+      <div class="sr-only" id="a11y">
+        <h2 id="a11y-h">All measured metrics</h2>
+        <p id="a11y-sum"></p>
+        <table aria-labelledby="a11y-h">
+          <thead><tr>
+            <th scope="col">Metric</th><th scope="col">Domain</th>
+            <th scope="col">Value</th><th scope="col">Margin past threshold</th>
+            <th scope="col">Status</th><th scope="col">In plain language</th>
+          </tr></thead>
+          <tbody id="a11y-rows"></tbody>
+        </table>
+      </div>
+    </div>
+    <aside id="aside" aria-live="polite" aria-atomic="false" tabindex="-1">
+      <div id="panelbody"></div>
+    </aside>
+  </main>
+
+  <footer>
+    <span class="msg" id="status">loading</span>
+    <span class="stat" id="stat-zoom"></span>
+    <span class="stat" id="stat-ops"></span>
+    <span class="stat" id="stat-fps"></span>
+  </footer>
+</div>
+
+<dialog id="find">
+  <input id="q" type="search" placeholder="Find a metric" autocomplete="off" spellcheck="false">
+  <ul id="hits" role="listbox"></ul>
+</dialog>
+
+<script id="nvm-payload" type="application/octet-stream">@@NVM_BASE64@@</script>
+
+<script>
+"use strict";
+/* ===========================================================================
+   NeuroVM, browser host.
+
+   This is an immediate-mode renderer in the strict sense: there is no retained
+   scene graph and no display list of JavaScript objects. Every frame executes
+   the bytecode from the entry point, and hit testing happens inside that same
+   pass -- when the interpreter meets an ANCHOR it starts accumulating a
+   bounding box, and whichever anchor's box contains the pointer at the end of
+   the frame is the hovered one. Interaction state is therefore never stale by
+   construction, because it is recomputed from the program rather than cached
+   alongside it.
+
+   The cost is that we re-run ~18 kB of bytecode per frame. That is roughly
+   0.6 ms, which is the whole argument for doing the numerics in C++ once and
+   shipping a display file instead of shipping the analysis.
+   =========================================================================== */
+
+const OPERAND = {
+  0x01:4, 0x02:4, 0x03:2,
+  0x20:2, 0x21:2, 0x22:2,
+  0x30:4, 0x31:4, 0x32:6, 0x4a:3,
+  0x50:4, 0x52:2, 0x53:4, 0x54:11, 0x55:1, 0x56:2,
+  0x60:2, 0x61:2, 0x62:2,
+};
+
+/* --- container ----------------------------------------------------------- */
+function parseNVM(buf) {
+  const dv = new DataView(buf), u8 = new Uint8Array(buf);
+  const magic = String.fromCharCode(u8[0], u8[1], u8[2], u8[3]);
+  if (magic !== "NVM1") throw new Error("not a NeuroVM display file");
+  const g32 = o => dv.getUint32(o, true);
+  const h = {
+    version: dv.getUint16(4, true), flags: dv.getUint16(6, true),
+    strOff: g32(8), strCount: g32(12), strLen: g32(16),
+    symOff: g32(20), symCount: g32(24),
+    codeOff: g32(28), codeLen: g32(32),
+    metaOff: g32(36), metaLen: g32(40),
+    crc: g32(44), entry: g32(48),
+    canvasW: g32(52), canvasH: g32(56),
+  };
+
+  const dec = new TextDecoder();
+  const strings = [];
+  let p = h.strOff;
+  for (let i = 0; i < h.strCount; i++) {
+    const n = dv.getUint16(p, true); p += 2;
+    strings.push(dec.decode(u8.subarray(p, p + n))); p += n;
+  }
+
+  const symbols = [], symIndex = new Map();
+  p = h.symOff;
+  for (let i = 0; i < h.symCount; i++) {
+    const nameIdx = dv.getUint16(p, true);
+    const labelIdx = dv.getUint16(p + 2, true);
+    const flags = dv.getUint16(p + 4, true);
+    const s = {
+      name: strings[nameIdx] ?? "?",
+      label: labelIdx === 0xffff ? (strings[nameIdx] ?? "?") : (strings[labelIdx] ?? "?"),
+      severity: flags & 3,
+      valid: !!(flags & 4),
+      domain: (flags >> 3) & 7,
+      hasRef: !!(flags & 0x40),
+      value: dv.getFloat32(p + 8, true),
+      z: dv.getFloat32(p + 12, true),
+      dist: dv.getFloat32(p + 16, true),
+      refLo: dv.getFloat32(p + 20, true),
+      refHi: dv.getFloat32(p + 24, true),
+    };
+    symIndex.set(s.name, i);
+    symbols.push(s);
+    p += 28;
+  }
+
+  const code = new Uint8Array(buf, h.codeOff, h.codeLen);
+  const meta = h.metaLen ? JSON.parse(dec.decode(u8.subarray(h.metaOff, h.metaOff + h.metaLen))) : {};
+  return { h, strings, symbols, symIndex, code, meta, codeView: new DataView(buf, h.codeOff, h.codeLen) };
+}
+
+/* --- state --------------------------------------------------------------- */
+const S = {
+  bc: null,
+  zoom: 1, panX: 0, panY: 0,
+  ptr: { x: -1e9, y: -1e9, over: false },
+  hover: null, selected: null,
+  register: "both",
+  lenses: new Set(),
+  anchors: new Map(),     // rebuilt every frame
+  edges: [],              // rebuilt every frame
+  panels: [],
+  status: "",
+  ops: 0, fps: 0,
+  needsInfo: true,
+};
+
+const cv = document.getElementById("cv");
+const ctx = cv.getContext("2d", { alpha: false });
+const stage = document.getElementById("stage");
+
+/* --- theme token cache ---------------------------------------------------- */
+/* The interpreter runs a few thousand instructions per frame and several of
+   them need a token value. getComputedStyle inside that loop costs more than
+   the entire rest of the frame, so tokens are read once per theme change. */
+let TOK = {};
+function readTokens() {
+  const cs = getComputedStyle(document.documentElement);
+  TOK = {
+    bg: cs.getPropertyValue("--bg").trim(),
+    accent: cs.getPropertyValue("--accent").trim(),
+    deviant: cs.getPropertyValue("--deviant").trim(),
+    muted: cs.getPropertyValue("--muted").trim(),
+    sans: cs.getPropertyValue("--sans").trim(),
+    mono: cs.getPropertyValue("--mono").trim(),
+  };
+}
+
+/* --- colour -------------------------------------------------------------- */
+/* The bytecode carries a light-theme palette. On a dark ground we invert
+   lightness and keep hue, because a naive 255-x inversion rotates hue by 180
+   degrees and turns the "deviant" red into a cyan -- silently reassigning the
+   meaning of every colour on the page. */
+let darkMode = false;
+function rgbaCss(r, g, b, a) {
+  if (darkMode) [r, g, b] = invertLightness(r, g, b);
+  return `rgba(${r},${g},${b},${(a / 255).toFixed(3)})`;
+}
+function invertLightness(r, g, b) {
+  r /= 255; g /= 255; b /= 255;
+  const mx = Math.max(r, g, b), mn = Math.min(r, g, b);
+  let h = 0, s = 0, l = (mx + mn) / 2;
+  const d = mx - mn;
+  if (d > 1e-9) {
+    s = l > 0.5 ? d / (2 - mx - mn) : d / (mx + mn);
+    if (mx === r) h = ((g - b) / d + (g < b ? 6 : 0));
+    else if (mx === g) h = (b - r) / d + 2;
+    else h = (r - g) / d + 4;
+    h /= 6;
+  }
+  l = 0.07 + 0.86 * (1 - l);
+  if (s < 1e-9) { const v = Math.round(l * 255); return [v, v, v]; }
+  const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+  const pp = 2 * l - q;
+  const f = t => {
+    if (t < 0) t += 1; if (t > 1) t -= 1;
+    if (t < 1 / 6) return pp + (q - pp) * 6 * t;
+    if (t < 1 / 2) return q;
+    if (t < 2 / 3) return pp + (q - pp) * (2 / 3 - t) * 6;
+    return pp;
+  };
+  return [Math.round(f(h + 1 / 3) * 255), Math.round(f(h) * 255), Math.round(f(h - 1 / 3) * 255)];
+}
+
+/* --- the interpreter ----------------------------------------------------- */
+function execute(bc, forHitTest) {
+  const { code, codeView: dv, strings, symbols } = bc;
+  const n = code.length;
+
+  const st = [];                       // operand stack
+  const rs = [];                       // return addresses
+  let pc = bc.h.entry;
+  let ops = 0;
+
+  let fill = "#000", lineW = 1, fontSpec = "13px " + TOK.sans;
+  let path = null, pathKind = null, pathArgs = null;
+  let anchorId = null, panelId = null;
+
+  const anchors = S.anchors; anchors.clear();
+  const edges = S.edges; edges.length = 0;
+  const panels = S.panels; panels.length = 0;
+
+  /* One metric can be drawn in more than one panel -- a deviant EEG band
+     appears in the ladder AND as a node in the chord. Accumulating all of its
+     primitives into a single bounding box produces a rectangle spanning half
+     the document, which then swallows every click inside it. So each ANCHOR
+     opens a NEW box, and an id owns a list of boxes: hit testing walks the
+     boxes, and selecting an id highlights every place it appears, which is the
+     more useful behaviour anyway. */
+  let box = null;
+  const bump = (x, y) => {
+    if (!box) return;
+    if (x < box.x0) box.x0 = x; if (x > box.x1) box.x1 = x;
+    if (y < box.y0) box.y0 = y; if (y > box.y1) box.y1 = y;
+  };
+
+  ctx.save();
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.translate(S.panX, S.panY);
+  ctx.scale(S.zoom, S.zoom);
+
+  const toScreen = (x, y) => {
+    const m = ctx.getTransform();
+    return [m.a * x + m.c * y + m.e, m.b * x + m.d * y + m.f];
+  };
+
+  while (pc < n) {
+    if (++ops > 400000) { S.status = "step limit -- bytecode did not halt"; break; }
+    const op = code[pc];
+    const nb = OPERAND[op] ?? 0;
+    let next = pc + 1 + nb;
+
+    switch (op) {
+      case 0x00: pc = n; continue;
+      case 0x01: st.push(dv.getFloat32(pc + 1, true)); break;
+      case 0x02: st.push(dv.getInt32(pc + 1, true)); break;
+      case 0x03: st.push(dv.getUint16(pc + 1, true)); break;
+      case 0x04: st.push(st[st.length - 1]); break;
+      case 0x05: st.pop(); break;
+      case 0x06: { const b = st.pop(), a = st.pop(); st.push(b, a); break; }
+      case 0x07: st.push(st[st.length - 2]); break;
+
+      case 0x10: { const b = st.pop(); st.push(st.pop() + b); break; }
+      case 0x11: { const b = st.pop(); st.push(st.pop() - b); break; }
+      case 0x12: { const b = st.pop(); st.push(st.pop() * b); break; }
+      case 0x13: { const b = st.pop(); const a = st.pop(); st.push(b === 0 ? 0 : a / b); break; }
+      case 0x14: st.push(-st.pop()); break;
+      case 0x15: st.push(Math.abs(st.pop())); break;
+      case 0x16: { const b = st.pop(); st.push(Math.min(st.pop(), b)); break; }
+      case 0x17: { const b = st.pop(); st.push(Math.max(st.pop(), b)); break; }
+      case 0x18: { const hi = st.pop(), lo = st.pop(), v = st.pop();
+                   st.push(Math.max(lo, Math.min(hi, v))); break; }
+      case 0x19: { const t = st.pop(), b = st.pop(), a = st.pop(); st.push(a + (b - a) * t); break; }
+      case 0x1a: { const o1 = st.pop(), o0 = st.pop(), i1 = st.pop(), i0 = st.pop(), v = st.pop();
+                   st.push(i1 === i0 ? o0 : o0 + (v - i0) * (o1 - o0) / (i1 - i0)); break; }
+
+      case 0x20: case 0x21: case 0x22: {
+        const sym = symbols[dv.getUint16(pc + 1, true)];
+        st.push(!sym ? 0 : op === 0x20 ? sym.value : op === 0x21 ? sym.z : sym.dist);
+        break;
+      }
+
+      case 0x30: fill = rgbaCss(code[pc + 1], code[pc + 2], code[pc + 3], code[pc + 4]); break;
+      case 0x31: lineW = Math.max(0.4, dv.getFloat32(pc + 1, true)); break;
+      case 0x32: {
+        const name = strings[dv.getUint16(pc + 1, true)] || "ui";
+        const size = dv.getFloat32(pc + 3, true);
+        const weight = name.includes("bold") ? "650" : "400";
+        fontSpec = `${weight} ${size.toFixed(2)}px ${name.includes("mono") ? TOK.mono : TOK.sans}`;
+        break;
+      }
+      case 0x33: ctx.save(); break;
+      case 0x34: ctx.restore(); break;
+      case 0x35: { const y = st.pop(), x = st.pop(); ctx.translate(x, y); break; }
+      case 0x36: { const sy = st.pop(), sx = st.pop(); ctx.scale(sx, sy); break; }
+      case 0x37: ctx.rotate(st.pop()); break;
+
+      case 0x40:
+        ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0);
+        ctx.fillStyle = TOK.bg;
+        ctx.fillRect(0, 0, cv.width, cv.height); ctx.restore();
+        break;
+
+      case 0x41: { const y = st.pop(), x = st.pop();
+                   pathKind = "line"; path = [[x, y]]; break; }
+      case 0x42: { const y = st.pop(), x = st.pop(); (path ||= []).push([x, y]); break; }
+      case 0x43: pathKind = "line"; path = []; break;
+      case 0x44: if (path && path.length > 1) path.push(path[0]); break;
+
+      case 0x45: case 0x46: {
+        const filling = op === 0x46;
+        ctx.beginPath();
+        if (pathKind === "rect") {
+          const [x, y, w, hh] = pathArgs; ctx.rect(x, y, w, hh);
+          bump(...toScreen(x, y)); bump(...toScreen(x + w, y + hh));
+        } else if (pathKind === "circle") {
+          const [x, y, r] = pathArgs; ctx.arc(x, y, Math.abs(r), 0, Math.PI * 2);
+          bump(...toScreen(x - r, y - r)); bump(...toScreen(x + r, y + r));
+        } else if (pathKind === "arc") {
+          const [x, y, r, a0, a1] = pathArgs; ctx.arc(x, y, Math.abs(r), a0, a1);
+          bump(...toScreen(x - r, y - r)); bump(...toScreen(x + r, y + r));
+        } else if (path && path.length > 1) {
+          ctx.moveTo(path[0][0], path[0][1]);
+          for (let i = 1; i < path.length; i++) ctx.lineTo(path[i][0], path[i][1]);
+          for (const [px, py] of path) bump(...toScreen(px, py));
+        }
+        if (filling) { ctx.fillStyle = fill; ctx.fill(); }
+        else { ctx.strokeStyle = fill; ctx.lineWidth = lineW; ctx.stroke(); }
+        break;
+      }
+
+      case 0x47: { const hh = st.pop(), w = st.pop(), y = st.pop(), x = st.pop();
+                   pathKind = "rect"; pathArgs = [x, y, w, hh]; break; }
+      case 0x48: { const r = st.pop(), y = st.pop(), x = st.pop();
+                   pathKind = "circle"; pathArgs = [x, y, r]; break; }
+      case 0x49: { const a1 = st.pop(), a0 = st.pop(), r = st.pop(), y = st.pop(), x = st.pop();
+                   pathKind = "arc"; pathArgs = [x, y, r, a0, a1]; break; }
+
+      case 0x4a: {
+        const s = strings[dv.getUint16(pc + 1, true)] ?? "";
+        const an = code[pc + 3];
+        const y = st.pop(), x = st.pop();
+        ctx.font = fontSpec;
+        ctx.textAlign = an === 1 ? "center" : an === 2 ? "right" : "left";
+        ctx.textBaseline = "alphabetic";
+        ctx.fillStyle = fill;
+        ctx.fillText(s, x, y);
+        const w = ctx.measureText(s).width;
+        const x0 = an === 1 ? x - w / 2 : an === 2 ? x - w : x;
+        bump(...toScreen(x0, y - 11)); bump(...toScreen(x0 + w, y + 4));
+        break;
+      }
+
+      case 0x50: { panelId = strings[dv.getUint16(pc + 1, true)];
+                   panels.push({ id: panelId, title: strings[dv.getUint16(pc + 3, true)] }); break; }
+      case 0x51: panelId = null; break;
+      case 0x52: {
+        anchorId = strings[dv.getUint16(pc + 1, true)];
+        let a = anchors.get(anchorId);
+        if (!a) { a = { id: anchorId, boxes: [], note: null, flag: 3, cite: null };
+                  anchors.set(anchorId, a); }
+        box = { panel: panelId, x0: Infinity, y0: Infinity, x1: -Infinity, y1: -Infinity };
+        a.boxes.push(box);
+        break;
+      }
+      case 0x53: {
+        const a = anchors.get(anchorId);
+        if (a) a.note = [strings[dv.getUint16(pc + 1, true)], strings[dv.getUint16(pc + 3, true)]];
+        break;
+      }
+      case 0x54: {
+        edges.push({
+          a: strings[dv.getUint16(pc + 1, true)],
+          b: strings[dv.getUint16(pc + 3, true)],
+          hyp: strings[dv.getUint16(pc + 5, true)],
+          w: dv.getFloat32(pc + 7, true),
+          sign: dv.getInt8(pc + 11),
+        });
+        break;
+      }
+      case 0x55: { const a = anchors.get(anchorId); if (a) a.flag = code[pc + 1]; break; }
+      case 0x56: { const a = anchors.get(anchorId); if (a) a.cite = strings[dv.getUint16(pc + 1, true)]; break; }
+
+      case 0x60: next = pc + 3 + dv.getInt16(pc + 1, true); break;
+      case 0x61: if (st.pop() === 0) next = pc + 3 + dv.getInt16(pc + 1, true); break;
+      case 0x62: rs.push(next); next = dv.getUint16(pc + 1, true); break;
+      case 0x63: if (!rs.length) { pc = n; continue; } next = rs.pop(); break;
+
+      default: break;   /* unknown opcode: its operands are still skipped */
+    }
+    pc = next;
+  }
+  ctx.restore();
+  S.ops = ops;
+}
+
+/* --- overlays ------------------------------------------------------------ */
+/* Drawn after the bytecode, in screen space, and never fed back into it. The
+   display file has no idea a pointer exists, which is what lets the same bytes
+   drive a pen plotter. */
+function drawOverlay() {
+  const { accent, deviant, muted } = TOK;
+
+  ctx.save();
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+
+  // Lens dimming: metrics no active hypothesis touches are pushed back rather
+  // than removed, because removing them would change what the ladder claims.
+  if (S.lenses.size) {
+    const keep = new Set();
+    for (const e of S.edges) if (S.lenses.has(e.hyp)) { keep.add(e.a); keep.add(e.b); }
+    ctx.fillStyle = TOK.bg;
+    ctx.globalAlpha = 0.45;
+    for (const a of S.anchors.values()) {
+      if (keep.has(a.id)) continue;
+      for (const b of a.boxes) {
+        if (!isFinite(b.x0)) continue;
+        ctx.fillRect(b.x0 - 3, b.y0 - 2, b.x1 - b.x0 + 6, b.y1 - b.y0 + 4);
+      }
+    }
+    ctx.globalAlpha = 1;
+
+    // Patch cords, in the Max sense: the connections are the program, so they
+    // are drawn as first-class objects rather than implied by adjacency.
+    ctx.lineWidth = 1.25;
+    for (const e of S.edges) {
+      if (!S.lenses.has(e.hyp)) continue;
+      const A = firstBox(e.a), B = firstBox(e.b);
+      if (!A || !B) continue;
+      const ax = (A.x0 + A.x1) / 2, ay = (A.y0 + A.y1) / 2;
+      const bx = (B.x0 + B.x1) / 2, by = (B.y0 + B.y1) / 2;
+      ctx.strokeStyle = e.sign > 0 ? accent : deviant;
+      ctx.globalAlpha = 0.5;
+      ctx.beginPath();
+      ctx.moveTo(ax, ay);
+      const mx = (ax + bx) / 2, sag = Math.min(70, Math.abs(bx - ax) * 0.25 + 14);
+      ctx.bezierCurveTo(mx, ay + sag, mx, by + sag, bx, by);
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+    }
+  }
+
+  // Every instance of the hovered or selected metric is outlined, so pinning a
+  // metric in the ladder also shows you where it turns up in the chord.
+  for (const [id, colour, w] of [[S.hover, muted, 1], [S.selected, accent, 2]]) {
+    if (!id) continue;
+    const a = S.anchors.get(id);
+    if (!a) continue;
+    ctx.strokeStyle = colour;
+    ctx.lineWidth = w;
+    for (const b of a.boxes) {
+      if (!isFinite(b.x0)) continue;
+      ctx.strokeRect(b.x0 - 4.5, b.y0 - 3.5, b.x1 - b.x0 + 9, b.y1 - b.y0 + 7);
+    }
+  }
+
+  // A selected metric lights every prior-graph edge that touches it, whether or
+  // not its hypothesis lens is on. Selection is a question; the answer should
+  // not depend on remembering to turn a lens on first.
+  if (S.selected) {
+    ctx.setLineDash([4, 4]);
+    ctx.lineWidth = 1.25;
+    for (const e of S.edges) {
+      if (e.a !== S.selected && e.b !== S.selected) continue;
+      const A = firstBox(e.a), B = firstBox(e.b);
+      if (!A || !B) continue;
+      ctx.strokeStyle = e.sign > 0 ? accent : deviant;
+      ctx.globalAlpha = 0.75;
+      ctx.beginPath();
+      ctx.moveTo((A.x0 + A.x1) / 2, (A.y0 + A.y1) / 2);
+      ctx.lineTo((B.x0 + B.x1) / 2, (B.y0 + B.y1) / 2);
+      ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
+    ctx.setLineDash([]);
+  }
+  ctx.restore();
+}
+
+/* Smallest containing box wins, so a metric row inside a panel beats the panel
+   frame around it and a chord node beats the ring it sits on. */
+function hitTest() {
+  if (!S.ptr.over) return null;
+  let best = null, bestArea = Infinity;
+  for (const a of S.anchors.values()) {
+    for (const b of a.boxes) {
+      if (!isFinite(b.x0)) continue;
+      if (S.ptr.x < b.x0 - 3 || S.ptr.x > b.x1 + 3) continue;
+      if (S.ptr.y < b.y0 - 3 || S.ptr.y > b.y1 + 3) continue;
+      const area = (b.x1 - b.x0 + 6) * (b.y1 - b.y0 + 6);
+      if (area < bestArea) { bestArea = area; best = a.id; }
+    }
+  }
+  return best;
+}
+
+/* The first box an id owns, used wherever a single point has to stand for the
+   metric: the endpoint of a patch cord, or the target of a scroll-into-view. */
+function firstBox(id) {
+  const a = S.anchors.get(id);
+  if (!a) return null;
+  for (const b of a.boxes) if (isFinite(b.x0)) return b;
+  return null;
+}
+
+/* --- frame loop ---------------------------------------------------------- */
+let lastT = performance.now(), frames = 0, fpsT = lastT;
+function frame(t) {
+  frames++;
+  if (t - fpsT > 500) { S.fps = Math.round(frames * 1000 / (t - fpsT)); frames = 0; fpsT = t; }
+
+  const dpr = Math.min(2, window.devicePixelRatio || 1);
+  const w = stage.clientWidth, h = stage.clientHeight;
+  if (cv.width !== Math.round(w * dpr) || cv.height !== Math.round(h * dpr)) {
+    cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr);
+    cv.style.width = w + "px"; cv.style.height = h + "px";
+  }
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.fillStyle = TOK.bg;
+  ctx.fillRect(0, 0, w, h);
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+  execute(S.bc, true);
+
+  const hit = hitTest();
+  if (hit !== S.hover) {
+    S.hover = hit;
+    S.needsInfo = true;
+    if (hit) {
+      const a = S.anchors.get(hit);
+      setStatus(a?.note ? a.note[0] : hit);
+    }
+  }
+  drawOverlay();
+  if (S.needsInfo) { renderInfo(); S.needsInfo = false; }
+
+  document.getElementById("stat-zoom").textContent = Math.round(S.zoom * 100) + "%";
+  document.getElementById("stat-ops").textContent = S.ops.toLocaleString() + " ops/frame";
+  document.getElementById("stat-fps").textContent = S.fps + " fps";
+  requestAnimationFrame(frame);
+}
+
+/* --- info view ----------------------------------------------------------- */
+const SEV = ["within reference", "borderline", "deviant", "not measured"];
+const DOMAIN = ["self-report", "psychometric", "behavioural", "EEG", "ERP", "autonomic", "immune", "derived"];
+
+function esc(s) { return String(s).replace(/[&<>]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c])); }
+
+function renderInfo() {
+  const id = S.selected || S.hover;
+  const body = document.getElementById("panelbody");
+  if (!id) {
+    body.innerHTML = `<p class="empty">Hover anything to read it. Click to pin it, and every
+      prior-graph link that touches it lights up.</p>
+      <p class="empty" style="margin-top:14px">
+      <kbd>1</kbd>–<kbd>5</kbd> lenses &nbsp; <kbd>p</kbd><kbd>f</kbd><kbd>b</kbd> register
+      &nbsp; <kbd>/</kbd> find &nbsp; <kbd>0</kbd> fit &nbsp; <kbd>i</kbd> info
+      &nbsp; <kbd>esc</kbd> clear</p>
+      <p class="empty" style="margin-top:10px">Scroll or drag to move. Ctrl-scroll to zoom.</p>`;
+    return;
+  }
+  const a = S.anchors.get(id);
+  const si = S.bc.symIndex.get(id);
+  const sym = si === undefined ? null : S.bc.symbols[si];
+  const sev = sym ? sym.severity : (a?.flag ?? 3);
+
+  let html = `<h2>${esc(sym ? sym.label : id)}</h2>
+    <div class="sev sev-${sev}">${SEV[sev]}</div>`;
+
+  if (sym) {
+    html += `<dl class="readout">
+      <dt>id</dt><dd>${esc(sym.name)}</dd>
+      <dt>domain</dt><dd>${DOMAIN[sym.domain]}</dd>
+      <dt>value</dt><dd>${sym.valid ? fmt(sym.value) : "not measured"}</dd>
+      ${sym.hasRef ? `<dt>reference</dt><dd>${fmt(sym.refLo)} to ${fmt(sym.refHi)}</dd>` : ""}
+      <dt>deviation</dt><dd>${sym.z >= 0 ? "+" : ""}${sym.z.toFixed(2)} half-bands</dd>
+      <dt>margin</dt><dd>${sym.dist >= 0 ? "+" : ""}${(sym.dist * 100).toFixed(1)}% of threshold</dd>
+    </dl>`;
+  }
+
+  // Only about half the metrics carry a hand-written explanation. The rest get
+  // a generated one rather than an empty panel: a blank inspector reads as a
+  // broken tool, and everything needed for a true sentence is in the symbol.
+  if (!a?.note && sym && sym.valid) {
+    const inside = sym.dist <= 0;
+    const pct = Math.abs(sym.dist * 100).toFixed(0);
+    html += `<div class="reg-label">Plain language</div><div class="reg-body">` +
+      `${esc(sym.label)} measured ${fmt(sym.value)}` +
+      (sym.hasRef ? `, against a reference of ${fmt(sym.refLo)} to ${fmt(sym.refHi)}. ` : ". ") +
+      (inside ? `That is inside reference with ${pct}% of margin left.`
+              : `That is ${pct}% past the nearer edge.`) +
+      `</div>`;
+    if (S.register !== "plain") {
+      html += `<div class="reg-label">Full fat</div><div class="reg-body full">` +
+        `No hand-written note for this metric. It contributes to the ranking and, ` +
+        `where the prior graph names it, to the concordance scores. ` +
+        `Its domain treatment is in docs/02-full-fat.md &sect;1.` +
+        `</div>`;
+    }
+  }
+
+  if (a?.note) {
+    const [plain, full] = a.note;
+    if (S.register !== "full") html += `<div class="reg-label">Plain language</div>
+      <div class="reg-body">${esc(plain)}</div>`;
+    if (S.register !== "plain") html += `<div class="reg-label">Full fat</div>
+      <div class="reg-body full">${esc(full)}</div>`;
+  }
+  if (a?.cite) html += `<div class="reg-label">Coverage</div><div class="reg-body">${esc(a.cite)}</div>`;
+
+  const rel = S.edges.filter(e => e.a === id || e.b === id);
+  if (rel.length) {
+    html += `<div class="reg-label">Linked by the prior graph</div><div class="links">`;
+    for (const e of rel) {
+      const other = e.a === id ? e.b : e.a;
+      const oi = S.bc.symIndex.get(other);
+      const label = oi === undefined ? other : S.bc.symbols[oi].label;
+      html += `<button class="linkrow" data-goto="${esc(other)}">
+        <span class="rel">${e.sign > 0 ? "moves with" : "moves against"}</span>
+        <span class="to">${esc(label)}</span>
+        <span class="hy">${esc(e.hyp)} w${e.w.toFixed(1)}</span></button>`;
+    }
+    html += `</div>`;
+  }
+  body.innerHTML = html;
+  body.querySelectorAll("[data-goto]").forEach(b =>
+    b.addEventListener("click", () => selectAnchor(b.dataset.goto)));
+}
+
+function fmt(v) {
+  const a = Math.abs(v);
+  if (a === 0) return "0";
+  if (a >= 1000 || a < 0.01) return v.toPrecision(4);
+  return v.toFixed(a < 10 ? 3 : 2).replace(/\.?0+$/, "");
+}
+
+function selectAnchor(id) {
+  S.selected = id;
+  S.needsInfo = true;
+  const b = firstBox(id);
+  if (b) {
+    const cx = (b.x0 + b.x1) / 2, cy = (b.y0 + b.y1) / 2;
+    const w = stage.clientWidth, h = stage.clientHeight;
+    if (cy < 40 || cy > h - 40) S.panY += (h / 2 - cy);
+    if (cx < 40 || cx > w - 40) S.panX += (w / 2 - cx);
+    clampPan();
+  }
+  setStatus("pinned " + id + " — click empty space to unpin");
+}
+
+function setStatus(m) { S.status = m; document.getElementById("status").textContent = m; }
+
+/* --- input --------------------------------------------------------------- */
+/* Left-drag pans and a left-click without meaningful movement selects, which
+   is the interaction every map on the web already taught people. A modifier-
+   only pan (the earlier design) is undiscoverable: nothing on screen can tell
+   you the modifier exists, and a 3000 px document that appears not to scroll
+   reads as broken rather than as needing a chord. */
+const DRAG_SLOP = 4;
+let down = null, dragging = false;
+
+cv.addEventListener("pointermove", e => {
+  const r = cv.getBoundingClientRect();
+  S.ptr.x = e.clientX - r.left; S.ptr.y = e.clientY - r.top; S.ptr.over = true;
+  if (!down) return;
+  if (!dragging && Math.hypot(e.clientX - down.cx, e.clientY - down.cy) > DRAG_SLOP) {
+    dragging = true;
+    cv.style.cursor = "grabbing";
+  }
+  if (dragging) { S.panX += e.movementX; S.panY += e.movementY; }
+});
+cv.addEventListener("pointerleave", () => { S.ptr.over = false; S.hover = null; S.needsInfo = true; });
+
+cv.addEventListener("pointerdown", e => {
+  if (e.button !== 0 && e.button !== 1) return;
+  down = { cx: e.clientX, cy: e.clientY };
+  cv.setPointerCapture(e.pointerId);
+});
+cv.addEventListener("pointerup", e => {
+  const wasDrag = dragging;
+  down = null; dragging = false;
+  cv.style.cursor = "crosshair";
+  if (wasDrag || e.button !== 0) return;
+  const hit = hitTest();
+  if (hit) selectAnchor(hit);
+  else { S.selected = null; S.needsInfo = true; setStatus("unpinned"); }
+});
+
+/* Wheel scrolls, ctrl/cmd-wheel zooms about the pointer. Trackpad pinch
+   arrives as ctrlKey wheel, so pinch-to-zoom works without extra code. */
+cv.addEventListener("wheel", e => {
+  e.preventDefault();
+  const r = cv.getBoundingClientRect();
+  const mx = e.clientX - r.left, my = e.clientY - r.top;
+  if (e.ctrlKey || e.metaKey) {
+    const k = Math.exp(-e.deltaY * 0.0035);
+    const z2 = Math.max(0.25, Math.min(5, S.zoom * k));
+    const s = z2 / S.zoom;
+    S.panX = mx - (mx - S.panX) * s;
+    S.panY = my - (my - S.panY) * s;
+    S.zoom = z2;
+  } else if (e.shiftKey) {
+    S.panX -= e.deltaY + e.deltaX;
+  } else {
+    S.panX -= e.deltaX;
+    S.panY -= e.deltaY;
+  }
+  clampPan();
+}, { passive: false });
+
+/* Keep at least a strip of the document on screen. Free panning into empty
+   space is the fastest way to make a canvas feel broken. */
+function clampPan() {
+  const w = stage.clientWidth, h = stage.clientHeight;
+  const dw = S.bc.h.canvasW * S.zoom, dh = S.bc.h.canvasH * S.zoom;
+  S.panX = Math.min(w - 80, Math.max(80 - dw, S.panX));
+  S.panY = Math.min(h - 80, Math.max(80 - dh, S.panY));
+}
+
+function fitWidth() {
+  const w = stage.clientWidth;
+  S.zoom = Math.max(0.25, Math.min(2, (w - 24) / S.bc.h.canvasW));
+  S.panX = (w - S.bc.h.canvasW * S.zoom) / 2;
+  S.panY = 12;
+  setStatus("fit to width — scroll to move, ctrl-scroll to zoom");
+}
+
+/* --- chrome -------------------------------------------------------------- */
+function buildLenses() {
+  const box = document.getElementById("lenses");
+  const hyps = S.bc.meta.hypotheses || [];
+  hyps.forEach((h, i) => {
+    const b = document.createElement("button");
+    b.className = "lens";
+    b.setAttribute("aria-pressed", "false");
+    b.dataset.hyp = h.id;
+    const strong = h.C > 0.25 && h.p < 0.05;
+    b.innerHTML = `<span class="num">${i + 1}</span>${esc(shortName(h.name))}`;
+    b.title = `${h.id} ${h.name} — C ${h.C >= 0 ? "+" : ""}${h.C.toFixed(2)}, p ${h.p.toFixed(4)}` +
+              (strong ? " (separates from the permutation null)" : " (does not separate from the null)");
+    b.addEventListener("click", () => toggleLens(h.id));
+    box.appendChild(b);
+  });
+}
+function shortName(n) {
+  return n.replace(/^(Sympathetic|Timing|Mood|Allergic|Classic).*/, m => ({
+    "Sympathetic": "arousal", "Timing": "timing", "Mood": "affect",
+    "Allergic": "immune", "Classic": "ADHD",
+  })[m.split(" ")[0]] || n).slice(0, 14);
+}
+function toggleLens(id) {
+  if (S.lenses.has(id)) S.lenses.delete(id); else S.lenses.add(id);
+  for (const b of document.querySelectorAll(".lens"))
+    b.setAttribute("aria-pressed", S.lenses.has(b.dataset.hyp) ? "true" : "false");
+  const on = [...S.lenses];
+  setStatus(on.length ? "lenses " + on.join(" + ") + " — everything else is dimmed, not hidden"
+                      : "all lenses off");
+}
+
+document.getElementById("reg").addEventListener("click", e => {
+  const b = e.target.closest("button"); if (!b) return;
+  S.register = b.dataset.reg;
+  for (const x of document.querySelectorAll("#reg button"))
+    x.setAttribute("aria-pressed", x === b ? "true" : "false");
+  S.needsInfo = true;
+});
+
+document.getElementById("btn-fit").addEventListener("click", fitWidth);
+document.getElementById("btn-info").addEventListener("click", toggleInfo);
+document.getElementById("btn-find").addEventListener("click", openFind);
+document.getElementById("btn-theme").addEventListener("click", cycleTheme);
+
+function toggleInfo() {
+  const m = document.getElementById("main");
+  m.classList.toggle("noinfo");
+  const on = !m.classList.contains("noinfo");
+  document.getElementById("btn-info").setAttribute("aria-pressed", on ? "true" : "false");
+  setStatus(on ? "info view shown" : "info view hidden");
+}
+
+const THEMES = ["system", "light", "dark"];
+let themeIdx = 0;
+function cycleTheme() {
+  themeIdx = (themeIdx + 1) % 3;
+  const t = THEMES[themeIdx];
+  if (t === "system") document.documentElement.removeAttribute("data-theme");
+  else document.documentElement.setAttribute("data-theme", t);
+  syncDark();
+  setStatus("theme: " + t);
+}
+function syncDark() {
+  const forced = document.documentElement.getAttribute("data-theme");
+  darkMode = forced ? forced === "dark"
+                    : window.matchMedia("(prefers-color-scheme: dark)").matches;
+  readTokens();
+}
+window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", syncDark);
+
+/* --- find ---------------------------------------------------------------- */
+const dlg = document.getElementById("find");
+const q = document.getElementById("q");
+const hits = document.getElementById("hits");
+let hitIdx = 0;
+
+function openFind() { q.value = ""; refreshHits(); dlg.showModal(); q.focus(); }
+function refreshHits() {
+  const needle = q.value.toLowerCase();
+  const rows = S.bc.symbols
+    .map((s, i) => ({ s, i }))
+    .filter(({ s }) => !needle || s.name.toLowerCase().includes(needle) ||
+                                  s.label.toLowerCase().includes(needle))
+    .sort((a, b) => b.s.dist - a.s.dist)
+    .slice(0, 40);
+  hits.innerHTML = rows.map(({ s }, i) => `<li role="option" data-id="${esc(s.name)}"
+      aria-selected="${i === 0}">
+      <span class="lb">${esc(s.label)}</span>
+      <span class="id">${esc(s.name)}</span>
+      <span class="dv sev-${s.severity}">${s.dist >= 0 ? "+" : ""}${(s.dist * 100).toFixed(0)}%</span>
+    </li>`).join("");
+  hitIdx = 0;
+  hits.querySelectorAll("li").forEach(li =>
+    li.addEventListener("click", () => { selectAnchor(li.dataset.id); dlg.close(); }));
+}
+q.addEventListener("input", refreshHits);
+q.addEventListener("keydown", e => {
+  const items = [...hits.querySelectorAll("li")];
+  if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+    e.preventDefault();
+    hitIdx = Math.max(0, Math.min(items.length - 1, hitIdx + (e.key === "ArrowDown" ? 1 : -1)));
+    items.forEach((li, i) => li.setAttribute("aria-selected", i === hitIdx));
+    items[hitIdx]?.scrollIntoView({ block: "nearest" });
+  } else if (e.key === "Enter") {
+    e.preventDefault();
+    if (items[hitIdx]) { selectAnchor(items[hitIdx].dataset.id); dlg.close(); }
+  }
+});
+
+/* --- keys ---------------------------------------------------------------- */
+window.addEventListener("keydown", e => {
+  if (e.target.tagName === "INPUT" || dlg.open) return;
+  const hyps = S.bc.meta.hypotheses || [];
+  if (e.key >= "1" && e.key <= "5") {
+    const h = hyps[+e.key - 1];
+    if (h) toggleLens(h.id);
+  } else if (e.key === "p" || e.key === "f" || e.key === "b") {
+    const map = { p: "plain", f: "full", b: "both" };
+    document.querySelector(`#reg [data-reg="${map[e.key]}"]`).click();
+  } else if (e.key === "0") { fitWidth(); }
+  else if (e.key === "/") { e.preventDefault(); openFind(); }
+  else if (e.key === "i") { toggleInfo(); }
+  else if (e.key.startsWith("Arrow") || e.key === "PageDown" || e.key === "PageUp") {
+    // Keyboard-only readers must be able to reach the bottom of a 3000 px
+    // document without a pointing device.
+    e.preventDefault();
+    const step = e.shiftKey ? 40 : 140;
+    const page = stage.clientHeight - 60;
+    if (e.key === "ArrowDown") S.panY -= step;
+    if (e.key === "ArrowUp") S.panY += step;
+    if (e.key === "ArrowLeft") S.panX += step;
+    if (e.key === "ArrowRight") S.panX -= step;
+    if (e.key === "PageDown") S.panY -= page;
+    if (e.key === "PageUp") S.panY += page;
+    clampPan();
+  }
+  else if (e.key === "Escape") { S.selected = null; S.lenses.clear();
+    for (const b of document.querySelectorAll(".lens")) b.setAttribute("aria-pressed", "false");
+    S.needsInfo = true; setStatus("cleared"); }
+});
+
+/* --- accessible mirror --------------------------------------------------- */
+/* Built once, after the first frame has populated the anchor notes. Rows are
+   sorted the same way the ladder panel is, so a screen-reader user meets the
+   findings in the same order a sighted one does. */
+function buildA11yTable() {
+  const rows = S.bc.symbols
+    .filter(s => s.valid)
+    .sort((a, b) => b.dist - a.dist);
+
+  const nDev = rows.filter(s => s.severity === 2).length;
+  const nHair = rows.filter(s => s.severity === 1).length;
+  document.getElementById("a11y-sum").textContent =
+    `${rows.length} metrics from one session on ${S.bc.meta.date ?? "2026-08-18"}. ` +
+    `${nDev} sit more than 15% past their own reference threshold; ${nHair} are ` +
+    `hairline flags under 8% past. Sorted furthest-past first. Not a diagnosis.`;
+
+  const tbody = document.getElementById("a11y-rows");
+  tbody.innerHTML = rows.map(s => {
+    const a = S.anchors.get(s.name);
+    const plain = a?.note ? a.note[0]
+      : (s.hasRef ? `${fmt(s.value)} against a reference of ${fmt(s.refLo)} to ${fmt(s.refHi)}.`
+                  : `${fmt(s.value)}, no reference band.`);
+    return `<tr>
+      <th scope="row"><button data-goto="${esc(s.name)}">${esc(s.label)}</button></th>
+      <td>${DOMAIN[s.domain]}</td>
+      <td class="num">${fmt(s.value)}</td>
+      <td class="num">${s.dist >= 0 ? "+" : ""}${(s.dist * 100).toFixed(1)}%</td>
+      <td>${SEV[s.severity]}</td>
+      <td>${esc(plain)}</td>
+    </tr>`;
+  }).join("");
+
+  tbody.querySelectorAll("[data-goto]").forEach(b =>
+    b.addEventListener("click", () => selectAnchor(b.dataset.goto)));
+}
+
+/* --- boot ---------------------------------------------------------------- */
+function b64ToBuf(b64) {
+  const bin = atob(b64.replace(/\s+/g, ""));
+  const u8 = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i);
+  return u8.buffer;
+}
+
+try {
+  S.bc = parseNVM(b64ToBuf(document.getElementById("nvm-payload").textContent));
+  readTokens();
+  syncDark();
+  buildLenses();
+  fitWidth();
+  const nDev = S.bc.symbols.filter(s => s.severity === 2).length;
+  setStatus(`${S.bc.symbols.length} metrics, ${nDev} past threshold, ` +
+            `${S.bc.meta.permutations?.toLocaleString() ?? "?"} permutations — hover anything`);
+  requestAnimationFrame(() => {
+    frame(performance.now());
+    // The anchor notes only exist after one execution pass, so the mirror is
+    // built from the second frame rather than from the parsed file.
+    requestAnimationFrame(t => { buildA11yTable(); frame(t); });
+  });
+  window.addEventListener("resize", () => { S.needsInfo = true; });
+} catch (err) {
+  document.getElementById("status").textContent = "failed to load display file: " + err.message;
+  console.error(err);
+}
+</script>

@@ -1,0 +1,199 @@
+{
+  "schema": "neuro/session/v1",
+  "session": {
+    "id": "Evoke01090P2185S1",
+    "date": "2026-08-18",
+    "site": "14 Street Medical PC, New York, NY",
+    "subject_ref": "SUBJ-001",
+    "age_years": 31.17,
+    "sex": "M",
+    "handedness": "right",
+    "presenting_complaint": "Attention and concentration deficit",
+    "medications": "UNKNOWN (not recorded at time of test)",
+    "sources": [
+      { "id": "EVOKE_COMP", "title": "Evoke Comprehensive Report r5.9.1", "pages": 13, "vendor": "Evoke Neuroscience, Inc." },
+      { "id": "EVOKE_SUMM", "title": "Evoke Summary Report r5.9.1", "pages": 1, "vendor": "Evoke Neuroscience, Inc." },
+      { "id": "FIREFLY_BIR", "title": "Brain Insights Report", "pages": 3, "vendor": "Firefly Neuroscience, Inc." },
+      { "id": "ECG12", "title": "12-lead resting ECG", "pages": 1, "vendor": "Midmark Diagnostics Group, ECG Analysis v8.4.2" },
+      { "id": "SPT40", "title": "Percutaneous allergy skin test, 40 allergens", "pages": 1, "vendor": "Stallergenes Greer Skintestor OMNI" }
+    ]
+  },
+
+  "acquisition": {
+    "eeg": {
+      "montage": "10-20, 19 channels, linked-ear reference (vendor default)",
+      "channels_total": 19,
+      "channels_rejected": ["FZ", "T8", "P3", "P8"],
+      "channels_reliable": 15,
+      "conditions": ["eyes_open", "eyes_closed"],
+      "headmap_bins_hz": [2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30],
+      "bands": {
+        "delta": [2,3], "theta": [4,7], "alpha1": [8,9],
+        "alpha2": [10,12], "beta1": [13,18], "beta2": [19,30]
+      },
+      "bands_firefly": {
+        "theta": [3.5,7.5], "alpha1": [7.5,10.0], "alpha2": [10.0,12.5],
+        "beta1": [12.5,25.0], "beta2": [25.0,35.0], "spindle": [19.0,21.0]
+      },
+      "loreta_performed": false,
+      "loreta_suppressed_because": "fewer than 18 reliable EEG channels"
+    },
+    "erp": {
+      "paradigm": "visual oddball + checkerboard, go/no-go button press",
+      "epoch_ms": [-200, 1000]
+    },
+    "ecg": { "lead_for_hrv": "single-lead, 2 min resting", "twelve_lead_speed_mm_s": 25, "twelve_lead_gain_mm_mV": 10 },
+    "spt": { "route": "percutaneous", "site": "arm", "readout": "wheal diameter mm at 15 min", "positive_threshold_mm": 3 }
+  },
+
+  "metrics": [
+    { "id": "srs.memory",        "domain": "subjective", "label": "Memory (self-report)",            "value": 45.24, "unit": "pct", "ref": {"lo": 61, "hi": 100}, "polarity": "higher_better", "source": "FIREFLY_BIR", "confidence": "high" },
+    { "id": "srs.exec_attn",     "domain": "subjective", "label": "Executive & Attention (self-report)", "value": 8.33, "unit": "pct", "ref": {"lo": 61, "hi": 100}, "polarity": "higher_better", "source": "FIREFLY_BIR", "confidence": "high" },
+    { "id": "srs.word_fluency",  "domain": "subjective", "label": "Word Fluency (self-report)",      "value": 31.25, "unit": "pct", "ref": {"lo": 61, "hi": 100}, "polarity": "higher_better", "source": "FIREFLY_BIR", "confidence": "high" },
+    { "id": "srs.affect",        "domain": "subjective", "label": "Affect / Mood (self-report)",     "value": 16.67, "unit": "pct", "ref": {"lo": 61, "hi": 100}, "polarity": "higher_better", "source": "FIREFLY_BIR", "confidence": "high" },
+    { "id": "srs.sensory",       "domain": "subjective", "label": "Sensory (self-report)",           "value": 45.83, "unit": "pct", "ref": {"lo": 61, "hi": 100}, "polarity": "higher_better", "source": "FIREFLY_BIR", "confidence": "high" },
+    { "id": "srs.motor",         "domain": "subjective", "label": "Motor (self-report)",             "value": 29.17, "unit": "pct", "ref": {"lo": 61, "hi": 100}, "polarity": "higher_better", "source": "FIREFLY_BIR", "confidence": "high" },
+    { "id": "srs.global",        "domain": "subjective", "label": "Global screener score",           "value": 34.00, "unit": "pct", "ref": {"lo": 61, "hi": 100}, "polarity": "higher_better", "source": "EVOKE_COMP", "confidence": "high" },
+
+    { "id": "mem.spatial_nav",   "domain": "subjective", "label": "Spatial navigation",   "value": 50, "unit": "pct", "ref": {"lo": 61, "hi": 100}, "polarity": "higher_better", "source": "EVOKE_COMP", "confidence": "high" },
+    { "id": "mem.temporal",      "domain": "subjective", "label": "Temporal orientation", "value": 69, "unit": "pct", "ref": {"lo": 61, "hi": 100}, "polarity": "higher_better", "source": "EVOKE_COMP", "confidence": "high" },
+    { "id": "mem.procedural",    "domain": "subjective", "label": "Procedural actions",   "value":  0, "unit": "pct", "ref": {"lo": 61, "hi": 100}, "polarity": "higher_better", "source": "EVOKE_COMP", "confidence": "high" },
+    { "id": "mem.episodic_place","domain": "subjective", "label": "Episodic memory for places", "value": 92, "unit": "pct", "ref": {"lo": 61, "hi": 100}, "polarity": "higher_better", "source": "EVOKE_COMP", "confidence": "high" },
+    { "id": "mem.face_recog",    "domain": "subjective", "label": "Face recognition",     "value": 67, "unit": "pct", "ref": {"lo": 61, "hi": 100}, "polarity": "higher_better", "source": "EVOKE_COMP", "confidence": "high" },
+    { "id": "mem.semantic_word", "domain": "subjective", "label": "Semantic word knowledge", "value": 17, "unit": "pct", "ref": {"lo": 61, "hi": 100}, "polarity": "higher_better", "source": "EVOKE_COMP", "confidence": "high" },
+
+    { "id": "psy.phq9",  "domain": "psychometric", "label": "PHQ-9 depression",  "value": 12, "unit": "score", "ref": {"lo": 0, "hi": 4},  "scale_max": 27, "polarity": "lower_better", "source": "FIREFLY_BIR", "confidence": "high" },
+    { "id": "psy.gad7",  "domain": "psychometric", "label": "GAD-7 anxiety",     "value": 13, "unit": "score", "ref": {"lo": 0, "hi": 4},  "scale_max": 21, "polarity": "lower_better", "source": "FIREFLY_BIR", "confidence": "high" },
+    { "id": "psy.pclc",  "domain": "psychometric", "label": "PCL-C PTSD checklist", "value": 49, "unit": "score", "ref": {"lo": 17, "hi": 29}, "scale_max": 85, "polarity": "lower_better", "source": "FIREFLY_BIR", "confidence": "high" },
+
+    { "id": "beh.rt",        "domain": "behavioral", "label": "Reaction time",           "value": 588.12, "unit": "ms",  "ref": {"lo": 200, "hi": 500}, "polarity": "lower_better", "source": "EVOKE_COMP", "confidence": "high" },
+    { "id": "beh.rt_sd",     "domain": "behavioral", "label": "Reaction-time variability","value": 18.61, "unit": "ms",  "ref": {"lo": 0, "hi": 10},   "polarity": "lower_better", "source": "EVOKE_COMP", "confidence": "high", "note": "reported as 19 ms rounded on summary pages" },
+    { "id": "beh.omission",  "domain": "behavioral", "label": "Omission errors",         "value": 8.57,  "unit": "pct", "ref": {"lo": 0, "hi": 10},   "polarity": "lower_better", "source": "EVOKE_COMP", "confidence": "high" },
+    { "id": "beh.commission","domain": "behavioral", "label": "Commission errors",       "value": 2.45,  "unit": "pct", "ref": {"lo": 0, "hi": 3},    "polarity": "lower_better", "source": "EVOKE_COMP", "confidence": "high" },
+
+    { "id": "eeg.tbr_eo",    "domain": "eeg", "label": "Theta:Beta ratio (eyes open, midline-central)", "value": 2.190, "unit": "ratio", "ref": {"lo": 0, "hi": 2.1}, "polarity": "lower_better", "source": "EVOKE_COMP", "confidence": "high", "caveat": "Monastra normative tables do not extend past age 31" },
+    { "id": "eeg.paf_ec",    "domain": "eeg", "label": "Peak alpha frequency (eyes closed, occipital)", "value": 11.10, "unit": "Hz", "ref": {"lo": 8.9, "hi": 11.0}, "polarity": "band", "source": "EVOKE_COMP", "confidence": "high" },
+    { "id": "eeg.paf_eo",    "domain": "eeg", "label": "Peak alpha frequency (eyes open)", "value": null, "unit": "Hz", "ref": {"lo": 8.9, "hi": 11.0}, "polarity": "band", "source": "EVOKE_COMP", "confidence": "high", "note": "reported Indiscernible" },
+
+    { "id": "eegz.c.theta",  "domain": "eeg_z", "label": "Central theta z (3.5-7.5 Hz, EC)",   "value":  0.29, "unit": "z", "ref": {"lo": -2, "hi": 2}, "polarity": "band", "source": "FIREFLY_BIR", "confidence": "high" },
+    { "id": "eegz.c.alpha1", "domain": "eeg_z", "label": "Central alpha1 z (7.5-10 Hz, EC)",   "value": -1.21, "unit": "z", "ref": {"lo": -2, "hi": 2}, "polarity": "band", "source": "FIREFLY_BIR", "confidence": "high" },
+    { "id": "eegz.c.alpha2", "domain": "eeg_z", "label": "Central alpha2 z (10-12.5 Hz, EC)",  "value":  2.18, "unit": "z", "ref": {"lo": -2, "hi": 2}, "polarity": "band", "source": "FIREFLY_BIR", "confidence": "high" },
+    { "id": "eegz.c.beta1",  "domain": "eeg_z", "label": "Central beta1 z (12.5-25 Hz, EC)",   "value":  1.92, "unit": "z", "ref": {"lo": -2, "hi": 2}, "polarity": "band", "source": "FIREFLY_BIR", "confidence": "high" },
+    { "id": "eegz.c.beta2",  "domain": "eeg_z", "label": "Central beta2 z (25-35 Hz, EC)",     "value": -0.00, "unit": "z", "ref": {"lo": -2, "hi": 2}, "polarity": "band", "source": "FIREFLY_BIR", "confidence": "high" },
+    { "id": "eegz.c.spindle","domain": "eeg_z", "label": "Central spindle z (19-21 Hz, EC)",   "value": -1.33, "unit": "z", "ref": {"lo": -2, "hi": 2}, "polarity": "band", "source": "FIREFLY_BIR", "confidence": "high" },
+    { "id": "eegz.g.theta",  "domain": "eeg_z", "label": "Global theta z (decision engine)",   "value": -1.35, "unit": "z", "ref": {"lo": -2, "hi": 2}, "polarity": "band", "source": "EVOKE_COMP", "confidence": "medium", "note": "quoted inside Neurofunctional Domains narrative; montage not stated" },
+    { "id": "eegz.g.beta",   "domain": "eeg_z", "label": "Global beta z (decision engine)",    "value": -2.20, "unit": "z", "ref": {"lo": -2, "hi": 2}, "polarity": "band", "source": "EVOKE_COMP", "confidence": "medium" },
+    { "id": "eegz.g.delta",  "domain": "eeg_z", "label": "Global delta z (decision engine)",   "value": -1.15, "unit": "z", "ref": {"lo": -2, "hi": 2}, "polarity": "band", "source": "EVOKE_COMP", "confidence": "medium" },
+
+    { "id": "erp.p3a_lat", "domain": "erp", "label": "P300a latency (Cz, novelty)",  "value": 468, "unit": "ms", "ref": {"lo": 0, "hi": 450}, "polarity": "lower_better", "source": "EVOKE_COMP", "confidence": "high" },
+    { "id": "erp.p3a_amp", "domain": "erp", "label": "P300a amplitude (Cz)",         "value": 17.26, "unit": "uV", "ref": {"lo": 6, "hi": 40}, "polarity": "higher_better", "source": "EVOKE_COMP", "confidence": "high", "note": "17.3 on summary page" },
+    { "id": "erp.p3b_lat", "domain": "erp", "label": "P300b latency (Pz, target)",   "value": 380, "unit": "ms", "ref": {"lo": 0, "hi": 450}, "polarity": "lower_better", "source": "EVOKE_COMP", "confidence": "high" },
+    { "id": "erp.p3b_amp", "domain": "erp", "label": "P300b amplitude (Pz)",         "value": 6.6, "unit": "uV", "ref": {"lo": 6, "hi": 40}, "polarity": "higher_better", "source": "EVOKE_COMP", "confidence": "high", "caveat": "second criterion: must exceed 50% of P3a amplitude" },
+    { "id": "erp.n100_lat","domain": "erp", "label": "N100 latency (O2, checkerboard)","value": 288, "unit": "ms", "ref": {"lo": 0, "hi": 250}, "polarity": "lower_better", "source": "EVOKE_COMP", "confidence": "high" },
+    { "id": "erp.n100_amp","domain": "erp", "label": "N100 amplitude (O2)",          "value": -7.55, "unit": "uV", "ref": {"lo": -40, "hi": -6}, "polarity": "lower_better", "source": "EVOKE_COMP", "confidence": "high", "note": "-7.6 on ERP page" },
+
+    { "id": "ans.hr",        "domain": "autonomic", "label": "Resting heart rate",     "value": 55.88, "unit": "bpm", "ref": {"lo": 50, "hi": 80}, "polarity": "band", "source": "FIREFLY_BIR", "confidence": "high" },
+    { "id": "ans.sdnn",      "domain": "autonomic", "label": "SDNN",                   "value": 82.09, "unit": "ms",  "ref": {"lo": 36, "hi": 100}, "polarity": "higher_better", "source": "FIREFLY_BIR", "confidence": "high" },
+    { "id": "ans.tp",        "domain": "autonomic", "label": "HRV total power",        "value": 2323.9,"unit": "ms2", "ref": {"lo": 800, "hi": 6000}, "polarity": "higher_better", "source": "FIREFLY_BIR", "confidence": "high" },
+    { "id": "ans.vlf",       "domain": "autonomic", "label": "VLF power",              "value": 1115,  "unit": "ms2", "ref": null, "polarity": "lower_better", "source": "EVOKE_COMP", "confidence": "high" },
+    { "id": "ans.lf",        "domain": "autonomic", "label": "LF power",               "value": 951,   "unit": "ms2", "ref": null, "polarity": "band", "source": "EVOKE_COMP", "confidence": "high" },
+    { "id": "ans.hf",        "domain": "autonomic", "label": "HF power",               "value": 258,   "unit": "ms2", "ref": null, "polarity": "higher_better", "source": "EVOKE_COMP", "confidence": "high" },
+    { "id": "ecg.hr12",      "domain": "cardiac", "label": "12-lead heart rate",       "value": 57,  "unit": "bpm",  "ref": {"lo": 60, "hi": 100}, "polarity": "band", "source": "ECG12", "confidence": "high" },
+    { "id": "ecg.pr",        "domain": "cardiac", "label": "PR interval",              "value": 136, "unit": "ms",   "ref": {"lo": 120, "hi": 200}, "polarity": "band", "source": "ECG12", "confidence": "high" },
+    { "id": "ecg.qrs",       "domain": "cardiac", "label": "QRS duration",             "value": 88,  "unit": "ms",   "ref": {"lo": 60, "hi": 120}, "polarity": "band", "source": "ECG12", "confidence": "high", "note": "Evoke single-lead reported 97 ms" },
+    { "id": "ecg.qt",        "domain": "cardiac", "label": "QT interval",              "value": 398, "unit": "ms",   "ref": {"lo": 350, "hi": 450}, "polarity": "band", "source": "ECG12", "confidence": "high" },
+    { "id": "ecg.qtc",       "domain": "cardiac", "label": "QTc (Bazett)",             "value": 393, "unit": "ms",   "ref": {"lo": 350, "hi": 450}, "polarity": "band", "source": "ECG12", "confidence": "high" },
+    { "id": "ecg.paxis",     "domain": "cardiac", "label": "P axis",                   "value": 45,  "unit": "deg",  "ref": {"lo": 0, "hi": 75},  "polarity": "band", "source": "ECG12", "confidence": "high" },
+    { "id": "ecg.qrsaxis",   "domain": "cardiac", "label": "QRS axis",                 "value": 50,  "unit": "deg",  "ref": {"lo": -30, "hi": 90}, "polarity": "band", "source": "ECG12", "confidence": "high" },
+    { "id": "ecg.taxis",     "domain": "cardiac", "label": "T axis",                   "value": 39,  "unit": "deg",  "ref": {"lo": -30, "hi": 90}, "polarity": "band", "source": "ECG12", "confidence": "high" }
+  ],
+
+  "ecg_interpretation": {
+    "machine_reading": ["Sinus bradycardia", "Anterolateral ST-elevation - repolarization variant"],
+    "machine_verdict": "PROBABLY NORMAL",
+    "overread_status": "Unconfirmed Report (no physician overread recorded on the copy provided)"
+  },
+
+  "skin_prick": {
+    "controls": { "histamine_mm": 7, "glycerin_mm": 0 },
+    "positive_threshold_mm": 3,
+    "transcription_note": "Handwritten values sit low in each row and straddle the row rule. Anchoring on the two controls (histamine 7, glycerin 0) fixes the alignment. Two readings remain genuinely ambiguous and are marked confidence:low.",
+    "results": [
+      { "site": "A1",  "allergen": "Milk",                  "class": "food",   "wheal_mm": 0,  "confidence": "high" },
+      { "site": "A2",  "allergen": "Wheat",                 "class": "food",   "wheal_mm": 0,  "confidence": "high" },
+      { "site": "A3",  "allergen": "Egg white",             "class": "food",   "wheal_mm": 0,  "confidence": "high" },
+      { "site": "A4",  "allergen": "Soybean",               "class": "food",   "wheal_mm": 0,  "confidence": "high" },
+      { "site": "A5",  "allergen": "Peanut",                "class": "food",   "wheal_mm": 0,  "confidence": "high" },
+      { "site": "A6",  "allergen": "Almond",                "class": "food",   "wheal_mm": 6,  "confidence": "medium" },
+      { "site": "A7",  "allergen": "Cashew",                "class": "food",   "wheal_mm": 0,  "confidence": "high" },
+      { "site": "A8",  "allergen": "Hazelnut",              "class": "food",   "wheal_mm": 0,  "confidence": "high" },
+      { "site": "A9",  "allergen": "Pecan",                 "class": "food",   "wheal_mm": 9,  "confidence": "medium" },
+      { "site": "A10", "allergen": "English walnut",        "class": "food",   "wheal_mm": 0,  "confidence": "high" },
+      { "site": "A11", "allergen": "Coconut",               "class": "food",   "wheal_mm": 0,  "confidence": "high" },
+      { "site": "A12", "allergen": "Sesame seed",           "class": "food",   "wheal_mm": 0,  "confidence": "high" },
+      { "site": "A13", "allergen": "Shrimp",                "class": "food",   "wheal_mm": 0,  "confidence": "high" },
+      { "site": "A14", "allergen": "Lobster",               "class": "food",   "wheal_mm": 0,  "confidence": "high" },
+      { "site": "A15", "allergen": "Crab",                  "class": "food",   "wheal_mm": 0,  "confidence": "high" },
+      { "site": "A16", "allergen": "Clam",                  "class": "food",   "wheal_mm": 0,  "confidence": "high" },
+      { "site": "A17", "allergen": "Scallop",               "class": "food",   "wheal_mm": 0,  "confidence": "high" },
+      { "site": "A18", "allergen": "Oyster",                "class": "food",   "wheal_mm": 0,  "confidence": "high" },
+      { "site": "A19", "allergen": "Salmon",                "class": "food",   "wheal_mm": 0,  "confidence": "high" },
+      { "site": "A20", "allergen": "Tuna",                  "class": "food",   "wheal_mm": 0,  "confidence": "high" },
+
+      { "site": "B1",  "allergen": "Positive histamine control", "class": "control", "wheal_mm": 7,  "confidence": "high" },
+      { "site": "B2",  "allergen": "Beech, American",       "class": "tree",   "wheal_mm": 9,  "confidence": "high" },
+      { "site": "B3",  "allergen": "Willow, black",         "class": "tree",   "wheal_mm": 0,  "confidence": "high" },
+      { "site": "B4",  "allergen": "Cottonwood, eastern",   "class": "tree",   "wheal_mm": 11, "confidence": "high" },
+      { "site": "B5",  "allergen": "Walnut, black",         "class": "tree",   "wheal_mm": 15, "confidence": "high" },
+      { "site": "B6",  "allergen": "Hickory, shagbark",     "class": "tree",   "wheal_mm": 15, "confidence": "high" },
+      { "site": "B7",  "allergen": "Sycamore, American",    "class": "tree",   "wheal_mm": 0,  "confidence": "high" },
+      { "site": "B8",  "allergen": "Mulberry, red",         "class": "tree",   "wheal_mm": 11, "confidence": "high" },
+      { "site": "B9",  "allergen": "Cedar, red",            "class": "tree",   "wheal_mm": 10, "confidence": "high" },
+      { "site": "B10", "allergen": "Negative glycerin control", "class": "control", "wheal_mm": 0, "confidence": "high" },
+      { "site": "B11", "allergen": "Birch, white",          "class": "tree",   "wheal_mm": 13, "confidence": "high" },
+      { "site": "B12", "allergen": "Ash, white",            "class": "tree",   "wheal_mm": 9,  "confidence": "high" },
+      { "site": "B13", "allergen": "Oak, eastern mix",      "class": "tree",   "wheal_mm": 15, "confidence": "high" },
+      { "site": "B14", "allergen": "Maple / box elder",     "class": "tree",   "wheal_mm": 9,  "confidence": "high" },
+      { "site": "B15", "allergen": "Orchard grass",         "class": "grass",  "wheal_mm": 11, "confidence": "high" },
+      { "site": "B16", "allergen": "Sweet vernal grass",    "class": "grass",  "wheal_mm": 9,  "confidence": "high" },
+      { "site": "B17", "allergen": "Timothy grass",         "class": "grass",  "wheal_mm": 15, "confidence": "high" },
+      { "site": "B18", "allergen": "Kentucky bluegrass",    "class": "grass",  "wheal_mm": 7,  "confidence": "medium" },
+      { "site": "B19", "allergen": "Perennial rye grass",   "class": "grass",  "wheal_mm": 9,  "confidence": "medium" },
+      { "site": "B20", "allergen": "Meadow fescue grass",   "class": "grass",  "wheal_mm": 7,  "confidence": "medium" },
+      { "site": "B21", "allergen": "Ragweed mix",           "class": "weed",   "wheal_mm": 5,  "confidence": "high" },
+      { "site": "B22", "allergen": "Pigweed, rough",        "class": "weed",   "wheal_mm": 4,  "confidence": "high" },
+      { "site": "B23", "allergen": "Lambs quarter",         "class": "weed",   "wheal_mm": 3,  "confidence": "high" },
+      { "site": "B24", "allergen": "English plantain",      "class": "weed",   "wheal_mm": 8,  "confidence": "high" },
+      { "site": "B25", "allergen": "Cocklebur",             "class": "weed",   "wheal_mm": 0,  "confidence": "high" },
+      { "site": "B26", "allergen": "Mugwort, common",       "class": "weed",   "wheal_mm": 9,  "confidence": "high" },
+      { "site": "B27", "allergen": "Dock / sorrel mix",     "class": "weed",   "wheal_mm": 7,  "confidence": "high" },
+      { "site": "B28", "allergen": "Dust mite, D. pteronyssinus", "class": "indoor", "wheal_mm": 0, "confidence": "low", "ambiguity": "the 0 and the 11 in rows B28/B29 could be swapped; both mites are usually concordant" },
+      { "site": "B29", "allergen": "Dust mite, D. farinae", "class": "indoor", "wheal_mm": 11, "confidence": "low", "ambiguity": "see B28" },
+      { "site": "B30", "allergen": "Cockroach mix",         "class": "indoor", "wheal_mm": 0,  "confidence": "high" },
+      { "site": "B31", "allergen": "Rat epithelium",        "class": "indoor", "wheal_mm": 0,  "confidence": "high" },
+      { "site": "B32", "allergen": "Mouse epithelium",      "class": "indoor", "wheal_mm": 0,  "confidence": "high" },
+      { "site": "B33", "allergen": "Feather mix",           "class": "indoor", "wheal_mm": 0,  "confidence": "high" },
+      { "site": "B34", "allergen": "Cat hair",              "class": "indoor", "wheal_mm": 7,  "confidence": "high" },
+      { "site": "B35", "allergen": "Dog epithelia",         "class": "indoor", "wheal_mm": 0,  "confidence": "high" },
+      { "site": "B36", "allergen": "Alternaria mold",       "class": "mold",   "wheal_mm": 0,  "confidence": "high" },
+      { "site": "B37", "allergen": "Aspergillus fumigatus", "class": "mold",   "wheal_mm": 0,  "confidence": "high" },
+      { "site": "B38", "allergen": "Cladosporium sphaer.",  "class": "mold",   "wheal_mm": 0,  "confidence": "high" },
+      { "site": "B39", "allergen": "Penicillium chrys.",    "class": "mold",   "wheal_mm": 0,  "confidence": "high" },
+      { "site": "B40", "allergen": "Bipolaris mold",        "class": "mold",   "wheal_mm": 0,  "confidence": "high" }
+    ]
+  },
+
+  "vendor_conclusions": {
+    "adhd_screen": "negative for electrophysiological evidence of ADHD; Criterion E evaluation suggested",
+    "decision_confidence_pct": 90,
+    "neurofunctional_domains": [
+      { "domain": "Arousal regulation",           "verdict": "normal" },
+      { "domain": "Attention regulation",         "verdict": "borderline" },
+      { "domain": "Cognitive processing speed",   "verdict": "borderline" },
+      { "domain": "Executive control",            "verdict": "borderline" },
+      { "domain": "Emotional regulation",         "verdict": "borderline" },
+      { "domain": "Sensory processing & integration", "verdict": "deviant" },
+      { "domain": "Neuroinflammation / systemic load", "verdict": "deviant" }
+    ]
+  }
+}
