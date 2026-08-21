@@ -15,6 +15,7 @@ import unicodedata
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 OUT = os.path.normpath(os.path.join(HERE, os.pardir, "data.js"))
+OUT_JSON = os.path.normpath(os.path.join(HERE, os.pardir, "hexchar-data.json"))
 
 
 def r(first, last):
@@ -362,8 +363,11 @@ def main():
         f.write("// Names and categories come from the Unicode Character Database"
                 " (via Python's unicodedata).\n")
         f.write("window.HEXCHAR_DATA = " + body + ";\n")
+    with open(OUT_JSON, "w", encoding="utf-8") as f:
+        f.write(body)  # same payload, for non-web consumers (the iOS app bundles it)
     ncats = sum(len(g["categories"]) for g in groups)
     print("wrote %s: %d characters in %d categories" % (OUT, total, ncats))
+    print("wrote %s" % OUT_JSON)
     if skipped:
         print("skipped %d unnamed/unassigned code points: %s"
               % (len(skipped), ", ".join(skipped[:12]) + (" ..." if len(skipped) > 12 else "")))

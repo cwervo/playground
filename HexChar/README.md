@@ -51,6 +51,13 @@ Character Database of the Python that generated it — currently Unicode 14.0.
 Code points with no name in that database are dropped rather than shipped as
 an empty box.
 
+## iOS version
+
+`ios/` holds a native CoreGraphics implementation of the same keyboard,
+built and tested entirely from the command line (swiftc + simctl, no Xcode
+IDE) with a headless self-test and a 15 ms render budget gate. On a Mac with
+the Xcode toolchain: `cd ios && ./simulate.sh`. See `ios/README.md`.
+
 ## Fonts
 
 Noto Sans, with Noto Sans Symbols 2, Noto Sans Math and Noto Music behind it
