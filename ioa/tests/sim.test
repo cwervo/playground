@@ -1,0 +1,90 @@
+source [file join [file dirname [info script]] harness.tcl]
+
+proc benchPlan {{want hd}} {
+    ioa::plan::route [ioa::fabric::load [fixture bench.ioa]] cam host [list want $want]
+}
+
+test sim-1.1 {a perfect link delivers everything} -body {
+    set r [ioa::sim::run [benchPlan] {seconds 3}]
+    list [dict get $r delivery] [expr {[dict get $r delivered] == [dict get $r pictures]}]
+} -result {1.0 1}
+
+test sim-1.2 {the same seed gives the same run} -body {
+    set p [ioa::plan::route [studio] eye-01 desk {want webcam}]
+    set a [ioa::sim::run $p {seconds 4 seed abc}]
+    set b [ioa::sim::run $p {seconds 4 seed abc}]
+    expr {[dict get $a delivered] == [dict get $b delivered]
+          && [dict get $a latency] eq [dict get $b latency]}
+} -result 1
+
+test sim-1.3 {a different seed gives a different run} -body {
+    set p [ioa::plan::route [studio] eye-01 desk {want webcam}]
+    set a [ioa::sim::run $p {seconds 6 seed one}]
+    set b [ioa::sim::run $p {seconds 6 seed two}]
+    expr {[dict get $a delivered] != [dict get $b delivered]}
+} -result 1
+
+test sim-2.1 {observed delivery lands near the planner's prediction} -body {
+    set p [ioa::plan::route [studio] eye-01 desk {want webcam}]
+    set r [ioa::sim::run $p {seconds 60 seed long}]
+    # Over a minute of pictures the two should agree within a few points.
+    expr {abs([dict get $r delivery] - [dict get $p delivery]) < 0.06}
+} -result 1
+
+test sim-2.2 {observed latency sits inside the predicted envelope} -body {
+    # The plan quotes two numbers, and both are needed: typical pictures land
+    # near latency_ms, and once a GOP the keyframe stalls the link for
+    # keyframe_stall_ms on top. The worst observed frame must fit inside the
+    # sum, and the typical one must not.
+    set p [ioa::plan::route [studio] eye-pro desk {want broadcast}]
+    set r [ioa::sim::run $p {seconds 10 seed lat}]
+    set l [dict get $r latency]
+    set envelope [expr {[dict get $p latency_ms] + [dict get $p keyframe_stall_ms]}]
+    expr {[dict get $l max] <= $envelope * 1.1
+          && [dict get $l p95] <= [dict get $p latency_ms] * 1.2
+          && [dict get $l min] > 0}
+} -result 1
+
+test sim-3.1 {real frames round trip through the real wire format} -body {
+    set r [ioa::sim::run [benchPlan] {seconds 1 verify 12}]
+    set v [dict get $r verify]
+    list [dict get $v intact] [dict get $v attempted]
+} -result {12 12}
+
+test sim-3.2 {and every corrupted frame is caught} -body {
+    set v [dict get [ioa::sim::run [benchPlan] {seconds 1 verify 12}] verify]
+    expr {[dict get $v corruption_caught] == [dict get $v attempted]}
+} -result 1
+
+test sim-4.1 {a source that ignores the plan backs the relay up and sheds load} -body {
+    # The planner sized this route for a glance. Here the encoder overshoots
+    # by two orders of magnitude -- a VBR spike, or somebody changing the
+    # camera settings by hand. The relay must drop pictures rather than grow
+    # an unbounded buffer.
+    set f [ioa::fabric::load [fixture rfonly.ioa]]
+    set p [ioa::plan::route $f cam host {want glance}]
+    set fat [ioa::codec::rung mj480p30]
+    dict set p rung $fat
+    dict set p picture_bytes [ioa::codec::pictureBytes $fat]
+    set r [ioa::sim::run $p {seconds 5 seed overrun}]
+    set queued 0
+    foreach h [dict get $r hops] { incr queued [dict get $h lost_to_queue] }
+    expr {$queued > 0 && [dict get $r delivery] < 1.0}
+} -result 1
+
+test sim-4.3 {the route the planner did size keeps its queue near empty} -body {
+    set f [ioa::fabric::load [fixture rfonly.ioa]]
+    set p [ioa::plan::route $f cam host {want glance}]
+    set r [ioa::sim::run $p {seconds 5 seed sized}]
+    set queued 0
+    foreach h [dict get $r hops] { incr queued [dict get $h lost_to_queue] }
+    set queued
+} -result 0
+
+test sim-4.2 {wire bytes always exceed picture bytes, never the reverse} -body {
+    set r [ioa::sim::run [benchPlan] {seconds 2}]
+    expr {[dict get $r bytes_wire] > [dict get $r bytes_in]
+          && [dict get $r wire_overhead_pct] > 0}
+} -result 1
+
+finish

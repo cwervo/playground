@@ -1,0 +1,95 @@
+source [file join [file dirname [info script]] harness.tcl]
+
+proc manifestFor {from to want} {
+    set f [studio]
+    set p [ioa::plan::route $f $from $to [list want $want]]
+    ioa::deploy::manifest $f $p
+}
+
+test deploy-1.1 {one entry per node on the route, in order} -body {
+    set f [studio]
+    set p [ioa::plan::route $f eye-pro desk {want broadcast}]
+    set m [ioa::deploy::manifest $f $p]
+    set ids {}
+    foreach n $m { lappend ids [dict get $n node] }
+    expr {$ids eq [dict get $p nodes]}
+} -result 1
+
+test deploy-1.2 {the first node captures and the last one sinks} -body {
+    set m [manifestFor eye-pro desk broadcast]
+    set first {}
+    set last {}
+    foreach s [dict get [lindex $m 0] steps] { lappend first [lindex $s 0] }
+    foreach s [dict get [lindex $m end] steps] { lappend last [lindex $s 0] }
+    list [lindex $first 0] [lindex $last end] [dict get [lindex $m 0] role] [dict get [lindex $m end] role]
+} -result {capture sink source sink}
+
+test deploy-1.3 {a relay gets an ingress, a ring, and an egress} -body {
+    set m [manifestFor eye-pro desk broadcast]
+    set stages {}
+    foreach s [dict get [lindex $m 1] steps] { lappend stages [lindex $s 0] }
+    set stages
+} -result {ingress forward egress}
+
+test deploy-2.1 {an esp32 source is configured, not commanded} -body {
+    set m [manifestFor eye-01 desk glance]
+    set cap [lindex [lindex [dict get [lindex $m 0] steps] 0] 1]
+    list [dict get $cap kind] [dict exists $cap config IOA_FRAMESIZE] [dict exists $cap flash]
+} -result {firmware 1 1}
+
+test deploy-2.2 {the esp32 frame size follows the planned rung} -body {
+    set m [manifestFor eye-01 desk glance]
+    set cap [lindex [lindex [dict get [lindex $m 0] steps] 0] 1]
+    dict get $cap config IOA_FRAMESIZE
+} -result FRAMESIZE_QVGA
+
+test deploy-2.3 {a macOS sink gets a macOS command} -body {
+    set m [manifestFor eye-01 desk glance]
+    set sink [lindex [lindex [dict get [lindex $m end] steps] end] 1]
+    expr {[dict get $sink kind] eq "exec" && [string match "ffplay*" [dict get $sink cmd]]}
+} -result 1
+
+test deploy-2.4 {a linux source uses its hardware encoder when the product has one} -body {
+    set dev [ioa::device::resolve cam {product IOA-EYE-PRO}]
+    set cap [ioa::deploy::capture $dev [ioa::codec::rung hd1080p30]]
+    string match "*h264_rkmpp*" [dict get $cap cmd]
+} -result 1
+
+test deploy-3.1 {quality maps into ffmpeg's inverted scale} -body {
+    # Higher ioa quality must mean a lower (better) -q:v.
+    expr {[ioa::deploy::ffQuality 90] < [ioa::deploy::ffQuality 60]
+          && [ioa::deploy::ffQuality 95] >= 2 && [ioa::deploy::ffQuality 50] <= 31}
+} -result 1
+
+test deploy-3.2 {and into the esp32 camera scale, which is also inverted} -body {
+    expr {[ioa::deploy::espQuality 90] < [ioa::deploy::espQuality 55]
+          && [ioa::deploy::espQuality 50] <= 63}
+} -result 1
+
+test deploy-3.3 {frame sizes snap down to a real sensor mode, never up} -body {
+    list [ioa::deploy::espFramesize 1280 720] [ioa::deploy::espFramesize 700 500] \
+         [ioa::deploy::espFramesize 100 80]
+} -result {FRAMESIZE_HD FRAMESIZE_VGA FRAMESIZE_QQVGA}
+
+test deploy-4.1 {rendering a manifest mentions every node} -body {
+    set m [manifestFor eye-pro desk broadcast]
+    set text [ioa::deploy::render $m]
+    set missing {}
+    foreach n $m { if {![string match "*[dict get $n node]*" $text]} { lappend missing [dict get $n node] } }
+    set missing
+} -result {}
+
+test deploy-4.2 {an optical head on a linux host is driven, not flashed} -body {
+    set dev [ioa::device::resolve cam {product IOA-EYE-PRO}]
+    set link [ioa::transport::link cam prism laser {alignment 0.9}]
+    dict get [ioa::transport::realize tx $dev $link] kind
+} -result exec
+
+test deploy-4.3 {the same link on an fpga head is a bitstream} -body {
+    set dev [ioa::device::resolve prism {product IOA-PRISM-L1}]
+    set link [ioa::transport::link prism prism2 laser {alignment 0.9}]
+    set r [ioa::transport::realize tx $dev $link]
+    list [dict get $r kind] [dict exists $r precheck]
+} -result {bitstream 1}
+
+finish

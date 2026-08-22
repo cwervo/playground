@@ -1,0 +1,107 @@
+source [file join [file dirname [info script]] harness.tcl]
+
+test products-1.1 {every product declares interfaces the runtime can plan over} -body {
+    set bad {}
+    foreach p [ioa::product::all] {
+        foreach t [ioa::dget $p transports {}] {
+            if {![ioa::transport::exists [lindex $t 0]]} {
+                lappend bad "[dict get $p sku]:[lindex $t 0]"
+            }
+            if {[lindex $t 1] ni {ingress egress bidir control}} {
+                lappend bad "[dict get $p sku]:[lindex $t 0] role [lindex $t 1]"
+            }
+        }
+    }
+    set bad
+} -result {}
+
+test products-1.2 {every product runs on a platform the deployer knows} -body {
+    set bad {}
+    foreach p [ioa::product::all] {
+        if {[dict get $p platform] ni {macos linux esp32 fpga any}} {
+            lappend bad [dict get $p sku]
+        }
+    }
+    set bad
+} -result {}
+
+test products-1.3 {an interface must be one the hardware could plausibly have} -body {
+    # A product cannot claim a medium its platform family cannot terminate.
+    set bad {}
+    foreach p [ioa::product::all] {
+        set plat [dict get $p platform]
+        if {$plat eq "any"} continue
+        foreach t [ioa::dget $p transports {}] {
+            set allowed [dict get [ioa::transport::caps [lindex $t 0]] platforms]
+            if {"any" ni $allowed && $plat ni $allowed} {
+                lappend bad "[dict get $p sku] claims [lindex $t 0] on $plat"
+            }
+        }
+    }
+    set bad
+} -result {}
+
+test products-1.4 {declared encoders are real codecs at sane resolutions} -body {
+    set bad {}
+    foreach p [ioa::product::all] {
+        set e [ioa::dget $p encode {}]
+        if {$e eq ""} continue
+        lassign $e codec w h fps
+        if {[catch {ioa::codec::bpp $codec 80}]} { lappend bad "[dict get $p sku] codec $codec" }
+        if {$w < 80 || $h < 60 || $fps <= 0} { lappend bad "[dict get $p sku] geometry $e" }
+    }
+    set bad
+} -result {}
+
+test products-2.1 {skus are unique and every one has a description} -body {
+    set seen {}
+    set bad {}
+    foreach p [ioa::product::all] {
+        if {[dict get $p sku] in $seen} { lappend bad "duplicate [dict get $p sku]" }
+        lappend seen [dict get $p sku]
+        foreach k {name tagline notes class status} {
+            if {[string length [ioa::dget $p $k ""]] < 3} { lappend bad "[dict get $p sku] missing $k" }
+        }
+    }
+    set bad
+} -result {}
+
+test products-2.2 {a kit only contains products that exist} -body {
+    set bad {}
+    foreach p [ioa::product::all] {
+        foreach sku [ioa::dget $p contains {}] {
+            if {![ioa::product::exists $sku]} { lappend bad $sku }
+        }
+    }
+    set bad
+} -result {}
+
+test products-2.3 {asking for a product that is not in the line says what is} -body {
+    catch {ioa::product::get IOA-NOPE} e opts
+    list [lrange [dict get $opts -errorcode] 0 2] [string match "*IOA-EYE-S3*" $e]
+} -result {{IOA PRODUCT UNKNOWN} 1}
+
+test products-3.1 {a camera can actually encode something} -body {
+    set bad {}
+    foreach p [ioa::product::byClass camera] {
+        if {[ioa::dget $p encode {}] eq ""} { lappend bad [dict get $p sku] }
+    }
+    set bad
+} -result {}
+
+test products-3.2 {a relay carries pictures but does not make them} -body {
+    dict get [ioa::product::get IOA-RELAY-24] encode
+} -result {}
+
+test products-3.3 {every shipping product has a price or is software} -body {
+    set bad {}
+    foreach p [ioa::product::all] {
+        if {[dict get $p status] ne "shipping"} continue
+        if {[dict get $p price_usd] <= 0 && [dict get $p class] ni {host software service}} {
+            lappend bad [dict get $p sku]
+        }
+    }
+    set bad
+} -result {}
+
+finish

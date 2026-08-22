@@ -1,0 +1,75 @@
+# fabric/studio.ioa -- a working room. Two media families in parallel:
+# a cheap RF path for the wide shot, and a photonic path across the courtyard
+# for the one camera that has to stay sharp.
+
+fabric "Studio A" {
+    owner "the desk"
+}
+site "third floor, and the building opposite"
+
+note "Wi-Fi here is shared with 200 people; assume a third of the band is gone."
+
+device eye-01 {
+    product IOA-EYE-S3
+    place   "north truss"
+}
+
+device eye-02 {
+    product IOA-EYE-S3
+    place   "over the bench"
+}
+
+device eye-pro {
+    product IOA-EYE-PRO
+    place   "opposite building, window mount"
+}
+
+device relay-a {
+    product IOA-RELAY-24
+    place   "ceiling centre"
+}
+
+device prism-near {
+    product IOA-PRISM-L1
+    place   "our window, aimed at the annexe"
+    port    /dev/ttyACM0
+}
+
+device frame-hd {
+    product IOA-FRAME-HD
+    place   "rack, HDMI from the projector feed"
+}
+
+device desk {
+    product  IOA-HUB-X
+    platform macos
+    place    "the desk"
+}
+
+device beam {
+    product IOA-BEAM-IR
+    place   "truss, pointed at the Eyes"
+}
+
+# The cheap path: battery cameras, no association, one repeater.
+link eye-01 relay-a espnow {distance_m 18 channel 6 peer_mac 24:0a:c4:11:22:33}
+link eye-02 relay-a espnow {distance_m 26 channel 6 peer_mac 24:0a:c4:11:22:33 interference 0.3}
+link relay-a desk wifi_tcp {distance_m 9 peer 10.0.0.4 port 9101 interference 0.35}
+
+# The direct path, for when the repeater is the problem.
+link eye-01 desk wifi_tcp {distance_m 34 peer 10.0.0.4 port 9102 interference 0.35}
+
+# The photonic path: across the courtyard, no spectrum involved.
+link eye-pro prism-near laser {distance_m 120 alignment 0.96 laser_mw 4}
+link prism-near desk ethernet {distance_m 25 peer 10.0.0.4 port 9103}
+
+# The Pro also has Wi-Fi, through two walls and a courtyard. It is the
+# fallback nobody wants and everybody ends up using.
+link eye-pro desk wifi_tcp {distance_m 48 peer 10.0.0.4 port 9105 interference 0.35}
+
+# Wired ingest for whatever is already on HDMI.
+link frame-hd desk ethernet {distance_m 3 peer 10.0.0.4 port 9104}
+
+# The channel that still works when the others do not.
+link beam eye-01 ir {distance_m 6}
+link beam eye-02 ir {distance_m 9}

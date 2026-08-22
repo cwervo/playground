@@ -1,0 +1,7 @@
+# One battery camera, one repeater, one host, and nothing but 2.4 GHz.
+fabric "rf only" {}
+device cam   {product IOA-EYE-S3}
+device relay {product IOA-RELAY-24}
+device host  {product IOA-HUB-X platform linux}
+link cam relay espnow {distance_m 40 channel 1}
+link relay host wifi_tcp {distance_m 12 peer 10.0.0.9}

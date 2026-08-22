@@ -1,0 +1,117 @@
+source [file join [file dirname [info script]] harness.tcl]
+
+test fabric-1.1 {the studio fabric loads and knows what it contains} -body {
+    set f [studio]
+    list [llength [ioa::fabric::deviceIds $f]] \
+         [ioa::fabric::withRole $f source] \
+         [ioa::fabric::withRole $f sink]
+} -result {8 {eye-01 eye-02 eye-pro} {frame-hd desk}}
+
+test fabric-1.2 {devices inherit their capabilities from the catalog} -body {
+    set d [ioa::fabric::device [studio] eye-01]
+    list [dict get $d platform] [dict get $d encode] [ioa::device::transportRole $d espnow]
+} -result {esp32 {mjpeg 1600 1200 25} bidir}
+
+test fabric-1.3 {a host product takes the platform the fabric gives it} -body {
+    dict get [ioa::fabric::device [studio] desk] platform
+} -result macos
+
+test fabric-2.1 {bidirectional media produce edges both ways} -body {
+    set f [ioa::fabric::parse {
+        device a {product IOA-EYE-S3}
+        device b {product IOA-RELAY-24}
+        link a b espnow {distance_m 5}
+    }]
+    llength [ioa::fabric::edges $f]
+} -result 2
+
+test fabric-2.2 {simplex media do not} -body {
+    set f [ioa::fabric::parse {
+        device a {product IOA-FRAME-HD}
+        device b {product IOA-HUB-X platform linux}
+        link a b hdmi {distance_m 2}
+    }]
+    llength [ioa::fabric::edges $f]
+} -result 1
+
+test fabric-2.3 {a control-grade interface is marked, not hidden} -body {
+    set f [ioa::fabric::parse {
+        device beam {product IOA-BEAM-IR}
+        device cam {product IOA-EYE-S3}
+        link beam cam ir {distance_m 3}
+    }]
+    dict get [lindex [ioa::fabric::edges $f] 0] control_only
+} -result 1
+
+test fabric-3.1 {a link to a device that does not exist is refused} -body {
+    catch {ioa::fabric::parse {
+        device a {product IOA-EYE-S3}
+        link a ghost espnow {}
+    }} e opts
+    lrange [dict get $opts -errorcode] 0 2
+} -result {IOA FABRIC NODEV}
+
+test fabric-3.2 {a link over a medium the hardware does not have is refused} -body {
+    catch {ioa::fabric::parse {
+        device a {product IOA-EYE-S3}
+        device b {product IOA-HUB-X platform linux}
+        link a b lora {}
+    }} e opts
+    lrange [dict get $opts -errorcode] 0 2
+} -result {IOA FABRIC NOIFACE}
+
+test fabric-3.3 {an unknown transport is refused} -body {
+    catch {ioa::fabric::parse {
+        device a {product IOA-EYE-S3}
+        device b {product IOA-HUB-X platform linux}
+        link a b tachyon {}
+    }} e opts
+    lrange [dict get $opts -errorcode] 0 2
+} -result {IOA FABRIC NOTRANSPORT}
+
+test fabric-4.1 {a fabric file cannot run commands on the host} -body {
+    # Fabrics get emailed around. Loading one describes hardware; it does not
+    # get to touch the machine describing it.
+    catch {ioa::fabric::parse {exec /bin/sh -c "echo pwned"}} e opts
+    list [lrange [dict get $opts -errorcode] 0 2] [string match "*invalid command name*" $e]
+} -result {{IOA FABRIC PARSE} 1}
+
+test fabric-4.2 {nor read files} -body {
+    catch {ioa::fabric::parse {device a [read [open /etc/passwd]]}} e opts
+    lrange [dict get $opts -errorcode] 0 2
+} -result {IOA FABRIC PARSE}
+
+test fabric-5.1 {losing a device takes its links with it} -body {
+    set f [ioa::fabric::removeDevice [studio] relay-a]
+    set bad 0
+    foreach l [dict get $f links] {
+        if {"relay-a" in [list [dict get $l from] [dict get $l to]]} { incr bad }
+    }
+    list [expr {"relay-a" in [ioa::fabric::deviceIds $f]}] $bad
+} -result {0 0}
+
+test fabric-5.2 {degrading a medium touches every link on it and nothing else} -body {
+    set f [ioa::fabric::degradeMedium [studio] rf {interference 0.9}]
+    set rf 0
+    set other 0
+    foreach l [dict get $f links] {
+        set m [dict get [ioa::transport::caps [dict get $l transport]] medium]
+        if {[ioa::dget [dict get $l params] interference 0] == 0.9} {
+            if {$m eq "rf"} { incr rf } else { incr other }
+        }
+    }
+    list [expr {$rf > 0}] $other
+} -result {1 0}
+
+test fabric-5.3 {changing one link's geometry is precise} -body {
+    set f [ioa::fabric::setLinkParams [studio] eye-pro prism-near laser {alignment 0.2}]
+    set e [lindex [ioa::fabric::edges $f] 0]
+    set g {}
+    foreach e [ioa::fabric::edges $f] {
+        if {[dict get $e transport] eq "laser"} { lappend g [dict get $e goodput_bps] }
+    }
+    # Below the alignment cliff a laser link is not slow, it is gone.
+    lsort -unique $g
+} -result 0
+
+finish

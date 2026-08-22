@@ -1,0 +1,52 @@
+# fabric/backcountry.ioa -- a site you drive four hours to reach.
+#
+# There is no Wi-Fi within three kilometres and no mains power. The question
+# is not "how good is the video", it is "can I see anything at all, and how
+# often". ioa answers it by walking to the bottom of the ladder:
+#
+#   ioa plan --fabric backcountry --from eye-01 --to base --want webcam
+#
+# The answer is a picture every few seconds at 160x120, and that is the honest
+# answer -- a 10.8 kb/s LoRa link cannot be talked into anything more.
+
+fabric "backcountry" {}
+site "the ridge, and the van at the trailhead"
+
+note "Everything on the ridge is solar. Radiated power is a battery budget, not a footnote."
+
+device eye-01 {
+    product IOA-EYE-S3
+    place   "the ridge, on a fence post"
+}
+
+device relay-ridge {
+    product IOA-RELAY-24
+    place   "the ridge, 2 m up the same post"
+}
+
+device relay-van {
+    product IOA-RELAY-24
+    place   "roof of the van"
+}
+
+device base {
+    product  IOA-HUB-X
+    platform linux
+    place    "laptop in the van"
+}
+
+device beam {
+    product IOA-BEAM-IR
+    place   "on the post, for waking the camera without spending radio"
+}
+
+# Short hop from camera to the post-top repeater, which has the big antenna.
+link eye-01 relay-ridge espnow {distance_m 2 channel 11}
+
+# The long one. Three kilometres of sub-GHz for ten kilobits.
+link relay-ridge relay-van lora {distance_m 3200 freq_hz 868100000 sf 7 bw_hz 500000}
+
+# And a cable for the last two metres.
+link relay-van base uart {distance_m 2 dev /dev/ttyUSB0 baud 3000000}
+
+link beam eye-01 ir {distance_m 1}

@@ -1,0 +1,101 @@
+source [file join [file dirname [info script]] harness.tcl]
+
+test frame-1.1 {header round trips every field} -body {
+    set f [ioa::frame::pack {type media codec h264 stream 9 seq 1234 frag 2 nfrag 5 ts 7777 flags 5} "abc"]
+    set d [ioa::frame::unpack $f]
+    list [dict get $d type] [dict get $d codec] [dict get $d stream] [dict get $d seq] \
+         [dict get $d frag] [dict get $d nfrag] [dict get $d ts] [dict get $d flags] [dict get $d payload]
+} -result {media h264 9 1234 2 5 7777 5 abc}
+
+test frame-1.2 {binary payloads survive} -body {
+    set body [binary format H* ffd8ffe000104a46494600ffd9]
+    expr {[dict get [ioa::frame::unpack [ioa::frame::pack {} $body]] payload] eq $body}
+} -result 1
+
+test frame-1.3 {header is the advertised size} -body {
+    expr {[string length [ioa::frame::pack {} ""]] == [ioa::frame::overhead]}
+} -result 1
+
+test frame-2.1 {corrupt payload is refused by crc} -body {
+    set f [ioa::frame::pack {} "hello world"]
+    set at [expr {[ioa::frame::overhead] + 3}]
+    set f [string replace $f $at $at "X"]
+    catch {ioa::frame::unpack $f} e opts
+    lrange [dict get $opts -errorcode] 0 2
+} -result {IOA FRAME CRC}
+
+test frame-2.2 {foreign bytes are refused by magic} -body {
+    catch {ioa::frame::unpack [string repeat "\x01" 40]} e opts
+    lrange [dict get $opts -errorcode] 0 2
+} -result {IOA FRAME MAGIC}
+
+test frame-2.3 {a runt is refused, not read past the end} -body {
+    catch {ioa::frame::unpack "IOAF"} e opts
+    lrange [dict get $opts -errorcode] 0 2
+} -result {IOA FRAME RUNT}
+
+test frame-3.1 {fragments never exceed the mtu} -body {
+    set frames [ioa::frame::fragment {seq 1} [string repeat x 10000] 250]
+    set over 0
+    foreach f $frames { if {[string length $f] > 250} { incr over } }
+    list [llength $frames] $over
+} -result {46 0}
+
+test frame-3.2 {fragment count is ceil(bytes / payload room)} -body {
+    set room [expr {250 - [ioa::frame::overhead]}]
+    set n [llength [ioa::frame::fragment {} [string repeat x 1000] 250]]
+    expr {$n == int(ceil(1000.0 / $room))}
+} -result 1
+
+test frame-3.3 {an mtu too small for a header is an error, not a hang} -body {
+    catch {ioa::frame::fragment {} "xxxx" 30} e opts
+    lrange [dict get $opts -errorcode] 0 2
+} -result {IOA FRAME MTU}
+
+test frame-3.4 {single-fragment pictures carry no fragment flag} -body {
+    set f [lindex [ioa::frame::fragment {} "short" 1472] 0]
+    expr {[dict get [ioa::frame::unpack $f] flags] & 0x02}
+} -result 0
+
+test frame-4.1 {out-of-order fragments still reassemble} -body {
+    set body [string repeat "payload-" 400]
+    set frames [ioa::frame::fragment {seq 3} $body 250]
+    set r [ioa::frame::reassembler]
+    set got ""
+    foreach f [lsort -command {apply {{a b} {expr {[string length $a] - [string length $b]}}}} \
+                    [lreverse $frames]] {
+        set d [ioa::frame::feed $r [ioa::frame::unpack $f]]
+        if {$d ne ""} { set got $d }
+    }
+    set out [expr {[dict get $got payload] eq $body}]
+    ioa::frame::reasmDestroy $r
+    set out
+} -result 1
+
+test frame-4.2 {a duplicate fragment is counted and discarded} -body {
+    set frames [ioa::frame::fragment {seq 1} [string repeat y 600] 250]
+    set r [ioa::frame::reassembler]
+    ioa::frame::feed $r [ioa::frame::unpack [lindex $frames 0]]
+    ioa::frame::feed $r [ioa::frame::unpack [lindex $frames 0]]
+    set out [dict get [ioa::frame::reasmStats $r] duplicates]
+    ioa::frame::reasmDestroy $r
+    set out
+} -result 1
+
+test frame-4.3 {an incomplete picture yields nothing and is evicted, not held} -body {
+    set r [ioa::frame::reassembler 2]
+    set frames [ioa::frame::fragment {seq 1} [string repeat z 600] 250]
+    ioa::frame::feed $r [ioa::frame::unpack [lindex $frames 0]]
+    set held [dict get [ioa::frame::reasmStats $r] pending]
+    # Newer pictures arrive; the stalled one must be dropped rather than kept.
+    foreach seq {5 6} {
+        foreach f [ioa::frame::fragment [list seq $seq] [string repeat q 600] 250] {
+            ioa::frame::feed $r [ioa::frame::unpack $f]
+        }
+    }
+    set st [ioa::frame::reasmStats $r]
+    ioa::frame::reasmDestroy $r
+    list $held [dict get $st dropped] [dict get $st completed]
+} -result {1 1 2}
+
+finish

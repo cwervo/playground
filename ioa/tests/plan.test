@@ -1,0 +1,125 @@
+source [file join [file dirname [info script]] harness.tcl]
+
+test plan-1.1 {a cheap camera reaches the desk} -body {
+    set p [ioa::plan::route [studio] eye-01 desk {want webcam}]
+    list [dict get $p ok] [expr {[llength [dict get $p hops]] >= 1}]
+} -result {1 1}
+
+test plan-1.2 {the planner never asks for more than the sensor can produce} -body {
+    set p [ioa::plan::route [studio] eye-01 desk {want cinema}]
+    ioa::codec::withinCeiling [dict get $p rung] {mjpeg 1600 1200 25}
+} -result 1
+
+test plan-1.3 {refusals are recorded with a reason, not silently swallowed} -body {
+    set p [ioa::plan::route [studio] eye-01 desk {want cinema}]
+    expr {[llength [dict get $p tried]] > 0
+          && [string length [lindex [lindex [dict get $p tried] 0] 1]] > 10}
+} -result 1
+
+test plan-2.1 {an rf-only fabric routes through the repeater} -body {
+    set f [ioa::fabric::load [fixture rfonly.ioa]]
+    set p [ioa::plan::route $f cam host {want glance}]
+    list [dict get $p ok] [dict get $p nodes]
+} -result {1 {cam relay host}}
+
+test plan-2.2 {espnow cannot carry a webcam stream, and the planner says so} -body {
+    set f [ioa::fabric::load [fixture rfonly.ioa]]
+    set p [ioa::plan::route $f cam host {want webcam}]
+    # It must not claim 720p30 over a 1 Mb/s link; it retreats instead.
+    expr {[dict get $p ok] && [ioa::codec::bitrate [dict get $p rung]] < 1000000}
+} -result 1
+
+test plan-2.3 {forbidding a medium is obeyed, even when it means no route} -body {
+    set p [ioa::plan::route [studio] eye-01 desk {want glance forbid {wifi_tcp wifi_udp}}]
+    # eye-01's only backhaul is Wi-Fi, directly or through the repeater, so
+    # banning it must produce a refusal rather than a route that cheats.
+    if {![dict get $p ok]} { return 1 }
+    set used {}
+    foreach e [dict get $p hops] { lappend used [dict get $e transport] }
+    expr {"wifi_tcp" ni $used && "wifi_udp" ni $used}
+} -result 1
+
+test plan-2.5 {a whole medium can be banned by name} -body {
+    set f [ioa::fabric::load [fixture darkroom.ioa]]
+    set p [ioa::plan::route $f eye-pro host {want hd forbid rf}]
+    set media {}
+    foreach e [dict get $p hops] { lappend media [dict get $e medium] }
+    list [dict get $p ok] [expr {"rf" ni $media}]
+} -result {1 1}
+
+test plan-2.6 {an rf-only camera on an rf-banned site simply cannot be used} -body {
+    set f [ioa::fabric::load [fixture darkroom.ioa]]
+    dict get [ioa::plan::route $f eye-01 host {want trickle forbid rf}] ok
+} -result 0
+
+test plan-2.4 {a fabric with no path at all is honest about it} -body {
+    set f [ioa::fabric::parse {
+        device a {product IOA-EYE-S3}
+        device b {product IOA-HUB-X platform linux}
+    }]
+    set p [ioa::plan::route $f a b {want glance}]
+    list [dict get $p ok] [expr {[string length [dict get $p reason]] > 0}]
+} -result {0 1}
+
+test plan-3.1 {a latency budget is enforced} -body {
+    set p [ioa::plan::route [studio] eye-01 desk {want webcam budget_ms 0.001}]
+    dict get $p ok
+} -result 0
+
+test plan-3.2 {a delivery target is enforced} -body {
+    set p [ioa::plan::route [studio] eye-01 desk {want webcam}]
+    expr {[dict get $p delivery] >= 0.95}
+} -result 1
+
+test plan-3.3 {without fec, a lossy low-mtu link carries far less} -body {
+    set f [ioa::fabric::load [fixture rfonly.ioa]]
+    set with [ioa::plan::route $f cam host {want webcam}]
+    set without [ioa::plan::route $f cam host {want webcam allow_fec 0}]
+    expr {[ioa::codec::bitrate [dict get $without rung]]
+          <= [ioa::codec::bitrate [dict get $with rung]]}
+} -result 1
+
+test plan-4.1 {every hop on a returned route is inside its capacity} -body {
+    set p [ioa::plan::route [studio] eye-pro desk {want broadcast}]
+    set over 0
+    foreach e [dict get $p hops] {
+        if {[dict get $e offered_bps] > [dict get $e goodput_bps]} { incr over }
+    }
+    list [dict get $p ok] $over
+} -result {1 0}
+
+test plan-4.2 {end-to-end delivery is the product of the hops} -body {
+    set p [ioa::plan::route [studio] eye-pro desk {want broadcast}]
+    set d 1.0
+    foreach e [dict get $p hops] { set d [expr {$d * [dict get [dict get $e hop] delivery]}] }
+    expr {abs($d - [dict get $p delivery]) < 1e-9}
+} -result 1
+
+test plan-4.3 {the reported bottleneck really is the slowest hop} -body {
+    set p [ioa::plan::route [studio] eye-pro desk {want broadcast}]
+    set slowest Inf
+    foreach e [dict get $p hops] {
+        if {[dict get $e goodput_bps] < $slowest} { set slowest [dict get $e goodput_bps] }
+    }
+    expr {[dict get $p bottleneck_bps] == $slowest}
+} -result 1
+
+test plan-5.1 {an alternate route shares no medium with the primary} -body {
+    set p [ioa::plan::route [studio] eye-pro desk {want glance}]
+    set alt [ioa::plan::alternate [studio] $p]
+    if {$alt eq ""} { return "none" }
+    set a {}
+    set b {}
+    foreach e [dict get $p hops] { lappend a [dict get $e transport] }
+    foreach e [dict get $alt hops] { lappend b [dict get $e transport] }
+    expr {[llength [struct_intersect $a $b]] == 0}
+} -result 1
+
+test plan-5.2 {a control-grade link is not planned as a video path} -body {
+    # beam -> eye-01 is infrared, a control interface on the camera. A route
+    # must not appear through it unless control traffic is what was asked for.
+    set p [ioa::plan::route [studio] beam desk {want trickle}]
+    dict get $p ok
+} -result 0
+
+finish

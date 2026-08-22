@@ -1,0 +1,14 @@
+# A site where radio is not allowed at all: the pictures leave on light.
+fabric "darkroom" {}
+device eye-pro {product IOA-EYE-PRO}
+device eye-01  {product IOA-EYE-S3}
+device relay   {product IOA-RELAY-24}
+device prism-a {product IOA-PRISM-L1}
+device prism-b {product IOA-PRISM-L1}
+device host    {product IOA-HUB-X platform linux}
+
+link eye-pro prism-a lifi     {distance_m 8 ambient_lux 300}
+link prism-a prism-b laser    {distance_m 300 alignment 0.98}
+link prism-b host    ethernet {distance_m 20 peer 10.0.0.7}
+link eye-01  relay   espnow   {distance_m 15}
+link relay   host    wifi_tcp {distance_m 20 peer 10.0.0.7}

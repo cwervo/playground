@@ -1,0 +1,16 @@
+# A two-node bench rig with a perfect link, for tests that want no weather.
+# Devices need not name a product: state the interfaces directly and the
+# planner treats them the same way.
+fabric "bench" {}
+device cam {
+    platform   linux
+    roles      source
+    encode     {h265 1920 1080 60}
+    transports {{loopback egress}}
+}
+device host {
+    platform   linux
+    roles      {sink control}
+    transports {{loopback ingress}}
+}
+link cam host loopback {distance_m 0}

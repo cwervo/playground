@@ -1,0 +1,86 @@
+source [file join [file dirname [info script]] harness.tcl]
+
+test session-1.1 {a new session plans immediately and records why} -body {
+    set s [ioa::session::open [studio] eye-pro desk {want broadcast}]
+    list [dict get $s state] [llength [dict get $s history]] \
+         [dict get [lindex [dict get $s history] 0] why]
+} -result {running 1 {session opened}}
+
+test session-1.2 {a session carries a deployable manifest, not just a route} -body {
+    set s [ioa::session::open [studio] eye-pro desk {want broadcast}]
+    expr {[llength [dict get $s manifest]] == [llength [dict get $s plan nodes]]}
+} -result 1
+
+test session-2.1 {losing the beam reroutes onto another medium} -body {
+    set s [ioa::session::open [studio] eye-pro desk {want broadcast}]
+    set before [dict get $s plan bottleneck]
+    set s [ioa::session::event $s {link eye-pro prism-near laser {alignment 0.3}}]
+    list [dict get $s state] $before [dict get $s plan bottleneck]
+} -result {running laser wifi_tcp}
+
+test session-2.2 {a busy band costs quality, not the session} -body {
+    set s [ioa::session::open [studio] eye-pro desk {want broadcast}]
+    set s [ioa::session::event $s {link eye-pro prism-near laser {alignment 0.3}}]
+    set before [dict get $s plan rung_id]
+    set s [ioa::session::event $s {medium rf {interference 0.85}}]
+    list [dict get $s state] \
+         [expr {[ioa::codec::bitrate [dict get $s plan rung]]
+                < [ioa::codec::bitrate [ioa::codec::rung $before]]}]
+} -result {running 1}
+
+test session-2.3 {a node that was not on the route changes nothing} -body {
+    set s [ioa::session::open [studio] eye-pro desk {want broadcast}]
+    set path [dict get $s plan nodes]
+    set s [ioa::session::event $s {node-down eye-02}]
+    list [dict get $s plan nodes] [dict get [lindex [dict get $s history] end] detail]
+} -result [list {eye-pro prism-near desk} unchanged]
+
+test session-2.4 {when nothing is left, the session says dark rather than lying} -body {
+    set s [ioa::session::open [studio] eye-pro desk {want broadcast}]
+    set s [ioa::session::supervise $s {
+        {link eye-pro prism-near laser {alignment 0.1}}
+        {medium rf {interference 1.0}}
+    }]
+    list [dict get $s state] [expr {[dict get $s plan] eq ""}]
+} -result {dark 1}
+
+test session-2.5 {and comes back when the world does} -body {
+    set s [ioa::session::open [studio] eye-pro desk {want broadcast}]
+    set s [ioa::session::supervise $s {
+        {link eye-pro prism-near laser {alignment 0.1}}
+        {medium rf {interference 1.0}}
+        {medium rf {interference 0.2}}
+    }]
+    dict get $s state
+} -result running
+
+test session-3.1 {every event lands in the history in order} -body {
+    set s [ioa::session::open [studio] eye-pro desk {want broadcast}]
+    set s [ioa::session::supervise $s {
+        {node-down eye-02}
+        {want glance}
+        {medium rf {interference 0.5}}
+    }]
+    llength [dict get $s history]
+} -result 4
+
+test session-3.2 {an operator asking for less gets less} -body {
+    set s [ioa::session::open [studio] eye-01 desk {want webcam}]
+    set before [dict get $s plan rung_id]
+    set s [ioa::session::event $s {want trickle}]
+    list [expr {$before ne [dict get $s plan rung_id]}] [dict get $s plan rung_id]
+} -result {1 mjthumb05}
+
+test session-3.3 {an unknown event is refused, not guessed at} -body {
+    set s [ioa::session::open [studio] eye-01 desk {want webcam}]
+    catch {ioa::session::event $s {invent something}} e opts
+    lrange [dict get $opts -errorcode] 0 2
+} -result {IOA SESSION EVENT}
+
+test session-4.1 {a session reports whether it has anywhere to fall back to} -body {
+    set s [ioa::session::open [studio] eye-pro desk {want glance}]
+    set text [ioa::session::report $s]
+    expr {[string match "*fallback*" $text] || [string match "*no independent*" $text]}
+} -result 1
+
+finish
