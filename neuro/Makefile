@@ -4,6 +4,7 @@
 #   make analyze    just the engine
 #   make dash       the self-contained browser dashboard
 #   make physical   SVG for print and plotter, STL and SCAD, pocket card
+#   make figures    TIFFs of every figure in the source scans, plus a zip
 #   make explore    launch the Tk explorer (needs a display)
 #   make disasm     read the drawing program as assembly
 #   make check      round-trip the display file through every host
@@ -25,9 +26,9 @@ ENGINE   := $(B)/analyze
 NVM      := $(B)/dashboard.nvm
 HDRS     := src/nvm.hpp src/stats.hpp src/json.hpp
 
-.PHONY: all analyze dash physical explore disasm check whatif clean help
+.PHONY: all analyze dash physical figures explore disasm check whatif clean help
 
-all: dash physical
+all: dash physical figures
 	@echo
 	@echo "  built:"
 	@ls -1sh $(B) | sed 's/^/    /'
@@ -71,6 +72,15 @@ $(B)/card.svg: $(NVM) physical/card.tcl tcl/nvm.tcl
 
 $(B)/comb.stl: $(NVM) physical/solid.tcl tcl/nvm.tcl
 	$(TCLSH) physical/solid.tcl $(NVM) $(B)/comb
+
+# ---------------------------------------------------------------------------
+# Figures cut out of the original scans. This target does not depend on the
+# display file: it reads the source PDFs directly, because it is extracting what
+# the instruments drew rather than anything this project derived.
+figures: $(B)/figures.zip
+
+$(B)/figures.zip: figures/extract-figures.py | $(B)
+	python3 figures/extract-figures.py --out $(B)/figures --zip $@
 
 # ---------------------------------------------------------------------------
 explore: $(NVM)

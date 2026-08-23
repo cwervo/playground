@@ -169,6 +169,32 @@ power". Both amplitudes are printed. The quotient — 6.6 / 17.26 = 0.382, i.e.
 
 ---
 
+## The figures
+
+`figures/extract-figures.py` cuts the 15 data figures out of the same scans as
+TIFFs. It reads the **native embedded bitmap** of each page rather than a
+re-rasterised render — these PDFs store one full-page image per page at 1:1 with
+the page box — so a crop contains exactly the scanner's pixels.
+
+That last point is why the resolution numbers in `MANIFEST.csv` are derived from
+physical paper size and not from the PDF page box. These files were built with
+1 pt = 1 px, so the page box reports 72 ppi for every document, which is
+arithmetically correct and physically meaningless. Against real paper:
+
+| Document | Bitmap | Paper | Effective |
+|---|---|---|---|
+| Evoke Comprehensive / Summary | 1728 × 2236 | US Letter | 203 ppi |
+| Firefly Brain Insights | 1728 × 2445 | A4 | 209 ppi |
+| 12-lead ECG | 3300 × 2550 | US Letter landscape | 300 ppi |
+| Allergy skin test | 1728 × 2176 | — | **204 × 196 ppi** |
+
+The skin test's anisotropy is not an error: 204 × 196 dpi is exactly Group 3 fax
+fine mode, which independently confirms the sheet reached the practice as a fax
+and explains its transcription difficulty. The TIFF keeps both axes rather than
+averaging them.
+
+The Firefly report contributes no figures — all three of its pages are tables.
+
 ## Reproducing the transcription
 
 ```sh

@@ -161,6 +161,30 @@ collapses the info view, `Esc` clears. Scroll to move, ctrl-scroll to zoom, clic
 to pin — and pinning lights every prior-graph edge touching that metric, in
 every panel it appears in.
 
+### The original figures, as TIFFs
+
+```sh
+make figures        # -> build/figures/ and build/figures.zip
+```
+
+15 figures cut out of the source scans — EEG head maps and raw traces for both
+conditions, the three ERP waveforms, the cardiac waveform, HRV tachogram and
+power spectrum, the screener chart, the result gauges, the 12-lead trace and the
+skin-prick grid — named
+`$Condition_$Test_$Company_$Date_$timestampoftest.tiff`.
+
+Each is a crop out of the page's **native embedded bitmap**, not a re-render, so
+there is no resampling and no invented detail: 300 ppi for the 12-lead, 203 ppi
+for the Evoke pages, 204 × 196 for the faxed skin test. Provenance, caption and
+resolution ride along in each file's `ImageDescription` tag and in
+`MANIFEST.csv`.
+
+One caveat travels with them: only the 12-lead prints a real acquisition time
+(`14:51:16`). The Evoke figures carry `152200` from the cover page's "3:22 PM",
+accurate to the minute. The skin test prints no time at all, so its `165100` is
+the **fax transmission** stamp — an upper bound, not a test time. The manifest's
+`timestamp_source` column says which is which for every file.
+
 ### On paper and in your hand
 
 - `build/card.svg` — two 88 × 55 mm sides. The findings that clear threshold,
