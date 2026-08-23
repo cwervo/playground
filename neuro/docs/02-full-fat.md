@@ -91,6 +91,47 @@ categorised event is comparatively weak. Compare the subjective complaint of
 "pulled toward new things, then lose the thread". That mapping is far better
 supported than the theta:beta ratio that got flagged instead.
 
+#### 1.2.1 The order the components arrive in
+
+The table above is latencies against ceilings, one row at a time, which is how
+the report presents them and how they were entered here. Reading them as a
+*sequence* says something the rows do not.
+
+`video/trace.py` digitises the three printed curves back into numbers — axis and
+tick marks only, never the printed peak values, so the report's own figures are
+a test rather than an input, and all three pass within 0.7 µV and 7 ms.
+`video/analyse.py` then takes the principal deflection of each channel and sorts
+by latency:
+
+```
+O2  287 ms   −7.61 µV   negative
+Pz  387 ms   +6.67 µV   positive
+Cz  464 ms  +17.69 µV   positive
+```
+
+N100, then the parietal **P3b**, then the frontocentral **P3a**. The
+conventional sequence is the other way round: P3a is the earlier, faster,
+stimulus-driven orienting response and P3b follows it (Squires, Squires & Hillyard
+1975; Polich 2007). Here the orienting response arrives 77 ms *after* the
+consolidation response.
+
+That is the same dissociation §1.2 derives from the 0.382 amplitude quotient,
+arriving by an independent route — one measures how big the two responses are,
+the other measures which one gets there first, and they agree. Two measurements
+of one underlying thing is weaker evidence than two independent things agreeing,
+so this is corroboration rather than a second finding; it is worth stating
+because it is legible directly in the printed curves and appears nowhere in the
+printed text.
+
+Caveats, in order of size. These are three separate single-channel averages, not
+a simultaneous multichannel recording, so "order" here means the order of three
+printed curves and not a propagation delay measured across a field. The channels
+also come from two different conditions — Cz and O2 from checkerboard reversal,
+Pz from target — and the report does not state whether the averages share
+epochs. And a peak latency measured off a scan is only as good as the tick marks
+it was calibrated against, which is why the validation table is printed with the
+result.
+
 ### 1.3 Behavioural (CPT / go-no-go)
 
 | Metric | Result | Reference | Margin |

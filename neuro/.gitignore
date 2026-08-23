@@ -1,2 +1,5 @@
 # Generated. Everything here is one `make` away from the sources beside it.
 build/
+
+# Python leaves these beside video/*.py.
+__pycache__/

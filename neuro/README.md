@@ -6,6 +6,7 @@ any of them re-deriving a number.
 
 ```
 make                    # engine, display file, dashboard, print, plotter, card, STL
+make video              # the 9:16 reel of the photic block, with its sonification
 open build/dashboard.html
 ```
 
@@ -50,7 +51,7 @@ Four other stories score better. 200 000 permutations, seed 20260818:
 | **H2** | Timing slowed, capacity intact | **+0.401** | 0.0063 |
 | H5 | Classic ADHD electrophysiology | +0.120 | 0.1735 |
 
-Three findings that came out of re-deriving rather than re-reading:
+Four findings that came out of re-deriving rather than re-reading:
 
 - **The P3b/P3a amplitude ratio is 0.382 against a floor of 0.50** that the
   report states in prose on the ERP page and never computes. Novelty grabs
@@ -62,6 +63,12 @@ Three findings that came out of re-deriving rather than re-reading:
   anxiety at +225%, depression at +200% and allergen burden at +199%. And the
   theta:beta threshold comes from normative tables the report itself says do not
   extend past age 31, on a subject aged 31 years 2 months.
+- **The three evoked components arrive in the wrong order.** Digitising the
+  printed curves back into numbers puts the principal deflections at O2 287 ms,
+  Pz 387 ms, Cz 464 ms — N100, then the parietal P3b, then the frontocentral
+  P3a. Textbook order puts P3a first. It is the same dissociation the 0.382
+  ratio describes, arriving by an independent route, and it is visible in the
+  figures and stated nowhere in the text.
 - **The heart-rate variability total is fine and its distribution is not.**
   SDNN 82 ms and total power 2324 ms² both score normal, while VLF/LF is 1.173
   against a 0.5 threshold and HF is 11.1% of total power against a 15% floor. No
@@ -93,6 +100,12 @@ web/bundle.tcl                 inlines the bytecode into one self-contained file
 physical/plot.tcl              SVG for print, or stroked for a pen plotter
 physical/solid.tcl             STL and OpenSCAD: the margin comb
 physical/card.tcl              two-sided pocket card
+
+video/trace.py                 digitise the printed curves back into numbers
+video/analyse.py               peaks, polarity reversals, discharge order
+video/common.py                the timeline and the colour system, shared
+video/sonify.py                organ, thunder, and the mix
+video/render.py                the 9:16 reel
 ```
 
 `src/analyze.cpp` reads the JSON, derives everything, and writes a `.nvm` file.
@@ -211,6 +224,90 @@ break cannot carry a line, so a link is two half-lines meeting at the page edge
 under the same id and colour, both ends live in the PDF, plus one final spread
 that draws all 36 links at once. Numerals are set in IBM Plex Mono throughout.
 
+### The reel, and the sound of it
+
+```sh
+make video          # -> build/video/photic.mp4, 2160x3840, 30 s, with audio
+make video SCALE=1  # 1080x1920, about a minute, for looking at
+```
+
+Thirty seconds, 9:16, in two acts: the photic block, then ten seconds of the
+resting montage. The chart is the point — a montage already **is** a map, with
+fixed named places, fixed routes between them and a grid you read positions off,
+so the head is drawn in orthographic projection with its own graticule, the five
+anterior-posterior bipolar chains are drawn as the routes a reader traverses,
+and the trace panel gets meridians at the component latencies with a
+cartographer's scale bar underneath, in milliseconds instead of miles.
+
+**There is no continuous photic EEG in this record.** The checkerboard block
+survives only as three averaged single-channel curves printed on one page, so
+`video/trace.py` reads the ink back off the scan: it finds the axis, the tick
+marks and the zero line, calibrates from the ticks alone, and never looks at the
+peak values the report prints. Which makes those printed peaks a test rather
+than an input, and all three pass:
+
+| | traced | report | error |
+|---|---|---|---|
+| Cz | +17.92 µV @ 464 ms | +17.26 @ 468 | +0.66 µV, −4 ms |
+| Pz | +6.78 µV @ 387 ms | +6.60 @ 380 | +0.18 µV, +7 ms |
+| O2 | −7.73 µV @ 287 ms | −7.55 @ 288 | −0.18 µV, −1 ms |
+
+The resting act has a real scalp field — 15 usable electrodes — so it gets an
+interpolated topography. The photic act does not, and does not get one: three
+points is not a field, and drawing one would be drawing data that was never
+recorded.
+
+`video/analyse.py` then extracts what the animation is actually about — every
+peak with its latency, amplitude, polarity and prominence, every zero crossing,
+and the order the channels discharge in. That order is the finding:
+
+```
+O2 287 ms  ->  Pz 387 ms  ->  Cz 464 ms
+```
+
+N100, then the parietal P3b, then the frontocentral P3a. Textbook order puts
+P3a first. Here the orienting response arrives **last** — which is the same
+story the 0.382 amplitude ratio tells, arriving by a different route, and it is
+in the printed curves and in none of the printed text.
+
+**On the colour.** The brief asked for green to red. That is the one ramp to
+avoid: red-green is exactly the axis protanopia and deuteranopia collapse, and
+a green-to-red amplitude scale is unreadable to roughly 8% of men at any
+brightness. So the OKLab machinery stayed and what carries meaning changed —
+**magnitude is lightness**, monotonic, and **polarity is hue**, azure against
+gold. Lightness survives everything: full achromatopsia, a bad projector, a
+phone in sunlight, a greyscale print. The positive hue is 92°, gold rather than
+amber, because amber at middling lightness is in sRGB simply brown — there is no
+chroma available there to make it anything else — and brown was the specific
+failure the brief called out.
+
+**On the sound.** `video/sonify.py` plays the same event list the picture is
+drawn from, so a flash and a note are the same row of the same file:
+
+- a **peak** is an organ note — pitch from where the electrode sits front to
+  back, loudness from microvolts, and the voicing from polarity: positive
+  deflections take the major triad, negative ones the quartal stack on the flat
+  seventh. G Mixolydian gives both colours over one root, so polarity is
+  audible without a key change.
+- a **polarity reversal** is a chopped slice of thunder, pitch-bent by the slope
+  of the crossing and panned by how far off the midline the electrode is.
+- a **principal peak** is the whole crack: chord, thunder, sub drop, and
+  everything else ducked out of its way.
+- the **resting alpha** is the tremulant. The organ's flutter rate is not
+  chosen; it is read out of `features.json` — 9.33 Hz, the measured eyes-closed
+  dominant frequency. The alpha rhythm is not represented by the tremolo, it
+  **is** the tremolo.
+
+The organ is additive and drawbar-style — ranks at 1, 2, 3, 4, 6, 8, 12 and 16
+times the fundamental, each detuned a few cents so they beat against each other,
+with a chiff of filtered noise at onset for the sound of air arriving before
+tone. The thunder is synthesised rather than sampled: a crack filtered bright
+*before* it is enveloped, three reflections, over a brown-noise body rolled off
+below 200 Hz. The mixing is the SOPHIE part — hard gates with 1.5 ms edges,
+sidechain ducking on every hit, a mono saturated sub under each one, an air
+burst on every transient, chops panned by electrode laterality with a Haas
+offset, and the act boundary as twelve milliseconds of actual silence.
+
 ### On paper and in your hand
 
 - `build/card.svg` — two 88 × 55 mm sides. The findings that clear threshold,
@@ -254,3 +351,10 @@ accordingly.
 
 `g++` with C++17, `tclsh` 8.6, and `wish` 8.6 only for the Tk explorer. No
 libraries, no package manager, no network.
+
+Two targets step outside that. `make conference` needs `node` and a Chromium to
+paginate and print; `make video` needs Python with `numpy`, `pillow` and
+`imageio-ffmpeg`. Everything the reel needs beyond that — the timeline, the
+colour space, the organ, the thunder and the mix — is in the four files under
+`video/`, and IBM Plex ships in `assets/fonts/` under the OFL so the build does
+not reach for a font it might not find.

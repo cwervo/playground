@@ -6,6 +6,7 @@
 #   make physical   SVG for print and plotter, STL and SCAD, pocket card
 #   make figures    TIFFs of every figure in the source scans, plus a zip
 #   make conference the simulated proceedings PDF, with Xanadu-style ley lines
+#   make video      the 9:16 reel of the photic block, with its sonification
 #   make explore    launch the Tk explorer (needs a display)
 #   make disasm     read the drawing program as assembly
 #   make check      round-trip the display file through every host
@@ -27,7 +28,7 @@ ENGINE   := $(B)/analyze
 NVM      := $(B)/dashboard.nvm
 HDRS     := src/nvm.hpp src/stats.hpp src/json.hpp
 
-.PHONY: all analyze dash physical figures conference explore disasm check whatif clean help
+.PHONY: all analyze dash physical figures conference video explore disasm check whatif clean help
 
 all: dash physical figures conference
 	@echo
@@ -101,6 +102,39 @@ $(B)/conference/proceedings.pdf: $(B)/conference/proceedings.html conference/top
 	CHROMIUM_PATH=$(CHROMIUM) $(NODE) conference/topdf.mjs $< $@
 
 # ---------------------------------------------------------------------------
+# The reel. Four stages, each one writing a file the next one reads, so the
+# picture and the sound are driven from the same event list and cannot drift:
+#
+#   trace    ink on the scanned figures  ->  time series
+#   analyse  time series                 ->  peaks, polarity reversals, order
+#   sonify   those events                ->  score + stereo master
+#   render   all of it                   ->  frames, muxed with the master
+#
+# SCALE=1 gives 1080x1920 in about a minute, for looking at; SCALE=2 gives
+# 2160x3840, which is what actually ships.
+SCALE  ?= 2
+VIDEO  := $(B)/video
+
+video: $(VIDEO)/photic.mp4
+
+$(VIDEO)/series.json: video/trace.py $(B)/figures.zip
+	python3 video/trace.py --img $(B)/conference/img --out $@
+
+$(VIDEO)/features.json: video/analyse.py $(VIDEO)/series.json
+	python3 video/analyse.py --series $(VIDEO)/series.json --out $@
+
+$(VIDEO)/track.wav $(VIDEO)/score.json: video/sonify.py video/common.py $(VIDEO)/features.json
+	python3 video/sonify.py --features $(VIDEO)/features.json \
+	        --series $(VIDEO)/series.json \
+	        --out $(VIDEO)/track.wav --score $(VIDEO)/score.json
+
+$(VIDEO)/photic.mp4: video/render.py video/common.py $(VIDEO)/track.wav \
+                     $(VIDEO)/score.json $(VIDEO)/features.json
+	python3 video/render.py --scale $(SCALE) --series $(VIDEO)/series.json \
+	        --features $(VIDEO)/features.json --score $(VIDEO)/score.json \
+	        --audio $(VIDEO)/track.wav --out $@
+
+# ---------------------------------------------------------------------------
 explore: $(NVM)
 	$(WISH) tcl/explore.tcl $(NVM)
 
@@ -143,4 +177,4 @@ clean:
 	rm -rf $(B)
 
 help:
-	@sed -n '2,14p' Makefile | sed 's/^# \?//'
+	@sed -n '2,15p' Makefile | sed 's/^# \?//'
