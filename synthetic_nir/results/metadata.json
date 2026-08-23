@@ -1,0 +1,97 @@
+{
+  "source": "/root/.claude/uploads/8cc4b9c0-d325-532a-9cf3-f5ac94035026/b43bff0d-image.jpg",
+  "shape": [
+    1400,
+    1050
+  ],
+  "config": {
+    "max_side": 1400,
+    "cct_k": 6500.0,
+    "min_tile": 20,
+    "max_depth": 6,
+    "detail_thresh": 0.015,
+    "overlap": 0.35,
+    "guided_radius": 4,
+    "guided_eps": 0.002,
+    "mf_sigma": 2.5,
+    "mf_iter": 3,
+    "fdr_q": 0.05,
+    "vein_prior": 0.1,
+    "roi_erode": 12,
+    "vessel_scales": [
+      1.5,
+      2.5,
+      3.5,
+      5.0
+    ],
+    "crest_gamma": 0.35,
+    "n_null": 3,
+    "n_perturb": 3,
+    "support_dprime": 1.0,
+    "support_lum_snr": 4.0,
+    "sto2_venous": 0.55,
+    "sto2_arterial": 0.95,
+    "seed": 0
+  },
+  "quadtree": {
+    "n_leaves": 286,
+    "depth_min": 2,
+    "depth_max": 5,
+    "leaf_px_min": 1376,
+    "leaf_px_max": 92050,
+    "core_coverage": 1.0,
+    "mean_overlap_factor": 2.5982142857142856
+  },
+  "hand_fraction": 0.36698979591836733,
+  "class_separation": 1.1998109474739915,
+  "mnf_snr": [
+    23.666668064221106,
+    9.96387755903489,
+    3.286642478661535
+  ],
+  "tasseled_cap_basis": [
+    [
+      0.6834827193881949,
+      0.5646807449754463,
+      0.4625873199209992
+    ],
+    [
+      -0.6519949719453673,
+      0.7572197352144867,
+      0.03899780967775734
+    ],
+    [
+      -0.3282589356829114,
+      -0.3282589356829113,
+      0.8857156102771615
+    ]
+  ],
+  "band_keys": [
+    "B760",
+    "B850",
+    "B940"
+  ],
+  "bh_p_threshold": 0.0,
+  "vein_px": 0,
+  "vein_fraction_of_support": 0.0,
+  "roi_fraction": 0.3082265306122449,
+  "support_fraction_of_roi": 0.039349537512166376,
+  "median_data_snr_in_roi": 15.760186195373535,
+  "support_curve": {
+    "1.0": 0.31867850529582226,
+    "2.0": 0.21714747303533713,
+    "3.0": 0.09015809116450707,
+    "5.0": 0.025244265526061977,
+    "10.0": 0.001644254049389419
+  },
+  "reference_vein_contrast": 0.06688727389333937,
+  "null_ridge_mean": 0.06701715141001056,
+  "observed_ridge_mean": 0.03471592226703041,
+  "median_stability_in_support": 0.01417928729975574,
+  "band_means_in_hand": {
+    "B760": 0.6789707541465759,
+    "B850": 0.7112489342689514,
+    "B940": 0.6839596629142761
+  },
+  "runtime_s": 160.85
+}

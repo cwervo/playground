@@ -1,0 +1,57 @@
+[
+  {
+    "exposure": 1.0,
+    "tissue_code": 65.28803116179091,
+    "auc": 0.9300774286947692,
+    "obs_ridge": 0.05083604220593854,
+    "null_ridge": 0.026182006841617683,
+    "detectable_frac": 1.0,
+    "recall": 0.4205927702586945,
+    "precision": 0.9939271255060729,
+    "median_lum_snr": 17.014930147063676
+  },
+  {
+    "exposure": 0.3,
+    "tissue_code": 35.85985720504225,
+    "auc": 0.9008082589441275,
+    "obs_ridge": 0.06349662348963192,
+    "null_ridge": 0.08288009021539382,
+    "detectable_frac": 0.9873011130200942,
+    "recall": 0.0,
+    "precision": 0.0,
+    "median_lum_snr": 5.860305252154768
+  },
+  {
+    "exposure": 0.1,
+    "tissue_code": 19.414509260131844,
+    "auc": 0.8352303998945952,
+    "obs_ridge": 0.11310159561734989,
+    "null_ridge": 0.11981619895384177,
+    "detectable_frac": 0.0,
+    "recall": 0.0,
+    "precision": 0.0,
+    "median_lum_snr": 2.0509507792465675
+  },
+  {
+    "exposure": 0.03,
+    "tissue_code": 9.607255527582941,
+    "auc": 0.6010681545029372,
+    "obs_ridge": 0.147096033033249,
+    "null_ridge": 0.14192486912374014,
+    "detectable_frac": 0.0,
+    "recall": 0.0,
+    "precision": 0.0,
+    "median_lum_snr": 0.8367907683694519
+  },
+  {
+    "exposure": 0.01,
+    "tissue_code": 6.190937770657476,
+    "auc": 0.5022964213238212,
+    "obs_ridge": 0.13847762890351614,
+    "null_ridge": 0.13242569005954874,
+    "detectable_frac": 0.0,
+    "recall": 0.0,
+    "precision": 0.0,
+    "median_lum_snr": 0.5613679995063865
+  }
+]
