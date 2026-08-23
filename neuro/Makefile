@@ -5,6 +5,7 @@
 #   make dash       the self-contained browser dashboard
 #   make physical   SVG for print and plotter, STL and SCAD, pocket card
 #   make figures    TIFFs of every figure in the source scans, plus a zip
+#   make conference the simulated proceedings PDF, with Xanadu-style ley lines
 #   make explore    launch the Tk explorer (needs a display)
 #   make disasm     read the drawing program as assembly
 #   make check      round-trip the display file through every host
@@ -26,9 +27,9 @@ ENGINE   := $(B)/analyze
 NVM      := $(B)/dashboard.nvm
 HDRS     := src/nvm.hpp src/stats.hpp src/json.hpp
 
-.PHONY: all analyze dash physical figures explore disasm check whatif clean help
+.PHONY: all analyze dash physical figures conference explore disasm check whatif clean help
 
-all: dash physical figures
+all: dash physical figures conference
 	@echo
 	@echo "  built:"
 	@ls -1sh $(B) | sed 's/^/    /'
@@ -80,7 +81,24 @@ $(B)/comb.stl: $(NVM) physical/solid.tcl tcl/nvm.tcl
 figures: $(B)/figures.zip
 
 $(B)/figures.zip: figures/extract-figures.py | $(B)
-	python3 figures/extract-figures.py --out $(B)/figures --zip $@
+	python3 figures/extract-figures.py --out $(B)/figures --zip $@ \
+	        --also-png $(B)/conference/img
+
+# ---------------------------------------------------------------------------
+# The simulated conference. Tcl builds the document, the browser lays it out and
+# draws the ley lines, and only then is it printed -- printing before the page
+# reports ready gives a PDF with the right words and no lines on it.
+NODE     ?= node
+CHROMIUM ?= /opt/pw-browsers/chromium-1194/chrome-linux/chrome
+
+conference: $(B)/conference/proceedings.pdf
+
+$(B)/conference/proceedings.html: conference/build.tcl conference/proceedings.tcl \
+                                  conference/sources.tcl $(B)/figures.zip
+	$(TCLSH) conference/build.tcl --img $(B)/conference/img --out $@
+
+$(B)/conference/proceedings.pdf: $(B)/conference/proceedings.html conference/topdf.mjs
+	CHROMIUM_PATH=$(CHROMIUM) $(NODE) conference/topdf.mjs $< $@
 
 # ---------------------------------------------------------------------------
 explore: $(NVM)

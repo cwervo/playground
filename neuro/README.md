@@ -185,6 +185,32 @@ accurate to the minute. The skin test prints no time at all, so its `165100` is
 the **fax transmission** stamp — an upper bound, not a test time. The manifest's
 `timestamp_source` column says which is which for every file.
 
+### The simulated conference
+
+```sh
+make conference     # -> build/conference/proceedings.pdf, 32 pages, landscape
+```
+
+Five invented readers argue about this record for five days: a 912 Columbus
+internist, a Columbia neurophysiologist, a European standards chair, a Tokyo
+evoked-potential specialist, and a California vision scientist who keeps asking
+what the checkerboard actually was. **They are fictional and the document says so
+on its cover** — no clinician has reviewed this record.
+
+Front matter catalogues the twentieth-century origin of every instrument
+(Berger 1929, Sutton 1965, Squires 1975, Einthoven 1903, Akselrod 1981,
+Blackley 1873, Halliday 1972, Rosvold 1956) against what PubMed and the journals
+say now, including the January 2026 multiverse analysis that reruns the
+theta/beta ratio across 576 analysis pipelines.
+
+Every claim that rests on something visible in the source scans is highlighted
+in yellow, carries a link id, and has a drawn ley line to a margin stub. The
+back matter is seven annotated plates built from the extracted TIFFs, where the
+line runs the other way — from a stub into a boxed region on the figure. A page
+break cannot carry a line, so a link is two half-lines meeting at the page edge
+under the same id and colour, both ends live in the PDF, plus one final spread
+that draws all 36 links at once. Numerals are set in IBM Plex Mono throughout.
+
 ### On paper and in your hand
 
 - `build/card.svg` — two 88 × 55 mm sides. The findings that clear threshold,

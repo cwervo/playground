@@ -259,9 +259,15 @@ def main():
     ap.add_argument("--out", default="build/figures")
     ap.add_argument("--zip", dest="zippath", default=None)
     ap.add_argument("--no-trim", action="store_true")
+    # The TIFFs are the deliverable; browsers cannot render TIFF, so anything
+    # that has to display them needs a parallel PNG set cut from the same crop.
+    ap.add_argument("--also-png", default=None,
+                    help="write a matching PNG for each TIFF into this directory")
     args = ap.parse_args()
 
     os.makedirs(args.out, exist_ok=True)
+    if args.also_png:
+        os.makedirs(args.also_png, exist_ok=True)
     page_cache = {}
     manifest = []
 
@@ -315,6 +321,9 @@ def main():
         info[315] = doc["company"]                 # Artist, i.e. the instrument vendor
         crop.save(out, format="TIFF", compression="tiff_lzw",
                   dpi=(ppi_x, ppi_y), tiffinfo=info)
+        if args.also_png:
+            png = os.path.join(args.also_png, name[:-5] + ".png")
+            crop.save(png, format="PNG", optimize=True)
 
         manifest.append(dict(
             filename=name,
