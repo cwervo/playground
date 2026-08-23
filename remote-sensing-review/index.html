@@ -1,0 +1,1296 @@
+<title>One Estimator, Thirty Orders of Magnitude</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Spectral:ital,wght@0,300;0,400;0,600;0,700;1,400&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+
+<style>
+  :root{
+    --ground:#F4F5F8;
+    --surface:#FFFFFF;
+    --sunk:#ECEEF4;
+    --ink:#14161F;
+    --ink-2:#454B5C;
+    --muted:#6E7488;
+    --edge:#DBDEE7;
+    --edge-soft:#E7E9F0;
+    --accent:#1010FF;
+    --accent-ink:#1010FF;
+    --accent-soft:rgba(16,16,255,.07);
+    --svg-accent:#3A46E8;
+
+    --serif:"Spectral",Georgia,"Times New Roman",serif;
+    --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+
+    --measure:34rem;
+    --wide:64rem;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --ground:#0B0D13;
+      --surface:#12151E;
+      --sunk:#171B26;
+      --ink:#E7E9F0;
+      --ink-2:#B6BCCB;
+      --muted:#868CA1;
+      --edge:#242938;
+      --edge-soft:#1C202C;
+      --accent:#8891FF;
+      --accent-ink:#8891FF;
+      --accent-soft:rgba(136,145,255,.12);
+      --svg-accent:#7E89FF;
+    }
+  }
+  :root[data-theme="dark"]{
+    --ground:#0B0D13;
+    --surface:#12151E;
+    --sunk:#171B26;
+    --ink:#E7E9F0;
+    --ink-2:#B6BCCB;
+    --muted:#868CA1;
+    --edge:#242938;
+    --edge-soft:#1C202C;
+    --accent:#8891FF;
+    --accent-ink:#8891FF;
+    --accent-soft:rgba(136,145,255,.12);
+    --svg-accent:#7E89FF;
+  }
+
+  body{
+    background:var(--ground);
+    color:var(--ink);
+    font-family:var(--serif);
+    font-weight:400;
+    font-size:17px;
+    line-height:1.68;
+    -webkit-font-smoothing:antialiased;
+  }
+
+  .page{
+    max-width:var(--wide);
+    margin:0 auto;
+    padding:0 1.5rem 6rem;
+    display:flex;
+    flex-direction:column;
+    gap:0;
+  }
+  .col{
+    max-width:var(--measure);
+    margin:0 auto;
+    width:100%;
+    display:flex;
+    flex-direction:column;
+    gap:1.15rem;
+  }
+  .col > * { margin:0; }
+
+  /* ---------- masthead ---------- */
+  .masthead{
+    max-width:var(--measure);
+    margin:0 auto;
+    width:100%;
+    padding:4.5rem 0 0;
+    display:flex;
+    flex-direction:column;
+    gap:1.3rem;
+  }
+  .eyebrow{
+    font-family:var(--mono);
+    font-size:11px;
+    font-weight:500;
+    letter-spacing:.16em;
+    text-transform:uppercase;
+    color:var(--muted);
+    margin:0;
+  }
+  h1{
+    font-family:var(--serif);
+    font-weight:700;
+    font-size:clamp(2.1rem,5.2vw,3.1rem);
+    line-height:1.08;
+    letter-spacing:-.015em;
+    text-wrap:balance;
+    margin:0;
+  }
+  h1 em{ font-style:italic; font-weight:400; color:var(--ink-2); }
+  .standfirst{
+    font-size:1.16rem;
+    line-height:1.58;
+    color:var(--ink-2);
+    text-wrap:pretty;
+    margin:0;
+  }
+  .byline{
+    font-family:var(--mono);
+    font-size:11.5px;
+    color:var(--muted);
+    letter-spacing:.02em;
+    line-height:1.7;
+  }
+
+  /* the 8-colour calibration strip: the RGB-cube corners used by
+     PrintablePrograms.png/lib/pageframe.tcl */
+  .calib{
+    display:flex;
+    height:9px;
+    width:100%;
+    max-width:var(--measure);
+    margin:0 auto;
+    border:1px solid var(--edge);
+    border-radius:1px;
+    overflow:hidden;
+  }
+  .calib span{ flex:1 1 0; }
+  .calib .k{background:#000}.calib .r{background:#F00}.calib .g{background:#0F0}
+  .calib .b{background:#00F}.calib .c{background:#0FF}.calib .m{background:#F0F}
+  .calib .y{background:#FF0}.calib .w{background:#FFF}
+  .rule-space{ padding:3.2rem 0; }
+  .rule-space-sm{ padding:2rem 0; }
+
+  /* ---------- sections ---------- */
+  section{ padding-top:3.4rem; }
+  h2{
+    font-family:var(--serif);
+    font-weight:700;
+    font-size:1.62rem;
+    line-height:1.22;
+    letter-spacing:-.01em;
+    text-wrap:balance;
+    margin:0;
+  }
+  h3{
+    font-family:var(--serif);
+    font-weight:600;
+    font-size:1.1rem;
+    line-height:1.35;
+    margin:0;
+  }
+  .sec-no{
+    font-family:var(--mono);
+    font-size:11px;
+    font-weight:500;
+    letter-spacing:.16em;
+    color:var(--accent-ink);
+    text-transform:uppercase;
+  }
+  p{ text-wrap:pretty; }
+  a{ color:var(--accent-ink); text-decoration-thickness:1px; text-underline-offset:2px; }
+  a:focus-visible{ outline:2px solid var(--accent-ink); outline-offset:3px; border-radius:2px; }
+  strong{ font-weight:600; }
+  code{
+    font-family:var(--mono);
+    font-size:.86em;
+    background:var(--accent-soft);
+    color:var(--ink);
+    padding:.1em .34em;
+    border-radius:3px;
+    word-break:break-word;
+  }
+
+  /* ---------- provenance ---------- */
+  .provenance{
+    background:var(--surface);
+    border:1px solid var(--edge);
+    border-radius:3px;
+    padding:1.3rem 1.4rem;
+    display:flex;
+    flex-direction:column;
+    gap:.7rem;
+    font-size:.95rem;
+    color:var(--ink-2);
+  }
+  .provenance p{ margin:0; }
+  .chip{
+    display:inline-block;
+    font-family:var(--mono);
+    font-size:10px;
+    font-weight:500;
+    letter-spacing:.13em;
+    text-transform:uppercase;
+    padding:.22em .5em;
+    border-radius:2px;
+    vertical-align:.12em;
+    white-space:nowrap;
+  }
+  .chip.built{ background:var(--accent-ink); color:var(--surface); }
+  .chip.argued{ border:1px solid var(--edge); color:var(--muted); }
+
+  /* ---------- rungs ---------- */
+  .rung{
+    display:flex;
+    flex-direction:column;
+    gap:.75rem;
+    padding-top:2.1rem;
+  }
+  .rung-head{
+    display:flex;
+    align-items:baseline;
+    gap:.8rem;
+    flex-wrap:wrap;
+    border-top:1px solid var(--edge);
+    padding-top:.75rem;
+  }
+  .rung-scale{
+    font-family:var(--mono);
+    font-size:12px;
+    font-weight:500;
+    color:var(--accent-ink);
+    letter-spacing:.02em;
+    white-space:nowrap;
+    font-variant-numeric:tabular-nums;
+  }
+  .rung-band{
+    font-family:var(--mono);
+    font-size:10.5px;
+    letter-spacing:.1em;
+    text-transform:uppercase;
+    color:var(--muted);
+    margin-left:auto;
+  }
+  .rung p{ margin:0; }
+  .rung p + p{ margin-top:.85rem; }
+
+  /* ---------- figures ---------- */
+  figure{
+    margin:0;
+    max-width:var(--wide);
+    width:100%;
+    display:flex;
+    flex-direction:column;
+    gap:.9rem;
+  }
+  .fig-wrap{ padding:2.6rem 0 .4rem; }
+  .fig-frame{
+    background:var(--surface);
+    border:1px solid var(--edge);
+    border-radius:3px;
+    padding:1.4rem 1.2rem;
+    overflow-x:auto;
+  }
+  .fig-frame svg{
+    display:block;
+    width:100%;
+    min-width:520px;
+    max-width:100%;
+    height:auto;
+    color:var(--ink-2);
+  }
+  /* var() is not substituted inside SVG presentation attributes, so the
+     themed accents are applied as classes instead. */
+  .acc-f{ fill:var(--svg-accent); }
+  .acc-s{ stroke:var(--svg-accent); }
+  .surf-f{ fill:var(--surface); }
+  figcaption{
+    max-width:var(--measure);
+    margin:0 auto;
+    font-size:.9rem;
+    line-height:1.55;
+    color:var(--muted);
+    text-wrap:pretty;
+  }
+  figcaption b{
+    font-family:var(--mono);
+    font-size:10.5px;
+    font-weight:500;
+    letter-spacing:.12em;
+    text-transform:uppercase;
+    color:var(--ink-2);
+    display:block;
+    margin-bottom:.35rem;
+  }
+  .figkey{
+    max-width:var(--measure);
+    margin:0 auto;
+    padding:0;
+    list-style:none;
+    counter-reset:k;
+    display:grid;
+    grid-template-columns:repeat(auto-fit,minmax(15rem,1fr));
+    gap:.45rem 1.6rem;
+    font-size:.88rem;
+    line-height:1.5;
+    color:var(--muted);
+  }
+  .figkey li{ counter-increment:k; position:relative; padding-left:1.6rem; }
+  .figkey li::before{
+    content:counter(k);
+    position:absolute; left:0; top:.18em;
+    width:1.1rem; height:1.1rem;
+    border:1px solid var(--edge);
+    border-radius:50%;
+    font-family:var(--mono); font-size:9.5px; font-weight:500;
+    display:flex; align-items:center; justify-content:center;
+    color:var(--ink-2);
+  }
+
+  /* ---------- table ---------- */
+  .table-wrap{
+    max-width:var(--wide);
+    width:100%;
+    overflow-x:auto;
+    border:1px solid var(--edge);
+    border-radius:3px;
+    background:var(--surface);
+  }
+  table{
+    border-collapse:collapse;
+    width:100%;
+    min-width:56rem;
+    font-size:.87rem;
+    line-height:1.45;
+  }
+  th,td{
+    text-align:left;
+    vertical-align:top;
+    padding:.72rem .9rem;
+    border-bottom:1px solid var(--edge-soft);
+  }
+  thead th{
+    font-family:var(--mono);
+    font-size:10px;
+    font-weight:500;
+    letter-spacing:.11em;
+    text-transform:uppercase;
+    color:var(--muted);
+    border-bottom:1px solid var(--edge);
+    white-space:nowrap;
+  }
+  tbody th{
+    font-family:var(--serif);
+    font-weight:600;
+    color:var(--ink);
+    white-space:nowrap;
+  }
+  td{ color:var(--ink-2); }
+  td.bound{ font-family:var(--mono); font-size:11.5px; color:var(--muted); }
+  tbody tr:last-child th, tbody tr:last-child td{ border-bottom:0; }
+
+  /* ---------- pull ---------- */
+  .pull{
+    font-size:1.22rem;
+    line-height:1.45;
+    font-style:italic;
+    color:var(--ink);
+    border-left:2px solid var(--accent-ink);
+    padding-left:1.1rem;
+    margin:.6rem 0;
+    text-wrap:pretty;
+  }
+
+  .artifact-list{
+    display:flex;
+    flex-direction:column;
+    gap:1.5rem;
+    padding-top:.4rem;
+  }
+  .artifact{
+    display:flex;
+    flex-direction:column;
+    gap:.4rem;
+  }
+  .artifact .path{
+    font-family:var(--mono);
+    font-size:12px;
+    font-weight:500;
+    color:var(--ink);
+    letter-spacing:-.01em;
+  }
+  .artifact p{ margin:0; font-size:.97rem; }
+  .artifact .lesson{
+    font-size:.92rem;
+    color:var(--muted);
+    border-top:1px solid var(--edge-soft);
+    padding-top:.4rem;
+  }
+  .artifact .lesson em{ font-style:normal; color:var(--ink-2); font-weight:600; }
+
+  ol.threads{
+    padding-left:1.3rem;
+    display:flex;
+    flex-direction:column;
+    gap:.75rem;
+    font-size:.97rem;
+  }
+  ol.threads li::marker{ font-family:var(--mono); font-size:12px; color:var(--muted); }
+
+  .colophon{
+    max-width:var(--measure);
+    margin:0 auto;
+    width:100%;
+    padding-top:2rem;
+    font-family:var(--mono);
+    font-size:11px;
+    line-height:1.9;
+    color:var(--muted);
+    letter-spacing:.01em;
+  }
+
+  @media (max-width:640px){
+    body{ font-size:16.5px; }
+    .fig-frame{ padding:1rem .7rem; }
+    .rung-band{ margin-left:0; width:100%; }
+  }
+  @media (prefers-reduced-motion:reduce){
+    *{ animation:none !important; transition:none !important; }
+  }
+</style>
+
+<div class="page">
+
+  <header class="masthead">
+    <p class="eyebrow">Review · sensing across scale</p>
+    <h1>One Estimator,<br>Thirty Orders <em>of</em> Magnitude</h1>
+    <p class="standfirst">
+      A review of the sensing work in the <code>cwervo/playground</code> repository, and of the
+      claim it keeps re-proving at hobby scale: that from molecular absorption to interferometric
+      astronomy, the physics of the encoding changes completely while the estimator, the
+      calibration discipline, and the bounds that limit both stay the same.
+    </p>
+    <p class="byline">
+      Written for readers in neuropsychology, spectroscopy, and X-ray / laser / IR interferometry
+      for art conservation.<br>
+      Source corpus: 21 sensing-related programs, C/Tcl/JS, 2024&ndash;2026.
+    </p>
+  </header>
+
+  <div class="rule-space">
+    <div class="calib" role="presentation">
+      <span class="k"></span><span class="r"></span><span class="g"></span><span class="b"></span><span class="c"></span><span class="m"></span><span class="y"></span><span class="w"></span>
+    </div>
+  </div>
+
+  <div class="col">
+    <div class="provenance">
+      <p><strong>What this document is, exactly.</strong></p>
+      <p>
+        <span class="chip built">Built</span> marks a claim backed by code and test suites in this
+        repository: camera/projector computer vision, a steganographic channel, and a
+        print-and-rescan codec that recovers a program byte-exact from a photograph of a piece of
+        paper.
+      </p>
+      <p>
+        <span class="chip argued">Argued</span> marks the extension outward. This repository
+        contains no glucose sensor, no satellite pipeline, no interferometer. The rungs of the ladder
+        below at those scales are drawn from the published literature and are presented as argument,
+        not as work performed here. The value of the small artifacts is that they are complete
+        end-to-end sensing chains you can hold in one hand and read in an afternoon, which makes the
+        invariants unusually easy to see.
+      </p>
+    </div>
+  </div>
+
+  <section class="col">
+    <p class="sec-no">01 &nbsp;/&nbsp; The invariant chain</p>
+    <h2>Every instrument in this review is the same six stages</h2>
+    <p>
+      A sensing instrument couples a state you care about onto a physical field, lets that field
+      propagate through a medium that degrades it, collects some fraction of it through a finite
+      aperture, quantises what arrives, and inverts. The interesting engineering claim is how little
+      of that chain is scale-dependent. The coupling &mdash; the cross-section, the transition, the
+      scattering mechanism &mdash; is entirely specific to the scale and to the band. Everything
+      downstream of it is shared, and shared not by analogy but by literal identity of operator: the
+      same normalised cross-correlation, the same phase unwrapping, the same reference-standard
+      calibration, the same information-theoretic ceiling.
+    </p>
+  </section>
+
+  <div class="fig-wrap">
+    <figure>
+      <div class="fig-frame">
+        <svg viewBox="0 0 1200 300" role="img" aria-label="A six-stage sensing chain from state to estimator, with two example instantiations beneath: a panel painting measured by interferometry and a tectonic plate measured by satellite radar. The final two stages carry identical labels in both examples.">
+          <defs>
+            <marker id="ar" viewBox="0 0 10 8" refX="9" refY="4" markerWidth="9" markerHeight="7" orient="auto">
+              <polygon points="0,0 10,4 0,8" fill="currentColor"></polygon>
+            </marker>
+            <marker id="ara" viewBox="0 0 10 8" refX="9" refY="4" markerWidth="9" markerHeight="7" orient="auto">
+              <polygon points="0,0 10,4 0,8" class="acc-f"></polygon>
+            </marker>
+          </defs>
+
+          <g font-family="Spectral, Georgia, serif" font-size="14" text-anchor="middle">
+            <g fill="none" stroke="currentColor" stroke-width="1">
+              <rect x="140" y="96" width="118" height="58" rx="2"></rect>
+              <rect x="326" y="96" width="118" height="58" rx="2"></rect>
+              <rect x="512" y="96" width="118" height="58" rx="2"></rect>
+              <rect x="698" y="96" width="118" height="58" rx="2"></rect>
+              <rect x="884" y="96" width="118" height="58" rx="2"></rect>
+              <rect x="1070" y="96" width="118" height="58" rx="2"></rect>
+            </g>
+            <g fill="currentColor">
+              <text x="199" y="122">state</text>
+              <text x="385" y="122">field</text>
+              <text x="571" y="122">channel</text>
+              <text x="757" y="122">aperture</text>
+              <text x="943" y="122">sampler</text>
+              <text x="1129" y="122">estimator</text>
+            </g>
+            <g fill="currentColor" font-family="IBM Plex Mono, monospace" font-size="9.5" opacity=".68">
+              <text x="199" y="141">what you want</text>
+              <text x="385" y="141">carrier</text>
+              <text x="571" y="141">medium</text>
+              <text x="757" y="141">optics</text>
+              <text x="943" y="141">detector</text>
+              <text x="1129" y="141">inference</text>
+            </g>
+          </g>
+
+          <g stroke="currentColor" stroke-width="1" marker-end="url(#ar)">
+            <line x1="444" y1="125" x2="506" y2="125"></line>
+            <line x1="630" y1="125" x2="692" y2="125"></line>
+            <line x1="816" y1="125" x2="878" y2="125"></line>
+            <line x1="1002" y1="125" x2="1064" y2="125"></line>
+          </g>
+          <line x1="258" y1="125" x2="320" y2="125" class="acc-s" stroke-width="1.6" marker-end="url(#ara)"></line>
+
+          <g font-family="IBM Plex Mono, monospace" font-size="10" text-anchor="middle" fill="currentColor" opacity=".8">
+            <text x="478" y="117">propagates</text>
+            <text x="664" y="117">collects</text>
+            <text x="850" y="117">quantises</text>
+            <text x="1036" y="117">inverts</text>
+          </g>
+          <text x="292" y="117" font-family="IBM Plex Mono, monospace" font-size="10" text-anchor="middle" class="acc-f" font-weight="500">couples</text>
+          <text x="292" y="80" font-family="IBM Plex Mono, monospace" font-size="9.5" text-anchor="middle" class="acc-f">the only scale-specific stage</text>
+          <line x1="292" y1="86" x2="292" y2="94" class="acc-s" stroke-width="1"></line>
+
+          <line x1="0" y1="178" x2="1200" y2="178" stroke="currentColor" stroke-width="1" opacity=".22"></line>
+
+          <g font-family="IBM Plex Mono, monospace" font-size="10.5" text-anchor="middle">
+            <text x="128" y="208" text-anchor="end" fill="currentColor" opacity=".75">panel painting</text>
+            <g fill="currentColor" opacity=".9">
+              <text x="199" y="208">delamination</text>
+              <text x="385" y="208">IR wavefront</text>
+              <text x="571" y="208">varnish, air</text>
+              <text x="757" y="208">objective</text>
+            </g>
+            <g class="acc-f" font-weight="500">
+              <text x="943" y="208">CCD fringes</text>
+              <text x="1129" y="208">phase unwrap</text>
+            </g>
+
+            <text x="128" y="240" text-anchor="end" fill="currentColor" opacity=".75">tectonic plate</text>
+            <g fill="currentColor" opacity=".9">
+              <text x="199" y="240">ground uplift</text>
+              <text x="385" y="240">C-band radar</text>
+              <text x="571" y="240">troposphere</text>
+              <text x="757" y="240">SAR antenna</text>
+            </g>
+            <g class="acc-f" font-weight="500">
+              <text x="943" y="240">complex SLC</text>
+              <text x="1129" y="240">phase unwrap</text>
+            </g>
+          </g>
+        </svg>
+      </div>
+      <figcaption>
+        <b>Figure 1 &mdash; the chain, twice</b>
+        A conservator measuring subsurface delamination in a panel painting and a geodesist measuring
+        centimetric uplift across a fault run the same instrument. The coupling differs by twelve
+        orders of magnitude in baseline; the last two stages are not merely analogous but the same
+        algorithm, down to the branch-cut strategy used to unwrap the phase.
+      </figcaption>
+    </figure>
+  </div>
+
+  <section class="col">
+    <p class="sec-no">02 &nbsp;/&nbsp; The corpus</p>
+    <h2>Six small instruments, and the general principle each one is a special case of</h2>
+    <p>
+      These are hobby programs written for a projector-and-camera table. Their interest here is that
+      each is a <em>complete</em> chain, small enough that the invariant is not obscured by
+      engineering, and that several of them fail in instructive ways.
+    </p>
+
+    <div class="artifact-list">
+
+      <div class="artifact">
+        <p class="path">opencv/OpenCVThreshold.folk &nbsp;<span class="chip built">Built</span></p>
+        <p>
+          Adaptive thresholding on live camera slices: the binarisation decision is made against a
+          local neighbourhood mean rather than a global constant, and the last ten frames are
+          retained in a ring buffer.
+        </p>
+        <p class="lesson">
+          <em>The general case.</em> The illumination field is non-stationary, so the sufficient
+          statistic is local. This is flat-fielding, and it is the same correction as dividing a
+          microscope frame by a blank, or normalising a reflectance cube against a Spectralon
+          reference tile. A global threshold on a non-uniformly illuminated field does not lose
+          precision; it manufactures structure that is not in the object.
+        </p>
+      </div>
+
+      <div class="artifact">
+        <p class="path">templateMatcher/templateMatcher.cpp &nbsp;<span class="chip built">Built</span></p>
+        <p>
+          Locates a stored patch in a camera frame using OpenCV <code>TM_CCORR_NORMED</code>,
+          normalising the response surface and taking its argmax.
+        </p>
+        <p class="lesson">
+          <em>The general case.</em> This is the matched filter, provably the optimal detector for a
+          known signal in additive white Gaussian noise, and the normalisation is what buys
+          invariance to illumination gain. The identical operator is radar pulse compression, the
+          correlator at the heart of VLBI, fringe-order tracking in a Michelson, and the
+          cross-correlation step in digital image correlation used to map strain in a stressed panel.
+          One operator, four literatures.
+        </p>
+      </div>
+
+      <div class="artifact">
+        <p class="path">folk/blob/blob.folk &nbsp;<span class="chip built">Built</span></p>
+        <p>
+          Extracts an arbitrary polygonal region from a camera frame given the camera intrinsics, the
+          projector intrinsics, and the page's quad &mdash; then runs blob detection inside it.
+        </p>
+        <p class="lesson">
+          <em>The general case.</em> Recovering object coordinates from sensor coordinates through a
+          calibrated projective model. Orthorectification of a satellite scene is this same
+          computation with a different camera model and a terrain height field; photogrammetric
+          documentation of a painting's surface is this with a metric scale bar in frame. Geometric
+          calibration and radiometric calibration are separate problems and stay separate at every
+          scale.
+        </p>
+      </div>
+
+      <div class="artifact">
+        <p class="path">folk_qr_demos/{generator,scanner}.folk &nbsp;<span class="chip built">Built</span></p>
+        <p>
+          Vendored Nayuki <code>qrcodegen</code> plus a scanner, bootstrapped into the runtime as
+          base64 payloads.
+        </p>
+        <p class="lesson">
+          <em>The general case.</em> A QR code is a two-dimensional channel code with Reed&ndash;Solomon
+          parity sized to an announced error-correction level, plus three finder patterns that solve
+          pose and pitch before any data bit is read. Acquisition precedes demodulation. Every
+          instrument in this review has a finder-pattern equivalent, and the ones that do not have to
+          be told their scale by a human, which is where systematic error enters.
+        </p>
+      </div>
+
+      <div class="artifact">
+        <p class="path">smokesignal/index.html &nbsp;<span class="chip built">Built</span></p>
+        <p>
+          Hides a payload in the least-significant bits of a procedurally generated smoke plume
+          (fractal value noise with domain warping), across a selectable colour model &mdash; luma
+          only, RGB, or CMYK &mdash; with a magic-number header, a length field, and a decoder that
+          identifies the colour model by trial decode.
+        </p>
+        <p class="lesson">
+          <em>The general case, and an instructive failure.</em> Capacity scales linearly with the
+          number of bit planes used, and imperceptibility scales inversely: the tool exposes the
+          trade-off as a slider, which is honest. But the payload dies the moment the carrier is
+          JPEG-compressed, because the LSB plane is exactly what a perceptual codec is licensed to
+          discard. The code was matched to the image, not to the channel. This is the single most
+          transferable lesson in the corpus, and it is the same error as choosing an integration time
+          without reference to the noise spectrum of the detector.
+        </p>
+      </div>
+
+      <div class="artifact">
+        <p class="path">PrintablePrograms.png/ &nbsp;<span class="chip built">Built</span></p>
+        <p>
+          The centrepiece: a Tcl program encoded into a band of colour cells around a printed page,
+          such that a photograph of the printed page decodes back to the byte-exact source. The test
+          suite verifies recovery after an 80% rescale and JPEG quality-82 recompression.
+        </p>
+        <p class="lesson">
+          <em>The general case.</em> This is a designed physical channel, and it independently
+          reinvents most of the calibration discipline of a conservation imaging protocol. It is
+          worth unpacking in full.
+        </p>
+      </div>
+
+    </div>
+  </section>
+
+  <div class="fig-wrap">
+    <figure>
+      <div class="fig-frame">
+        <svg viewBox="0 0 760 400" role="img" aria-label="Anatomy of the printable page frame: a white page with a quiet margin, a ring of coloured data cells, four corner finder fiducials, an eight-colour calibration strip, and a central code panel printed in blue on white.">
+          <defs>
+            <pattern id="cells" width="24" height="24" patternUnits="userSpaceOnUse">
+              <rect x="0" y="0" width="12" height="12" fill="#00CFCF"></rect>
+              <rect x="12" y="0" width="12" height="12" fill="#D8006E"></rect>
+              <rect x="0" y="12" width="12" height="12" fill="#E8C400"></rect>
+              <rect x="12" y="12" width="12" height="12" fill="#1010FF"></rect>
+            </pattern>
+          </defs>
+
+          <rect x="200" y="40" width="300" height="300" fill="#FFFFFF" stroke="currentColor" stroke-width="1"></rect>
+          <path d="M212 52 H488 V328 H212 Z M236 76 H464 V304 H236 Z" fill="url(#cells)" fill-rule="evenodd"></path>
+
+          <g fill="#0B0D13">
+            <rect x="212" y="52" width="24" height="24"></rect>
+            <rect x="464" y="52" width="24" height="24"></rect>
+            <rect x="212" y="304" width="24" height="24"></rect>
+            <rect x="464" y="304" width="24" height="24"></rect>
+          </g>
+          <g fill="#FFFFFF">
+            <rect x="218" y="58" width="12" height="12"></rect>
+            <rect x="470" y="58" width="12" height="12"></rect>
+            <rect x="218" y="310" width="12" height="12"></rect>
+            <rect x="470" y="310" width="12" height="12"></rect>
+          </g>
+          <g fill="#0B0D13">
+            <rect x="221" y="61" width="6" height="6"></rect>
+            <rect x="473" y="61" width="6" height="6"></rect>
+            <rect x="221" y="313" width="6" height="6"></rect>
+            <rect x="473" y="313" width="6" height="6"></rect>
+          </g>
+
+          <g stroke="#FFFFFF" stroke-width=".5">
+            <rect x="236" y="52" width="12" height="12" fill="#000000"></rect>
+            <rect x="248" y="52" width="12" height="12" fill="#FF0000"></rect>
+            <rect x="260" y="52" width="12" height="12" fill="#00FF00"></rect>
+            <rect x="272" y="52" width="12" height="12" fill="#0000FF"></rect>
+            <rect x="284" y="52" width="12" height="12" fill="#00FFFF"></rect>
+            <rect x="296" y="52" width="12" height="12" fill="#FF00FF"></rect>
+            <rect x="308" y="52" width="12" height="12" fill="#FFFF00"></rect>
+            <rect x="320" y="52" width="12" height="12" fill="#FFFFFF"></rect>
+          </g>
+
+          <rect x="236" y="76" width="228" height="228" fill="#FFFFFF" stroke="currentColor" stroke-width=".75"></rect>
+          <g fill="#1010FF" opacity=".82">
+            <rect x="252" y="104" width="150" height="6" rx="1"></rect>
+            <rect x="252" y="124" width="118" height="6" rx="1"></rect>
+            <rect x="264" y="144" width="176" height="6" rx="1"></rect>
+            <rect x="264" y="164" width="92" height="6" rx="1"></rect>
+            <rect x="252" y="184" width="160" height="6" rx="1"></rect>
+            <rect x="264" y="204" width="130" height="6" rx="1"></rect>
+            <rect x="264" y="224" width="168" height="6" rx="1"></rect>
+            <rect x="252" y="244" width="104" height="6" rx="1"></rect>
+            <rect x="252" y="264" width="140" height="6" rx="1"></rect>
+          </g>
+
+          <g stroke="currentColor" stroke-width="1">
+            <line x1="186" y1="64" x2="208" y2="64"></line>
+            <line x1="186" y1="334" x2="204" y2="334"></line>
+            <line x1="352" y1="30" x2="352" y2="50"></line>
+            <line x1="510" y1="190" x2="486" y2="190"></line>
+            <line x1="510" y1="316" x2="470" y2="316"></line>
+          </g>
+
+          <g font-family="IBM Plex Mono, monospace" font-size="11" font-weight="500" text-anchor="middle">
+            <circle cx="172" cy="64" r="10" class="surf-f" stroke="currentColor" stroke-width="1"></circle>
+            <text x="172" y="68" fill="currentColor">1</text>
+            <circle cx="352" cy="20" r="10" class="surf-f" stroke="currentColor" stroke-width="1"></circle>
+            <text x="352" y="24" fill="currentColor">2</text>
+            <circle cx="524" cy="190" r="10" class="surf-f" stroke="currentColor" stroke-width="1"></circle>
+            <text x="524" y="194" fill="currentColor">3</text>
+            <circle cx="172" cy="334" r="10" class="surf-f" stroke="currentColor" stroke-width="1"></circle>
+            <text x="172" y="338" fill="currentColor">4</text>
+            <circle cx="350" cy="190" r="10" fill="#FFFFFF" stroke="#0B0D13" stroke-width="1"></circle>
+            <text x="350" y="194" fill="#0B0D13">5</text>
+            <circle cx="524" cy="316" r="10" class="surf-f" stroke="currentColor" stroke-width="1"></circle>
+            <text x="524" y="320" fill="currentColor">6</text>
+          </g>
+        </svg>
+      </div>
+      <ol class="figkey">
+        <li>Finder fiducials in all four corners recover cell pitch, so no external knowledge of scale is required.</li>
+        <li>Calibration strip: all eight palette colours in a known order, letting the decoder re-learn the printer's actual inks per print.</li>
+        <li>Data cells at the eight corners of the RGB cube, three bits each &mdash; maximum separation in an inkjet gamut.</li>
+        <li>Quiet margin, present for printing comfort only; the vision layer does not need it.</li>
+        <li>Human-readable panel, 12&nbsp;pt IBM Plex Mono minimum, <code>#1010FF</code> on white for maximum non-black contrast.</li>
+        <li>Band geometry self-encoded beside the calibration strip; packet CRC32-guarded and repeated to fill the ring.</li>
+      </ol>
+      <figcaption>
+        <b>Figure 2 &mdash; the print-survivable data frame</b>
+        Read this as a conservation imaging protocol in miniature. It carries a colour reference
+        target in-frame, fiducials for geometric recovery, its own physical scale in millimetres, an
+        integrity check, and redundancy sized to the channel &mdash; and it explicitly defers
+        perspective rectification to a separate layer rather than entangling it with demodulation.
+      </figcaption>
+    </figure>
+  </div>
+
+  <section class="col">
+    <p>
+      Four decisions in that frame deserve to be named, because each has a direct counterpart in
+      instrument practice. The <strong>calibration strip</strong> means the decoder never assumes it
+      knows what the printer's cyan is; it measures it, on this print, under this illumination. That
+      is the argument for putting a reference standard in frame rather than trusting a factory
+      characterisation. The <strong>self-encoded geometry</strong> makes cell-count recovery immune
+      to pitch measurement error at any scale, which is the argument for a specimen that carries its
+      own scale bar. The <strong>CRC-guarded packet repeated around the ring</strong> is a repetition
+      code sized to an estimated channel error rate, with the decoder accepting the first copy that
+      verifies. And the choice to <strong>defer deskew and perspective correction</strong> to a
+      separate vision layer keeps rectification and demodulation independently testable.
+    </p>
+    <p class="pull">
+      The failure mode the corpus keeps demonstrating is not insufficient resolution. It is a code
+      chosen without reference to the channel it must survive.
+    </p>
+  </section>
+
+  <div class="rule-space-sm"></div>
+
+  <section class="col">
+    <p class="sec-no">03 &nbsp;/&nbsp; The ladder</p>
+    <h2>The same argument at every rung, from analyte to source</h2>
+    <p>
+      What follows is the extension outward. <span class="chip argued">Argued</span> throughout: this
+      is the published state of each field, organised so that the recurrence is visible. The
+      characteristic length given for each rung is the scale of the <em>object under study</em>, not
+      of the instrument.
+    </p>
+  </section>
+
+  <div class="col">
+
+    <div class="rung">
+      <div class="rung-head">
+        <span class="rung-scale">10⁻⁹ m</span>
+        <h3>Analyte</h3>
+        <span class="rung-band">NIR overtone · 1500&ndash;2400 nm</span>
+      </div>
+      <p>
+        Non-invasive glucose is the canonical hard case, and it is hard for reasons that are
+        estimation-theoretic rather than optical. The C&ndash;H and O&ndash;H combination and overtone
+        bands that carry glucose information sit inside a spectral region overwhelmingly dominated by
+        water absorption, in tissue that scatters strongly and whose optical properties vary with
+        temperature, hydration and perfusion. The analyte's contribution to the measured spectrum is
+        small, and&mdash;critically&mdash;is not orthogonal to the confounders. Multivariate
+        calibration will happily produce a model with excellent cross-validated performance that is
+        in fact tracking skin temperature.
+      </p>
+      <p>
+        The rigorous framing is the net analyte signal: the component of the analyte's spectrum
+        orthogonal to the space spanned by every interferent. That quantity, not the raw absorbance,
+        sets the Cramér&ndash;Rao floor on the concentration estimate. When it is small, no amount of
+        model capacity rescues you, and the appearance of accuracy in a validation set is evidence of
+        correlated confounding, not of measurement.
+      </p>
+      <p>
+        The neuropsychology reader will recognise the structure immediately, because fNIRS has the
+        same shape. The modified Beer&ndash;Lambert law converts attenuation to chromophore
+        concentration only through a differential pathlength factor that is itself uncertain and
+        subject-specific, and the measured signal is contaminated by superficial scalp haemodynamics
+        that correlate with task in exactly the way that ruins an unwary contrast. Short-separation
+        regression channels are the field's answer, and they are structurally identical to the
+        calibration strip in Figure&nbsp;2: measure the confounder in-frame rather than assuming it
+        away.
+      </p>
+    </div>
+
+    <div class="rung">
+      <div class="rung-head">
+        <span class="rung-scale">10⁻⁶ &ndash; 10⁻¹ m</span>
+        <h3>The one-pixel argument</h3>
+        <span class="rung-band">any band · incoherent measurement</span>
+      </div>
+      <p>
+        The single-pixel camera is the sharpest statement in the whole review, and it is a theorem
+        before it is a device. The Candès&ndash;Romberg&ndash;Tao and Donoho results establish that a
+        signal that is <em>K</em>-sparse in some basis can be recovered exactly, with high
+        probability, from on the order of <em>K</em>&nbsp;log(<em>N</em>/<em>K</em>) linear
+        measurements against a measurement ensemble incoherent with that basis &mdash; not from
+        <em>N</em> measurements. The Rice single-pixel camera realises this with a digital micromirror
+        array throwing pseudorandom patterns onto one photodiode.
+      </p>
+      <p>
+        The consequence worth internalising is that <strong>resolution is not a property of the
+        detector array</strong>. It is a joint property of the measurement ensemble and the prior. A
+        single detector plus a well-chosen set of masks can outperform a megapixel sensor, and a
+        megapixel sensor sampling incoherently can be undersampled by an order of magnitude with no
+        loss on a sparse scene. This is why hyperspectral imaging can afford one exquisite
+        cooled detector scanned across a scene rather than a focal-plane array at every wavelength,
+        and it is the same theorem that licenses undersampled MRI acquisition.
+      </p>
+    </div>
+
+    <div class="rung">
+      <div class="rung-head">
+        <span class="rung-scale">10⁻² &ndash; 10⁰ m</span>
+        <h3>The holdable object</h3>
+        <span class="rung-band">X-ray · VNIR/SWIR · low-coherence IR</span>
+      </div>
+      <p>
+        This is the conservation reader's own rung, and it is the one where the largest number of
+        distinct physical couplings are brought to bear on a single object &mdash; which makes it the
+        best place to see that the couplings are what differ and nothing else is.
+      </p>
+      <p>
+        Macro X-ray fluorescence scanning maps elemental distribution by raster and recovers
+        composition from characteristic emission lines; the inverse problem is peak deconvolution
+        against self-absorption in a layered stack. Reflectance imaging spectroscopy across VNIR and
+        SWIR identifies pigments and binders from reflectance features, and its hard problem is
+        unmixing: a pixel's spectrum is a nonlinear mixture of the components within the scattering
+        volume, which is formally the same ill-posed unmixing that a satellite hyperspectral pipeline
+        performs on a 30-metre ground pixel. Infrared reflectography at roughly 1&ndash;2.5 µm
+        exploits the fact that many pigments become effectively transparent in the near infrared while
+        carbon-black underdrawing continues to absorb; the underdrawing was always there, and what
+        changed was the band in which you interrogated it.
+      </p>
+      <p>
+        Two techniques on this rung obtain their resolution from coherence rather than from aperture,
+        and they are the ones that recur furthest away. Optical coherence tomography gates returns by
+        coherence length, so its axial resolution scales as roughly λ²/Δλ and is decoupled from
+        numerical aperture entirely &mdash; which is how micrometre-scale varnish and glaze
+        stratigraphy is resolved non-invasively through a working distance. And speckle-pattern
+        interferometry measures out-of-plane surface displacement to a fraction of a wavelength by
+        differencing phase between two states of thermal or acoustic load, revealing subsurface
+        delamination as a fringe anomaly. Its hard problems are decorrelation and phase unwrapping.
+        Hold that thought for four rungs.
+      </p>
+    </div>
+
+    <div class="rung">
+      <div class="rung-head">
+        <span class="rung-scale">10⁰ &ndash; 10¹ m</span>
+        <h3>Habitable</h3>
+        <span class="rung-band">structured light · time of flight</span>
+      </div>
+      <p>
+        The Folk table that most of this corpus was written for is a camera and a projector sharing a
+        calibrated volume, and its significance is that the illumination is <em>designed</em>. Once
+        you control the probe, sensing becomes a coding problem: structured light projects a known
+        spatial code and reads depth out of its deformation; time-of-flight modulates a known temporal
+        code and reads range out of its phase. Both then face wrapping ambiguity and resolve it with
+        multi-frequency schemes, which is the Chinese remainder theorem doing metrology.
+      </p>
+      <p>
+        Coded active illumination is exactly what radar pulse compression does with a chirp, and
+        exactly what an interferometer does with a coherent reference arm. The design freedom is the
+        probe waveform, and the payoff is measured in the ambiguity function.
+      </p>
+    </div>
+
+    <div class="rung">
+      <div class="rung-head">
+        <span class="rung-scale">10² &ndash; 10³ m</span>
+        <h3>Neighbourhood</h3>
+        <span class="rung-band">LiDAR · distributed acoustic sensing</span>
+      </div>
+      <p>
+        Airborne and terrestrial LiDAR return a point cloud whose accuracy is dominated not by the
+        ranging precision but by the pose solution: the same geometric-calibration problem as
+        <code>blob.folk</code>, with an IMU and GNSS trajectory in place of a projector matrix.
+        Distributed acoustic sensing turns an existing telecom fibre into a dense strain array by
+        interrogating Rayleigh backscatter, converting infrastructure into an instrument &mdash; the
+        purest example in this review of a sensor that exists because someone noticed an
+        already-propagating field carried recoverable information.
+      </p>
+    </div>
+
+    <div class="rung">
+      <div class="rung-head">
+        <span class="rung-scale">10⁵ &ndash; 10⁶ m</span>
+        <h3>Region</h3>
+        <span class="rung-band">SAR interferometry · C-band</span>
+      </div>
+      <p>
+        Here the recurrence becomes literal. InSAR forms the phase difference between two complex
+        synthetic-aperture radar acquisitions of the same ground and recovers line-of-sight
+        displacement at millimetre to centimetre precision over hundreds of kilometres. Its two
+        dominant error sources are temporal and geometric decorrelation, and the tropospheric phase
+        screen &mdash; a spatially correlated nuisance term that must be estimated and removed.
+        Its central algorithmic difficulty is two-dimensional phase unwrapping, which is
+        NP-hard in the general weighted case and is attacked with branch cuts, minimum-cost flow, or
+        network programming.
+      </p>
+      <p>
+        That is, term for term, the panel-painting speckle interferometry problem from three rungs
+        up: differencing phase between two states, fighting decorrelation, removing a correlated
+        nuisance field, and unwrapping. The baseline differs by seven orders of magnitude. The
+        estimator does not differ at all.
+      </p>
+    </div>
+
+    <div class="rung">
+      <div class="rung-head">
+        <span class="rung-scale">10⁷ m</span>
+        <h3>Planet</h3>
+        <span class="rung-band">imaging spectroscopy · satellite gravimetry</span>
+      </div>
+      <p>
+        Orbital imaging spectrometers do the conservator's pigment-unmixing problem on a planetary
+        raster, with atmospheric correction standing in for varnish. But the instructive instrument at
+        this rung is GRACE, which senses nothing optically at all: it measures the separation between
+        two satellites by microwave ranging, and infers mass redistribution &mdash; groundwater
+        depletion, ice loss &mdash; from the perturbation of that separation. Imaging is one option
+        for sensing, not a synonym for it. When the coupling of interest is gravitational, the right
+        detector is a ruler between two test masses.
+      </p>
+    </div>
+
+    <div class="rung">
+      <div class="rung-head">
+        <span class="rung-scale">10¹² &ndash; 10²¹ m</span>
+        <h3>Celestial body, and beyond</h3>
+        <span class="rung-band">aperture synthesis · km-baseline interferometry</span>
+      </div>
+      <p>
+        Very-long-baseline interferometry correlates signals from antennas continents apart. By the
+        van&nbsp;Cittert&ndash;Zernike theorem, what each baseline measures is one complex visibility
+        &mdash; a single Fourier component of the sky brightness distribution &mdash; so the array
+        samples the Fourier plane at a sparse, irregular set of points determined by baseline geometry
+        and Earth rotation. Producing an image is therefore not detection but reconstruction from
+        gravely incomplete Fourier data under a regularising prior. Which is the single-pixel-camera
+        theorem again, at 10²⁰ times the scale: the resolution comes from the measurement ensemble,
+        the plausibility of the image comes from the prior, and stating which is which is the entire
+        methodological burden of publishing such an image.
+      </p>
+      <p>
+        And at the far end, a Michelson interferometer with 4&nbsp;km arms measuring a strain of order
+        10⁻²¹, a differential arm-length change some three orders of magnitude below a proton radius,
+        extracted by matched filtering against a bank of modelled waveform templates. The instrument
+        on the conservator's bench measuring varnish stratigraphy and the instrument that detects a
+        black-hole merger are the same optical topology and the same detection statistic. What changed
+        is the arm length, the isolation, and the fact that at that scale the noise floor is set by
+        quantum mechanics rather than by engineering.
+      </p>
+    </div>
+
+  </div>
+
+  <div class="fig-wrap">
+    <figure>
+      <div class="fig-frame">
+        <svg viewBox="0 0 960 300" role="img" aria-label="A logarithmic scale axis from ten to the minus nine metres to ten to the twenty-first metres, with sensing rungs marked along it, and two arcs above showing that Michelson interferometry and sparse-sampling reconstruction each recur at opposite ends of the range.">
+          <g class="acc-s" stroke-width="1.4" fill="none">
+            <path d="M236 190 Q 568 -60 900 190"></path>
+            <path d="M291 190 Q 471 60 651 190"></path>
+          </g>
+          <g font-family="IBM Plex Mono, monospace" font-size="11" text-anchor="middle" class="acc-f" font-weight="500">
+            <text x="568" y="36">MICHELSON INTERFEROMETRY</text>
+            <text x="568" y="52" font-weight="400" font-size="10">varnish stratigraphy &nbsp;↔&nbsp; 10⁻²¹ strain</text>
+            <text x="471" y="112">SPARSE SAMPLING + PRIOR</text>
+            <text x="471" y="128" font-weight="400" font-size="10">single-pixel camera &nbsp;↔&nbsp; aperture synthesis</text>
+          </g>
+
+          <line x1="70" y1="190" x2="900" y2="190" stroke="currentColor" stroke-width="1"></line>
+          <g stroke="currentColor" stroke-width="1">
+            <line x1="70" y1="190" x2="70" y2="199"></line>
+            <line x1="153" y1="190" x2="153" y2="199"></line>
+            <line x1="236" y1="190" x2="236" y2="199"></line>
+            <line x1="319" y1="190" x2="319" y2="199"></line>
+            <line x1="402" y1="190" x2="402" y2="199"></line>
+            <line x1="485" y1="190" x2="485" y2="199"></line>
+            <line x1="568" y1="190" x2="568" y2="199"></line>
+            <line x1="651" y1="190" x2="651" y2="199"></line>
+            <line x1="734" y1="190" x2="734" y2="199"></line>
+            <line x1="817" y1="190" x2="817" y2="199"></line>
+            <line x1="900" y1="190" x2="900" y2="199"></line>
+          </g>
+          <g font-family="IBM Plex Mono, monospace" font-size="10" text-anchor="middle" fill="currentColor" opacity=".62">
+            <text x="70" y="214">10⁻⁹</text>
+            <text x="153" y="214">10⁻⁶</text>
+            <text x="236" y="214">10⁻³</text>
+            <text x="319" y="214">10⁰</text>
+            <text x="402" y="214">10³</text>
+            <text x="485" y="214">10⁶</text>
+            <text x="568" y="214">10⁹</text>
+            <text x="651" y="214">10¹²</text>
+            <text x="734" y="214">10¹⁵</text>
+            <text x="817" y="214">10¹⁸</text>
+            <text x="900" y="214">10²¹</text>
+          </g>
+          <text x="70" y="176" font-family="IBM Plex Mono, monospace" font-size="9.5" text-anchor="start" fill="currentColor" opacity=".5">metres</text>
+
+          <g font-family="Spectral, Georgia, serif" font-size="12" fill="currentColor">
+            <text x="70" y="244" text-anchor="start">analyte</text>
+            <text x="236" y="244" text-anchor="middle">varnish layer</text>
+            <text x="402" y="244" text-anchor="middle">neighbourhood</text>
+            <text x="540" y="244" text-anchor="middle">planet</text>
+            <text x="900" y="244" text-anchor="end">deep space</text>
+
+            <text x="153" y="266" text-anchor="middle">cell</text>
+            <text x="319" y="266" text-anchor="middle">object · room</text>
+            <text x="472" y="266" text-anchor="middle">region</text>
+            <text x="651" y="266" text-anchor="middle">celestial body</text>
+          </g>
+        </svg>
+      </div>
+      <figcaption>
+        <b>Figure 3 &mdash; two techniques, each recurring at both ends</b>
+        The arcs are the argument. An instrument developed to resolve micrometre varnish layers and
+        one built to detect spacetime strain are the same interferometer; a camera with one pixel and
+        a telescope the width of the Earth are the same reconstruction problem. Neither pairing is
+        metaphor.
+      </figcaption>
+    </figure>
+  </div>
+
+  <section class="col">
+    <p class="sec-no">04 &nbsp;/&nbsp; The kernel</p>
+    <h2>What survives the change of scale</h2>
+    <p>
+      Collecting the recurrences. Each row is a technique or a discipline that appears, in
+      recognisably the same form, at scales separated by many orders of magnitude &mdash; and the
+      bound that determines when it stops working.
+    </p>
+  </section>
+
+  <div class="fig-wrap">
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th scope="col">Invariant</th>
+            <th scope="col">Analyte / neuro</th>
+            <th scope="col">Object / conservation</th>
+            <th scope="col">Planetary / deep space</th>
+            <th scope="col">Bound that bites</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <th scope="row">Sampling &amp; pre-filter</th>
+            <td>spectral resolution vs. band overlap</td>
+            <td>MA-XRF raster step vs. beam spot</td>
+            <td>ground sample distance vs. MTF</td>
+            <td class="bound">Nyquist; aliasing is not recoverable</td>
+          </tr>
+          <tr>
+            <th scope="row">Matched filtering</th>
+            <td>template regression on evoked response</td>
+            <td>fringe tracking; digital image correlation</td>
+            <td>VLBI correlator; GW template bank</td>
+            <td class="bound">optimal in AWGN only</td>
+          </tr>
+          <tr>
+            <th scope="row">Reference in frame</th>
+            <td>short-separation channel; blank cuvette</td>
+            <td>colour target; standard reference material</td>
+            <td>onboard calibrator; vicarious sites</td>
+            <td class="bound">drift beyond the reference's own stability</td>
+          </tr>
+          <tr>
+            <th scope="row">Redundancy sized to channel</th>
+            <td>repeated trials against 1/f drift</td>
+            <td>repeat scans; CRC-guarded page frame</td>
+            <td>downlink FEC; repeat passes</td>
+            <td class="bound">Shannon capacity <span style="white-space:nowrap">C = B log₂(1+SNR)</span></td>
+          </tr>
+          <tr>
+            <th scope="row">Fiducials &amp; self-description</th>
+            <td>fiducial markers; digitisation of montage</td>
+            <td>scale bar; finder patterns; page mm</td>
+            <td>orbit ephemeris; star tracker</td>
+            <td class="bound">unrecoverable pose ⇒ systematic error</td>
+          </tr>
+          <tr>
+            <th scope="row">Sparsity + incoherence</th>
+            <td>undersampled MRI k-space</td>
+            <td>single-detector hyperspectral scan</td>
+            <td>aperture synthesis; sparse <em>uv</em> plane</td>
+            <td class="bound">RIP; recovery fails as K approaches M</td>
+          </tr>
+          <tr>
+            <th scope="row">Coherence gating</th>
+            <td>time-resolved / frequency-domain NIRS</td>
+            <td>OCT axial sectioning ≈ λ²/Δλ</td>
+            <td>radar range gating; delay tracking</td>
+            <td class="bound">source coherence length</td>
+          </tr>
+          <tr>
+            <th scope="row">Regularised inversion</th>
+            <td>net analyte signal; PLS latent count</td>
+            <td>spectral unmixing; peak deconvolution</td>
+            <td>image reconstruction priors</td>
+            <td class="bound">Cramér&ndash;Rao; ill-posedness yields confident error</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <section class="col">
+    <p class="sec-no">05 &nbsp;/&nbsp; What the theorems give you</p>
+    <h2>On seeing into the truth of things, with the emphasis on <em>into</em></h2>
+    <p>
+      The framing that prompted this review was Wittgensteinian, and the term deserves more care than
+      it usually gets when it is attached to instrumentation. Both of the obvious readings turn out to
+      cut against the triumphalist version of the thesis, which is what makes them worth stating.
+    </p>
+    <p>
+      The <em>Tractatus</em> reading is that a representation cannot depict its own form of
+      representation &mdash; it can only show it. This is a precise statement about instruments. Every
+      measurement chain in this review has a set of assumptions it cannot itself report on: the
+      differential pathlength factor, the assumed printer gamut, the sparsity basis, the linearity of
+      the mixing model, the tropospheric screen. These do not appear in the output as terms. They
+      appear as the shape of the output. An estimate that arrives without its assumptions attached has
+      lost precisely the information needed to know what it is an estimate <em>of</em>.
+    </p>
+    <p>
+      The <em>Investigations</em> reading is sharper still, and the neuropsychology reader will have
+      the duck-rabbit to hand. Aspect-seeing is not a further fact about the figure; it is a fact
+      about a practice of looking. A false-colour elemental map is not a fact about a painting until
+      it has been embedded in a practice that says what counts as a pentimento, what counts as a
+      later restoration, what counts as noise. The remarkable thing is not that instruments settle
+      such questions. It is that they reliably produce images which <em>look</em> as though they
+      settle them.
+    </p>
+    <p class="pull">
+      What the mathematics delivers is not the truth of the object. It is a provable statement about
+      what can and cannot be recovered from a given measurement &mdash; which is a bound on the
+      sayable, and considerably more useful.
+    </p>
+    <p>
+      This is why the bounds column in the table above is the load-bearing one. Nyquist tells you that
+      an aliased component is gone, not merely degraded, and that no reconstruction will honestly
+      return it. The Cramér&ndash;Rao bound tells you the variance floor for any unbiased estimator
+      given your Fisher information, so that a reported precision below it is a claim about your prior
+      and not about your instrument. The restricted isometry property tells you when sparse recovery
+      is exact and, by its absence, when a plausible reconstruction is a hallucination with good
+      posterior support. These theorems do not tell you what is there. They tell you what your
+      apparatus has made it impossible to know, which is the only form of epistemic humility that can
+      be checked by someone else.
+    </p>
+    <p>
+      The corresponding discipline is unglamorous and it is what the small artifacts in section 02
+      accidentally demonstrate. Put the reference in the frame. Encode the scale in the artifact. Size
+      the redundancy to the channel you will actually traverse rather than the one you designed for.
+      Keep rectification separable from demodulation so each can be falsified alone. And when a model
+      performs well, ask what it would also predict if the analyte were absent, because the
+      steganography tool's payload survived every transformation except the one it would really meet,
+      and the glucose literature is thirty years of models that were tracking something else.
+    </p>
+  </section>
+
+  <section class="col">
+    <p class="sec-no">06 &nbsp;/&nbsp; Open threads</p>
+    <h2>Where the small artifacts would have to grow</h2>
+    <ol class="threads">
+      <li>
+        <strong>Perspective rectification before demodulation.</strong> The page-frame decoder
+        currently assumes an axis-aligned raster and defers deskew to a vision layer that does not yet
+        exist. Closing that gap turns a screenshot codec into a genuine document scanner, and the
+        homography machinery already exists in <code>blob.folk</code>.
+      </li>
+      <li>
+        <strong>A code matched to the lossy channel.</strong> The steganographic encoder writes to the
+        LSB plane, which JPEG is licensed to discard. Moving the payload into mid-frequency DCT
+        coefficients with spread-spectrum modulation would survive recompression, and would make the
+        capacity-versus-robustness trade-off explicit rather than implicit.
+      </li>
+      <li>
+        <strong>Reed&ndash;Solomon in place of repetition.</strong> The page frame repeats a
+        CRC-guarded packet until the band is full and accepts the first copy that verifies. That is a
+        rate-1/<em>n</em> repetition code, which is the least efficient way to spend redundancy. The
+        QR vendoring already in the repository provides the codec.
+      </li>
+      <li>
+        <strong>A measured channel model.</strong> Every choice in the frame &mdash; palette,
+        cell size, band thickness &mdash; is currently justified by argument. Characterising the
+        actual print-and-photograph channel would turn those into a measured symbol error rate and let
+        the code rate be derived rather than guessed. This is the step that separates a demonstration
+        from an instrument, at every scale on the ladder.
+      </li>
+    </ol>
+  </section>
+
+  <div class="rule-space">
+    <div class="calib" role="presentation">
+      <span class="k"></span><span class="r"></span><span class="g"></span><span class="b"></span><span class="c"></span><span class="m"></span><span class="y"></span><span class="w"></span>
+    </div>
+  </div>
+
+  <div class="colophon">
+    Set in Spectral and IBM Plex Mono &mdash; the latter vendored in
+    <code>PrintablePrograms.png/fonts/</code> for exactly the reason it is used here.<br>
+    Accent <code>#1010FF</code>, the ink colour chosen in <code>lib/typeset.tcl</code> for maximum
+    non-black contrast through an inkjet-and-camera channel.<br>
+    Divider strips reproduce the eight-colour calibration palette from
+    <code>lib/pageframe.tcl</code>: the corners of the RGB cube, in the order the decoder expects.
+  </div>
+
+</div>
