@@ -1,0 +1,9 @@
+# Large derived caches - regenerate with analysis/01_extract.py and 10_levelset.py
+data/screen_u16.npy
+data/screen_linearP3.npy
+data/screen_lumaP3.npy
+data/luma.npy
+data/rgb.npy
+data/rho_map.npy
+data/tile_u16.npy
+data/row_energy.npy
