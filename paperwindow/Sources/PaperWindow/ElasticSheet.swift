@@ -156,14 +156,15 @@ final class ElasticSheet {
     // MARK: - Impulses
 
     /// A random flap, as if you shook the sheet.
-    func flap(strength: Float = 9) {
+    func flap(strength: Float = 16) {
         let angle = Float(random01()) * 2 * .pi
         let dir = SIMD2<Float>(cos(angle), sin(angle))
         for i in pos.indices {
-            // Weight the kick by distance from the middle so it ripples.
+            // A long wavelength across the sheet: tighter ripples just fight
+            // the distance constraints and die within a frame.
             let u = Float(i % cols) / Float(cols - 1) - 0.5
             let v = Float(i / cols) / Float(rows - 1) - 0.5
-            let wave = sin((u * 3.3 + v * 2.1) * .pi + angle)
+            let wave = sin((u * 1.5 + v * 1.1) * .pi + angle)
             prev[i] -= dir * strength * wave * (0.4 + Float(random01()) * 0.6)
         }
     }

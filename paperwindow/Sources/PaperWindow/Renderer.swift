@@ -191,7 +191,7 @@ final class Renderer {
                 if lu > 1e-5 && lv > 1e-5 {
                     shear = abs(simd_dot(dxdu / lu, dxdv / lv))
                 }
-                let shade = min(1.55, max(0.55, 1 + 0.45 * (area - 1) - 0.5 * shear))
+                let shade = min(1.6, max(0.5, 1 + 0.95 * (area - 1) - 0.8 * shear))
 
                 scratch[index] = MeshVertex(
                     position: pos[index],

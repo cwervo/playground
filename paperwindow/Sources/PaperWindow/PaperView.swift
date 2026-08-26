@@ -20,8 +20,11 @@ final class PaperView: MTKView {
     private let fixedStep: Double = 1.0 / 120.0
     private let cornerGrabRadius: CGFloat = 34
     private let bodyGrabRadius: CGFloat = 40
-    /// Downward pull per substep, in points. ~700 pt/s² at 120 Hz.
-    private static let gravityStrength: Float = 0.05
+    /// Downward pull per substep, in points. The spring-back constraint holds
+    /// the sheet at roughly gravity / (springBack * iterations) below its rest
+    /// shape, so this settles a free sheet about 34pt low: a clear sag that
+    /// still leaves the paper on the desk.
+    private static let gravityStrength: Float = 0.25
 
     init?(frame: CGRect, image: CGImage, restRect: CGRect, options: Options) {
         guard let device = MTLCreateSystemDefaultDevice() else { return nil }

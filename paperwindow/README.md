@@ -90,6 +90,21 @@ The bundle is ad-hoc signed, so its signature changes on every rebuild and macOS
 may ask for the permissions again after one. Sign with a real identity if that
 becomes annoying.
 
+## The toy version
+
+`web/index.html` is a standalone page — no build, no dependencies — with a fake
+macOS desktop whose windows can be pulled around the same way. It runs the same
+lattice with the same constants; only the renderer changed, from Metal triangles
+to SVG ones with a clip path and an affine matrix each. Open it in a browser:
+
+```
+open web/index.html
+```
+
+It is also the quickest way to feel what `--stiffness`, `--spring-back` and
+`--grid` actually do — each control is labelled with the flag it corresponds to,
+and the panel assembles the matching command line as you go.
+
 ## Notes
 
 - Needs macOS 13 or later and any Metal-capable Mac (so, all of them).
