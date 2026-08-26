@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Shared page</title>
+<link rel="stylesheet" href="/style.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><text y='14' font-size='14'>📝</text></svg>">
+</head>
+<body>
+
+<header id="bar">
+  <div class="bar-left">
+    <span class="dot" id="conn-dot" title="connecting…"></span>
+    <input id="title" class="title" value="Shared page" spellcheck="false" aria-label="Page title">
+  </div>
+
+  <div class="bar-right">
+    <div id="roster" class="roster" aria-label="People editing"></div>
+    <button id="btn-undo" class="btn" title="Undo the last change anyone made" disabled>Undo</button>
+    <button id="btn-source" class="btn" title="Edit the whole page as HTML">Source</button>
+    <a id="btn-preview" class="btn" href="/preview" target="_blank" rel="noopener" title="Open the page on its own (scripts run here)">Preview</a>
+    <a id="btn-export" class="btn" href="/export" title="Download this page as an .html file">Save&nbsp;file</a>
+    <button id="btn-me" class="btn me" title="Change your name">…</button>
+  </div>
+</header>
+
+<div id="banner" class="banner" hidden></div>
+
+<main id="page" aria-label="The shared page"></main>
+
+<div id="add-end-wrap"><button id="add-end" class="add-block">+ add a block at the end</button></div>
+
+<footer id="foot">
+  <span><b>Everyone on this WiFi can edit this page.</b></span>
+  <span>Click text to edit it · <kbd>&lt;/&gt;</kbd> edits a block's HTML · <kbd>Ctrl</kbd>+<kbd>Enter</kbd> adds a block below</span>
+</footer>
+
+<div id="source-pane" class="source-pane" hidden>
+  <div class="source-head">
+    <b>Whole-page HTML</b>
+    <span class="source-note">Applying this replaces the page for everyone.</span>
+    <span class="spacer"></span>
+    <button id="source-apply" class="btn primary">Apply to everyone</button>
+    <button id="source-cancel" class="btn">Cancel</button>
+  </div>
+  <textarea id="source-text" spellcheck="false" aria-label="Whole page HTML"></textarea>
+</div>
+
+<script src="/app.js"></script>
+</body>
+</html>

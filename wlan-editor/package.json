@@ -1,0 +1,11 @@
+{
+  "name": "wlan-editor",
+  "version": "1.0.0",
+  "private": true,
+  "description": "A LAN server that lets everyone on the same WiFi collaboratively edit one HTML page",
+  "main": "server.js",
+  "bin": { "wlan-editor": "server.js" },
+  "scripts": { "start": "node server.js" },
+  "engines": { "node": ">=18" },
+  "license": "MIT"
+}
