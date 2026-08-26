@@ -7,6 +7,7 @@
 #   make figures    TIFFs of every figure in the source scans, plus a zip
 #   make conference the simulated proceedings PDF, with Xanadu-style ley lines
 #   make video      the 9:16 reel of the photic block, with its sonification
+#   make book       the large-format book, 300 x 380 mm, QR codes in the citations
 #   make explore    launch the Tk explorer (needs a display)
 #   make disasm     read the drawing program as assembly
 #   make check      round-trip the display file through every host
@@ -28,7 +29,7 @@ ENGINE   := $(B)/analyze
 NVM      := $(B)/dashboard.nvm
 HDRS     := src/nvm.hpp src/stats.hpp src/json.hpp
 
-.PHONY: all analyze dash physical figures conference video explore disasm check whatif clean help
+.PHONY: all analyze dash physical figures conference video book explore disasm check whatif clean help
 
 all: dash physical figures conference
 	@echo
@@ -135,6 +136,36 @@ $(VIDEO)/photic.mp4: video/render.py video/common.py $(VIDEO)/track.wav \
 	        --audio $(VIDEO)/track.wav --out $@
 
 # ---------------------------------------------------------------------------
+# The book. 300 x 380 mm, composed page by page in Tcl and printed from the
+# same headless Chromium the proceedings use.
+#
+# It reads the display file for every number it prints, the figure manifest for
+# the plate data, conference/sources.tcl for the bibliography, and three frames
+# lifted out of the reel -- which is why it depends on the video pipeline's
+# feature and score files even though it renders no video itself.
+#
+# book/qr.tcl encodes the citation codes. book/qr-verify.py checks that encoder
+# against an independent implementation; it is not wired into this target
+# because it needs a package the build deliberately does not.
+BOOK := $(B)/book
+
+book: $(BOOK)/one-afternoon.pdf
+
+$(BOOK)/frame-10.6s.png: video/render.py video/common.py $(VIDEO)/score.json \
+                         $(VIDEO)/features.json
+	python3 video/render.py --scale 1 --stills-only --stills 7.9,10.6,24.5 \
+	        --series $(VIDEO)/series.json --features $(VIDEO)/features.json \
+	        --score $(VIDEO)/score.json --out $(BOOK)/frame.png
+
+$(BOOK)/one-afternoon.html: book/build.tcl book/qr.tcl conference/sources.tcl \
+                            $(NVM) $(B)/figures.zip $(BOOK)/frame-10.6s.png
+	$(TCLSH) book/build.tcl --img $(B)/conference/img --frames $(BOOK) \
+	         --nvm $(NVM) --out $@
+
+$(BOOK)/one-afternoon.pdf: $(BOOK)/one-afternoon.html book/topdf.mjs
+	CHROMIUM_PATH=$(CHROMIUM) $(NODE) book/topdf.mjs $< $@
+
+# ---------------------------------------------------------------------------
 explore: $(NVM)
 	$(WISH) tcl/explore.tcl $(NVM)
 
@@ -177,4 +208,4 @@ clean:
 	rm -rf $(B)
 
 help:
-	@sed -n '2,15p' Makefile | sed 's/^# \?//'
+	@sed -n '2,16p' Makefile | sed 's/^# \?//'

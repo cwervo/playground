@@ -7,6 +7,7 @@ any of them re-deriving a number.
 ```
 make                    # engine, display file, dashboard, print, plotter, card, STL
 make video              # the 9:16 reel of the photic block, with its sonification
+make book               # the large-format book, 300 x 380 mm
 open build/dashboard.html
 ```
 
@@ -308,6 +309,55 @@ sidechain ducking on every hit, a mono saturated sub under each one, an air
 burst on every transient, chops panned by electrode laterality with a Haas
 offset, and the act boundary as twelve milliseconds of actual silence.
 
+### The book
+
+```sh
+make book           # -> build/book/one-afternoon.pdf, 43 pages, 300 x 380 mm
+```
+
+*One Afternoon* is the record set as a large-format art book — the size an
+illustrated monograph is actually printed at, with the plates at the size they
+deserve and the numbers underneath them in two registers. Six chapters, one per
+instrument, each opening on a full-bleed plate and closing on a page of
+readings; a catalogue of all fifteen figures with their real pixel dimensions
+and resolutions; and a bibliography of forty-five references.
+
+Every page is composed by hand rather than flowed. A coffee-table book is a
+sequence of designed spreads, and text that reflows into whatever space is left
+over is exactly what makes a document look like a report.
+
+It reads its numbers from `build/dashboard.nvm` and nowhere else. The display
+file carries the symbol table — every measured value with its reference band,
+its signed deviation and its distance past threshold — and a meta block with
+the five hypotheses and their permutation results, so the book is a sixth host
+for the same bytecode the browser, the plotter, the pocket card and the printed
+comb execute. It never opens the session JSON. The plate data comes from the
+figure manifest written at the moment the crops were cut, so the resolutions
+printed in the catalogue are the real ones.
+
+**The QR codes.** A bibliography in a book is a dead end: you read the
+reference, you do not go and get the paper. So every citation carries a code of
+its most durable link. `book/qr.tcl` is a QR encoder in about four hundred
+lines of Tcl — byte mode, error-correction level Q, versions one through ten,
+Reed-Solomon over GF(256), block interleaving, all eight mask patterns scored
+by the spec's four penalty rules. It emits SVG geometry rather than a bitmap,
+so a code stays sharp at whatever resolution the page is printed at. No
+package, no network, nothing the rest of the build does not already have.
+
+Correctness is not asserted, it is checked. `book/qr-verify.py` re-encodes all
+forty-five URLs with an independent implementation and compares the module
+matrices cell by cell **for all eight masks**, then parses the shipped SVG paths
+back into modules and checks those too, quiet zones included:
+
+```
+qr-verify: 45 URLs x 8 masks, all identical to python-qrcode 8.2;
+           45 SVG paths reconstruct to the same modules, quiet zones clean
+```
+
+Forty-two of the forty-five also decode straight out of the rendered PDF with
+OpenCV's detector, with no false reads; the three that do not are the detector
+struggling on a crowded page, not the codes.
+
 ### On paper and in your hand
 
 - `build/card.svg` — two 88 × 55 mm sides. The findings that clear threshold,
@@ -352,9 +402,10 @@ accordingly.
 `g++` with C++17, `tclsh` 8.6, and `wish` 8.6 only for the Tk explorer. No
 libraries, no package manager, no network.
 
-Two targets step outside that. `make conference` needs `node` and a Chromium to
-paginate and print; `make video` needs Python with `numpy`, `pillow` and
-`imageio-ffmpeg`. Everything the reel needs beyond that — the timeline, the
+Three targets step outside that. `make conference` needs `node` and a Chromium
+to paginate and print; `make video` needs Python with `numpy`, `pillow` and
+`imageio-ffmpeg`; `make book` needs both, since it lifts three frames out of
+the reel. Its QR encoder needs neither — that is why it is written in Tcl. Everything the reel needs beyond that — the timeline, the
 colour space, the organ, the thunder and the mix — is in the four files under
 `video/`, and IBM Plex ships in `assets/fonts/` under the OFL so the build does
 not reach for a font it might not find.

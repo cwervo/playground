@@ -624,6 +624,35 @@ def outro(img, kit, feats, alpha):
                      font=kit.m(20), spacing=p(12), fill=rgb(PARCH_DIM) + (a,))
 
 
+def compose(kit, act, series, feats, score, bg, layer, alphaL, x0, y0, rows,
+            live, vt, frac):
+    """One finished frame. The still writer and the video writer share it, so a
+    frame lifted out for print is the frame that was in the film."""
+    t = data_time(act, frac)
+    frame = bg.copy()
+
+    # trace panel: lit behind the playhead, banked ahead of it, with a brighter
+    # wake just behind so the drawing edge reads as motion
+    H, W = layer.shape[0], layer.shape[1]
+    col = np.arange(W, dtype=np.float32)
+    head = frac * W
+    gain = np.where(col <= head, 1.0, 0.26).astype(np.float32)
+    wake = np.clip(1.0 - (head - col) / (0.045 * W), 0.0, 1.0) * (col <= head)
+    gain = gain + 0.55 * wake
+    lit = np.clip(layer * gain[None, :, None], 0, 255)
+    a = alphaL[..., None]
+    region = frame[y0:y0 + H, x0:x0 + W].astype(np.float32)
+    frame[y0:y0 + H, x0:x0 + W] = (region * (1 - a) + lit * a).astype(np.uint8)
+
+    img = Image.fromarray(frame)
+    vals = sample_values(act, series, t, rows)
+    draw_dynamics(img, kit, act, feats, rows, vals, frac, t, x0, y0, W, H,
+                  score, vt, live)
+    if vt > TOTAL - 0.35:
+        outro(img, kit, feats, float(np.clip((vt - (TOTAL - 0.35)) / 0.9, 0, 1)))
+    return img
+
+
 # ---------------------------------------------------------------------------
 def main():
     ap = argparse.ArgumentParser()
@@ -635,6 +664,8 @@ def main():
     ap.add_argument("--scale", type=int, default=2, help="1 = 1080x1920, 2 = 2160x3840")
     ap.add_argument("--preview", type=float, default=0.0, help="render only N seconds")
     ap.add_argument("--stills", default="", help="also write PNG stills at these times")
+    ap.add_argument("--stills-only", action="store_true",
+                    help="write the stills and no video, for the book")
     args = ap.parse_args()
     os.makedirs(os.path.dirname(args.out) or ".", exist_ok=True)
 
@@ -660,6 +691,19 @@ def main():
     nframes = int(round(end * FPS))
     stills = [float(x) for x in args.stills.split(",") if x.strip()]
 
+    if args.stills_only:
+        if not stills:
+            sys.exit("--stills-only needs --stills")
+        for vt in stills:
+            act, frac, _ = act_at(min(vt, TOTAL - 1e-6))
+            bg, layer, alphaL, x0, y0, rows = statics[act["id"]]
+            img = compose(kit, act, series, feats, score, bg, layer, alphaL,
+                          x0, y0, rows, live_by_act[act["id"]], vt, frac)
+            pth = f"{os.path.splitext(args.out)[0]}-{vt:g}s.png"
+            img.save(pth)
+            print(f"  still {pth}", file=sys.stderr)
+        return
+
     import imageio_ffmpeg
     writer = imageio_ffmpeg.write_frames(
         args.out, (kit.W, kit.H), fps=FPS, codec="libx264", quality=None,
@@ -676,31 +720,8 @@ def main():
         vt = i / FPS
         act, frac, _ = act_at(min(vt, TOTAL - 1e-6))
         bg, layer, alphaL, x0, y0, rows = statics[act["id"]]
-        t = data_time(act, frac)
-
-        frame = bg.copy()
-
-        # trace panel: lit behind the playhead, banked ahead of it, with a
-        # brighter wake just behind so the drawing edge reads as motion
-        H, W = layer.shape[0], layer.shape[1]
-        col = np.arange(W, dtype=np.float32)
-        head = frac * W
-        gain = np.where(col <= head, 1.0, 0.26).astype(np.float32)
-        wake = np.clip(1.0 - (head - col) / (0.045 * W), 0.0, 1.0) * (col <= head)
-        gain = gain + 0.55 * wake
-        lit = np.clip(layer * gain[None, :, None], 0, 255)
-        a = alphaL[..., None]
-        region = frame[y0:y0 + H, x0:x0 + W].astype(np.float32)
-        frame[y0:y0 + H, x0:x0 + W] = (region * (1 - a) + lit * a).astype(np.uint8)
-
-        img = Image.fromarray(frame)
-        vals = sample_values(act, series, t, rows)
-        draw_dynamics(img, kit, act, feats, rows, vals, frac, t, x0, y0, W, H,
-                      score, vt, live_by_act[act["id"]])
-
-        if vt > TOTAL - 0.35:
-            outro(img, kit, feats, float(np.clip((vt - (TOTAL - 0.35)) / 0.9, 0, 1)))
-
+        img = compose(kit, act, series, feats, score, bg, layer, alphaL,
+                      x0, y0, rows, live_by_act[act["id"]], vt, frac)
         out = np.asarray(img, dtype=np.uint8)
         writer.send(out.tobytes())
 
