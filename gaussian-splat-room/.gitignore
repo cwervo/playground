@@ -1,0 +1,10 @@
+# regenerable intermediates
+depth/midas_small.onnx
+depth/*.npy
+depth/disp_*.png
+views/view_*.jpg
+renders/raw_*.png
+renders/*_z.npy
+renders/test_*.png
+renders/midas_debug.jpg
+scripts/__pycache__/

@@ -1,0 +1,15 @@
+{
+  "ad_art_arch":    {"tier": "arch",   "cam": [25, 0.7, -0.05],  "target": [-43, 2.2, 0.1],  "fov": 48, "preset": "ad",   "ratio": "4:5"},
+  "ad_vault_arch":  {"tier": "arch",   "cam": [-150, 0.5, -0.25], "target": [-10, 2.8, 1.05], "fov": 62, "preset": "ad",   "ratio": "4:5"},
+  "ad_door_arch":   {"tier": "arch",   "cam": [-10, 0.7, -0.35], "target": [59, 2.35, -0.05], "fov": 52, "preset": "ad",   "ratio": "4:5"},
+  "ad_corner_med":  {"tier": "medium", "cam": [30, 0.6, -0.1],   "target": [103, 1.9, 0.45],  "fov": 56, "preset": "ad",   "ratio": "4:5"},
+  "ad_exit_med":    {"tier": "medium", "cam": [60, 0.7, -0.2],   "target": [-4, 3.3, 0.0],    "fov": 48, "preset": "ad",   "ratio": "4:5"},
+  "ad_dream_low":   {"tier": "low",    "cam": [0, 0.3, -0.05],   "target": [-50, 2.2, 0.15],  "fov": 74, "preset": "ad",   "ratio": "4:5"},
+  "ikea_wide_arch": {"tier": "arch",   "cam": [-120, 0.65, 0.0], "target": [20, 2.6, -0.1],   "fov": 76, "preset": "ikea", "ratio": "4:3"},
+  "ikea_art_med":   {"tier": "medium", "cam": [-8, 0.55, 0.0],   "target": [-43, 2.2, 0.1],   "fov": 54, "preset": "ikea", "ratio": "4:3"},
+  "ikea_door_arch": {"tier": "arch",   "cam": [5, 0.6, -0.1],    "target": [59, 2.35, -0.15], "fov": 56, "preset": "ikea", "ratio": "4:3",
+                     "label": "SPLATRUM|3D room scan - one panorama - open source"},
+  "ikea_detail_arch": {"tier": "arch", "cam": [72, 0.5, -0.15],  "target": [31, 2.2, -0.1],   "fov": 44, "preset": "ikea", "ratio": "1:1"},
+  "ikea_corner_med": {"tier": "medium", "cam": [-45, 0.55, 0.05], "target": [-100, 1.9, 0.35], "fov": 58, "preset": "ikea", "ratio": "4:3"},
+  "ikea_soft_low":  {"tier": "low",    "cam": [-30, 0.4, 0.0],   "target": [35, 2.4, 0.0],    "fov": 72, "preset": "ikea", "ratio": "4:3"}
+}

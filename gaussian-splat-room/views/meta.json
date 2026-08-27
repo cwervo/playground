@@ -1,0 +1,54 @@
+{
+  "pano_w": 8000,
+  "pano_h": 1953,
+  "view_size": 704,
+  "view_fov_deg": 60.0,
+  "focal_view": 609.6818842642448,
+  "views": [
+    {
+      "idx": 0,
+      "yaw_deg": -102.50000000000001,
+      "file": "/home/user/playground/gaussian-splat-room/views/view_00.jpg"
+    },
+    {
+      "idx": 1,
+      "yaw_deg": -76.87500000000001,
+      "file": "/home/user/playground/gaussian-splat-room/views/view_01.jpg"
+    },
+    {
+      "idx": 2,
+      "yaw_deg": -51.25000000000001,
+      "file": "/home/user/playground/gaussian-splat-room/views/view_02.jpg"
+    },
+    {
+      "idx": 3,
+      "yaw_deg": -25.625,
+      "file": "/home/user/playground/gaussian-splat-room/views/view_03.jpg"
+    },
+    {
+      "idx": 4,
+      "yaw_deg": 0.0,
+      "file": "/home/user/playground/gaussian-splat-room/views/view_04.jpg"
+    },
+    {
+      "idx": 5,
+      "yaw_deg": 25.625000000000014,
+      "file": "/home/user/playground/gaussian-splat-room/views/view_05.jpg"
+    },
+    {
+      "idx": 6,
+      "yaw_deg": 51.250000000000014,
+      "file": "/home/user/playground/gaussian-splat-room/views/view_06.jpg"
+    },
+    {
+      "idx": 7,
+      "yaw_deg": 76.87500000000001,
+      "file": "/home/user/playground/gaussian-splat-room/views/view_07.jpg"
+    },
+    {
+      "idx": 8,
+      "yaw_deg": 102.50000000000001,
+      "file": "/home/user/playground/gaussian-splat-room/views/view_08.jpg"
+    }
+  ]
+}
