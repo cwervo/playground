@@ -46,7 +46,10 @@ def main():
         if area > 8000 and cy_c > FUSE_H * 0.3:
             door_mask[comp] = 1
         elif cy_c < FUSE_H * 0.45:
-            tv_mask[comp] = 1
+            w_c = stats[i, cv2.CC_STAT_WIDTH]
+            h_c = stats[i, cv2.CC_STAT_HEIGHT]
+            if w_c / max(h_c, 1) < 3.2:  # wide+short = ceiling vent, not a TV
+                tv_mask[comp] = 1
         del browns
 
     # solidify the door: close gaps from light wood grain, then fill holes

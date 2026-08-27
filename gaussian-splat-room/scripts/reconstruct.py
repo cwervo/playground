@@ -24,9 +24,9 @@ DEPTH_MIN, DEPTH_MAX = 0.6, 4.5
 TIERS = {
     "low": dict(gw=224, gh=55, overlap=1.7, opacity=0.82, thin=0.35,
                 blur=3.0, snap=False, jitter=0.012),
-    "medium": dict(gw=640, gh=157, overlap=1.32, opacity=0.93, thin=0.18,
+    "medium": dict(gw=768, gh=188, overlap=1.22, opacity=0.93, thin=0.18,
                    blur=0.8, snap=False, jitter=0.0),
-    "arch": dict(gw=1280, gh=313, overlap=1.14, opacity=0.97, thin=0.08,
+    "arch": dict(gw=1600, gh=391, overlap=1.05, opacity=0.97, thin=0.08,
                  blur=0.0, snap=True, jitter=0.0),
 }
 
@@ -185,6 +185,15 @@ def build_tier(tier):
     if cfg["jitter"] > 0:
         pts = pts + rng.normal(0, cfg["jitter"], pts.shape)
     opacity = np.clip(cfg["opacity"] + rng.normal(0, 0.02, len(pts)), 0.05, 0.995)
+
+    # cull near-black splats along the pano's filled edges (they render as
+    # dark floater trails)
+    val = rgb.max(axis=1)
+    edge = ((ys < 0.07 * Hp) | (xs < 0.02 * Wp) | (xs > 0.98 * Wp)).reshape(-1)
+    keep = ~((val < 18) & edge)
+    pts, normals, rgb = pts[keep], normals[keep], rgb[keep]
+    scales, opacity, quats = scales[keep], opacity[keep], quats[keep]
+    print(f"[{tier}] culled {(~keep).sum()} black edge splats")
 
     gpath = os.path.join(ROOT, "models", f"room_{tier}.ply")
     ppath = os.path.join(ROOT, "models", f"room_{tier}_points.ply")

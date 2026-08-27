@@ -14,7 +14,8 @@ import numpy as np
 from common import read_ply_gaussian
 
 N_BUCKETS = 56
-SAT = 1.45          # weight -> alpha saturation inside a bucket
+SAT = 1.6           # weight -> alpha saturation inside a bucket
+SIG_DIV = 1.95      # projected radius -> gaussian sigma (higher = crisper)
 
 
 def render(model, pos, yaw_deg, pitch_deg, fov_deg, W, H, bg=(24, 22, 20)):
@@ -74,7 +75,7 @@ def render(model, pos, yaw_deg, pitch_deg, fov_deg, W, H, bg=(24, 22, 20)):
             continue
         ub, vb, rb = u[s:e], v[s:e], r_px[s:e]
         cb, ab = rgbk[s:e], opk[s:e]
-        sig = rb / 1.55
+        sig = rb / SIG_DIV
         R = int(np.clip(np.ceil(np.percentile(rb, 96) * 1.2), 2, 22))
         u0 = ub.round().astype(np.int64)
         v0 = vb.round().astype(np.int64)

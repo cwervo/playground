@@ -6,16 +6,28 @@ import os
 import cv2
 import numpy as np
 
-from common import ROOT
+from common import ROOT, pano_dirs
 from render import render
 from style import grade, crop_ratio, add_label
 
 RES_W, RES_H = 1440, 1080
+PANO_W, PANO_H = 8000, 1953
+FUSE_W, FUSE_H = 2000, 489
 
 
 def polar(az_deg, r, y):
     az = np.deg2rad(az_deg)
     return np.array([r * np.sin(az), y, r * np.cos(az)])
+
+
+def target_from_px(px, py):
+    """Exact 3D point of a pano pixel via the refined depth map."""
+    depth = np.load(os.path.join(ROOT, "depth", "pano_depth.npy"))
+    fx = np.clip(px * FUSE_W / PANO_W, 0, FUSE_W - 1)
+    fy = np.clip(py * FUSE_H / PANO_H, 0, FUSE_H - 1)
+    d = cv2.getRectSubPix(depth, (1, 1), (float(fx), float(fy)))[0, 0]
+    dirs = pano_dirs(PANO_W, PANO_H, np.array([float(px)]), np.array([float(py)]))
+    return dirs[0] * d
 
 
 def main():
@@ -28,7 +40,7 @@ def main():
     s = shots[args.name]
 
     pos = polar(*s["cam"])
-    tgt = polar(*s["target"])
+    tgt = target_from_px(*s["look_px"]) if "look_px" in s else polar(*s["target"])
     d = tgt - pos
     yaw = np.rad2deg(np.arctan2(d[0], d[2]))
     pitch = np.rad2deg(np.arctan2(d[1], np.hypot(d[0], d[2])))
