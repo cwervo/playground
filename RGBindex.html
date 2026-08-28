@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<title>Halftone · 3-bit RGB Newspaper Screen</title>
+<style>
+  :root { --line: rgba(255,255,255,0.35); }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; height: 100%; background: #000; color: #fff;
+    font: 12px/1.4 ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    overflow: hidden;
+  }
+  #stage { position: fixed; inset: 0; display: grid; place-items: center; }
+  canvas#out { display: block; box-shadow: 0 0 0 1px rgba(255,255,255,0.15); }
+  #ui {
+    position: fixed; top: 12px; left: 12px;
+    width: min(280px, calc(100vw - 24px));
+    background: rgba(0,0,0,0.72); border: 1px solid var(--line);
+    padding: 10px 12px 12px; z-index: 10; user-select: none; backdrop-filter: blur(2px);
+  }
+  #ui h1 { margin: 0 0 8px; font-size: 12px; letter-spacing: 0.12em; text-transform: uppercase;
+           font-weight: 700; border-bottom: 1px solid var(--line); padding-bottom: 6px; }
+  #ui h1 small { float: right; opacity: 0.6; font-weight: 400; letter-spacing: 0; }
+  .row { margin: 9px 0; }
+  .row label { display: flex; justify-content: space-between; text-transform: uppercase;
+               letter-spacing: 0.06em; font-size: 10px; opacity: 0.85; margin-bottom: 3px; }
+  .row label .val { font-weight: 700; }
+  input[type=range] { -webkit-appearance: none; appearance: none; width: 100%; height: 14px; background: transparent; cursor: ew-resize; }
+  input[type=range]::-webkit-slider-runnable-track { height: 2px; background: var(--line); }
+  input[type=range]::-moz-range-track { height: 2px; background: var(--line); }
+  input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 10px; height: 14px; background: #fff; margin-top: -6px; }
+  input[type=range]::-moz-range-thumb { width: 10px; height: 14px; background: #fff; border: 0; border-radius: 0; }
+  .btns { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 10px; }
+  button { flex: 1 1 auto; min-width: 62px; background: #000; color: #fff; border: 1px solid var(--line);
+           padding: 7px 6px; font: inherit; text-transform: uppercase; letter-spacing: 0.06em; cursor: pointer; }
+  button:hover, button[aria-pressed="true"] { background: #fff; color: #000; }
+  #hint { position: fixed; bottom: 10px; left: 12px; font-size: 10px; opacity: 0.5; z-index: 10; }
+  #err { position: fixed; inset: auto 12px 12px 12px; z-index: 30; background: #300; color: #fbb;
+         border: 1px solid #f66; padding: 8px 10px; display: none; }
+</style>
+</head>
+<body>
+  <div id="stage"><canvas id="out"></canvas></div>
+
+  <div id="ui">
+    <h1>rgb screen <small>3·bit</small></h1>
+    <div class="row">
+      <label>Dot pitch (px) <span class="val" id="vPitch">13</span></label>
+      <input type="range" id="pitch" min="6" max="28" step="1" value="13" />
+    </div>
+    <div class="row">
+      <label>Levels / channel <span class="val" id="vLev">8</span></label>
+      <input type="range" id="lev" min="2" max="8" step="1" value="8" />
+    </div>
+    <div class="row">
+      <label>Dot gain <span class="val" id="vGain">1.15</span></label>
+      <input type="range" id="gain" min="0.6" max="1.8" step="0.01" value="1.15" />
+    </div>
+    <div class="row">
+      <label>Contrast <span class="val" id="vCon">1.10</span></label>
+      <input type="range" id="con" min="0.5" max="2.2" step="0.01" value="1.10" />
+    </div>
+    <div class="btns">
+      <button id="btnCam" aria-pressed="false">Camera</button>
+      <button id="btnImg" aria-pressed="true">Image</button>
+      <button id="btnMirror" aria-pressed="false">Mirror</button>
+      <button id="btnFreeze" aria-pressed="false">Freeze</button>
+    </div>
+    <div class="btns">
+      <button id="btnFile">Open file…</button>
+      <button id="btnSave">Save PNG</button>
+    </div>
+    <input type="file" id="file" accept="image/*" hidden />
+  </div>
+
+  <div id="hint">Rotated R/G/B screens (15° · 45° · 75°) · additive ink · DPR-locked circles</div>
+  <div id="err"></div>
+
+<script>
+"use strict";
+/* ------------------------------------------------------------------ *
+ * RGBindex.html
+ * A newspaper-style RGB halftone screen rendered with Context2D.
+ * Each channel is screened on its own rotated lattice; a "dot" is a
+ * circle whose area encodes the (3-bit quantized) channel value.
+ * Channels are composited additively on black so overlapping dots
+ * rebuild toward white — the RGB analogue of overlapping ink.
+ * The canvas backing store is locked to devicePixelRatio so every
+ * dot is a crisp, consistent physical circle on the host device.
+ * ------------------------------------------------------------------ */
+
+const out = document.getElementById("out");
+const ctx = out.getContext("2d", { alpha: false });
+const errBox = document.getElementById("err");
+function fail(m){ errBox.style.display = "block"; errBox.textContent = m; console.error(m); }
+
+// Offscreen buffer we sample source luminance/chroma from (kept small & cheap).
+const samp = document.createElement("canvas");
+const sctx = samp.getContext("2d", { willReadFrequently: true });
+
+const state = {
+  mode: "image", mirror: false, freeze: false,
+  pitch: 13, levels: 8, gain: 1.15, con: 1.10,
+  srcW: 1280, srcH: 720,
+};
+// Screen angles per channel (radians). Distinct angles suppress moiré.
+const ANGLES = { r: 15 * Math.PI/180, g: 45 * Math.PI/180, b: 75 * Math.PI/180 };
+
+let img = new Image(), video = null, stream = null;
+let dpr = Math.min(window.devicePixelRatio || 1, 2);
+let sampleData = null, sampW = 0, sampH = 0;
+
+/* ------------------------- sources --------------------------------- */
+function loadImage(src){
+  img.onload = () => { state.srcW = img.naturalWidth; state.srcH = img.naturalHeight; resize(); };
+  img.onerror = () => fail("Could not load image: " + src);
+  img.src = src;
+}
+loadImage("test.jpg");
+
+async function startCamera(){
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" }, audio: false });
+    video = document.createElement("video");
+    video.playsInline = true; video.muted = true; video.srcObject = stream;
+    await video.play();
+    state.srcW = video.videoWidth || 640; state.srcH = video.videoHeight || 480;
+    state.mode = "camera"; resize(); setPressed();
+  } catch (e) { fail("Camera unavailable: " + e.message); state.mode = "image"; setPressed(); }
+}
+function stopCamera(){ if (stream) stream.getTracks().forEach(t => t.stop()); stream = null; video = null; }
+
+/* ------------------------- sizing ---------------------------------- */
+function resize(){
+  dpr = Math.min(window.devicePixelRatio || 1, 2);
+  const ar = state.srcW / state.srcH;
+  let cssW = window.innerWidth, cssH = cssW / ar;
+  if (cssH > window.innerHeight) { cssH = window.innerHeight; cssW = cssH * ar; }
+  out.style.width = cssW + "px"; out.style.height = cssH + "px";
+  out.width = Math.round(cssW * dpr); out.height = Math.round(cssH * dpr);
+
+  // Sample buffer: ~2 samples per dot pitch, capped for performance.
+  const pitchDev = state.pitch;                // dots are measured in device px
+  sampW = Math.max(2, Math.min(480, Math.round(out.width  / pitchDev * 2)));
+  sampH = Math.max(2, Math.min(480, Math.round(out.height / pitchDev * 2)));
+  samp.width = sampW; samp.height = sampH;
+}
+window.addEventListener("resize", resize);
+
+/* ------------------------- sampling -------------------------------- */
+function grabSource(){
+  const src = state.mode === "camera" ? video : img;
+  if (!src) return false;
+  if (state.mode === "camera" && (!video || video.readyState < 2)) return false;
+  sctx.save();
+  if (state.mirror) { sctx.translate(sampW, 0); sctx.scale(-1, 1); }
+  try { sctx.drawImage(src, 0, 0, sampW, sampH); } catch(e){ sctx.restore(); return false; }
+  sctx.restore();
+  sampleData = sctx.getImageData(0, 0, sampW, sampH).data;
+  return true;
+}
+
+// Bilinear-ish nearest sample of one channel (0..2) at output-device (x,y).
+function sampleChannel(x, y, ch){
+  const u = Math.min(sampW - 1, Math.max(0, (x / out.width)  * sampW)) | 0;
+  const v = Math.min(sampH - 1, Math.max(0, (y / out.height) * sampH)) | 0;
+  return sampleData[(v * sampW + u) * 4 + ch] / 255;
+}
+
+/* ------------------------- one channel screen ---------------------- */
+function screenChannel(ch, angle, cssColor){
+  const pitch = state.pitch;                    // device px
+  const cos = Math.cos(angle), sin = Math.sin(angle);
+  const W = out.width, H = out.height;
+  // Bounding radius of the canvas so the rotated lattice fully covers it.
+  const R = Math.ceil(Math.hypot(W, H) / pitch) + 2;
+  const maxR = pitch * 0.5 * Math.SQRT2 * state.gain;   // full-ink radius
+  const levels = state.levels;
+  const con = state.con;
+
+  ctx.fillStyle = cssColor;
+  ctx.beginPath();
+  for (let j = -R; j <= R; j++){
+    for (let i = -R; i <= R; i++){
+      // lattice point in rotated space -> device space
+      const lx = i * pitch, ly = j * pitch;
+      const x =  lx * cos - ly * sin + W * 0.5;
+      const y =  lx * sin + ly * cos + H * 0.5;
+      if (x < -pitch || y < -pitch || x > W + pitch || y > H + pitch) continue;
+
+      let val = sampleChannel(x, y, ch);
+      val = Math.min(1, Math.max(0, (val - 0.5) * con + 0.5));
+      // 3-bit quantization of this channel
+      val = Math.round(val * (levels - 1)) / (levels - 1);
+      if (val <= 0) continue;
+      const r = Math.sqrt(val) * maxR;          // area-proportional dot
+      if (r < 0.35) continue;
+      ctx.moveTo(x + r, y);
+      ctx.arc(x, y, r, 0, Math.PI * 2);
+    }
+  }
+  ctx.fill();
+}
+
+/* ------------------------- render loop ----------------------------- */
+function frame(){
+  if (!state.freeze || !sampleData) grabSource();
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.fillStyle = "#000";
+  ctx.fillRect(0, 0, out.width, out.height);
+
+  if (sampleData) {
+    ctx.globalCompositeOperation = "lighter";   // additive ink
+    screenChannel(0, ANGLES.r, "#ff0000");
+    screenChannel(1, ANGLES.g, "#00ff00");
+    screenChannel(2, ANGLES.b, "#0000ff");
+    ctx.globalCompositeOperation = "source-over";
+  }
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+
+/* ------------------------- UI wiring ------------------------------- */
+const $ = id => document.getElementById(id);
+function bind(id, key, label, fmt, relayout){
+  const el = $(id), o = $(label);
+  const apply = () => { const v = parseFloat(el.value); state[key] = v; o.textContent = fmt ? fmt(v) : v; if (relayout) resize(); };
+  el.addEventListener("input", apply); apply();
+}
+bind("pitch","pitch","vPitch", v => v|0, true);
+bind("lev","levels","vLev", v => v|0);
+bind("gain","gain","vGain", v => v.toFixed(2));
+bind("con","con","vCon", v => v.toFixed(2));
+
+function setPressed(){
+  $("btnCam").setAttribute("aria-pressed", state.mode === "camera");
+  $("btnImg").setAttribute("aria-pressed", state.mode === "image");
+  $("btnMirror").setAttribute("aria-pressed", state.mirror);
+  $("btnFreeze").setAttribute("aria-pressed", state.freeze);
+}
+$("btnCam").onclick = () => { if (state.mode !== "camera") startCamera(); };
+$("btnImg").onclick = () => { stopCamera(); state.mode = "image"; resize(); setPressed(); };
+$("btnMirror").onclick = () => { state.mirror = !state.mirror; setPressed(); };
+$("btnFreeze").onclick = () => { state.freeze = !state.freeze; setPressed(); };
+$("btnFile").onclick = () => $("file").click();
+$("file").onchange = e => { const f = e.target.files[0]; if (!f) return; stopCamera(); state.mode = "image"; loadImage(URL.createObjectURL(f)); setPressed(); };
+$("btnSave").onclick = () => { const a = document.createElement("a"); a.download = "halftone-rgb.png"; a.href = out.toDataURL("image/png"); a.click(); };
+setPressed();
+</script>
+</body>
+</html>

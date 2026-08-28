@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<title>Halftone · 2-bit B/W Dither (WebGL)</title>
+<style>
+  :root {
+    --bg: #000;
+    --fg: #fff;
+    --panel: rgba(0,0,0,0.72);
+    --line: rgba(255,255,255,0.35);
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; height: 100%;
+    background: var(--bg); color: var(--fg);
+    font: 12px/1.4 ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    overflow: hidden;
+    -webkit-font-smoothing: none;
+  }
+  #stage { position: fixed; inset: 0; display: grid; place-items: center; background: #000; }
+  canvas#gl {
+    image-rendering: pixelated;
+    max-width: 100vw; max-height: 100vh;
+    display: block;
+    box-shadow: 0 0 0 1px rgba(255,255,255,0.15);
+  }
+  /* Control panel — dithered chrome to match the aesthetic */
+  #ui {
+    position: fixed; top: 12px; left: 12px;
+    width: min(280px, calc(100vw - 24px));
+    background: var(--panel);
+    border: 1px solid var(--line);
+    padding: 10px 12px 12px;
+    backdrop-filter: blur(2px);
+    z-index: 10;
+    user-select: none;
+  }
+  #ui h1 {
+    margin: 0 0 8px; font-size: 12px; letter-spacing: 0.12em;
+    text-transform: uppercase; font-weight: 700;
+    border-bottom: 1px solid var(--line); padding-bottom: 6px;
+  }
+  #ui h1 small { float: right; opacity: 0.6; font-weight: 400; letter-spacing: 0; }
+  .row { margin: 9px 0; }
+  .row label {
+    display: flex; justify-content: space-between;
+    text-transform: uppercase; letter-spacing: 0.06em;
+    font-size: 10px; opacity: 0.85; margin-bottom: 3px;
+  }
+  .row label .val { opacity: 1; font-weight: 700; }
+  input[type=range] {
+    -webkit-appearance: none; appearance: none;
+    width: 100%; height: 14px; background: transparent; cursor: ew-resize;
+  }
+  input[type=range]::-webkit-slider-runnable-track {
+    height: 2px; background: var(--line);
+  }
+  input[type=range]::-moz-range-track { height: 2px; background: var(--line); }
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none; appearance: none;
+    width: 10px; height: 14px; background: var(--fg); margin-top: -6px; border-radius: 0;
+  }
+  input[type=range]::-moz-range-thumb { width: 10px; height: 14px; background: var(--fg); border: 0; border-radius: 0; }
+  .btns { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 10px; }
+  button {
+    flex: 1 1 auto; min-width: 62px;
+    background: #000; color: var(--fg);
+    border: 1px solid var(--line); padding: 7px 6px;
+    font: inherit; text-transform: uppercase; letter-spacing: 0.06em;
+    cursor: pointer;
+  }
+  button:hover { background: var(--fg); color: #000; }
+  button[aria-pressed="true"] { background: var(--fg); color: #000; }
+  #hint { position: fixed; bottom: 10px; left: 12px; font-size: 10px; opacity: 0.5; z-index: 10; }
+  #err {
+    position: fixed; inset: auto 12px 12px 12px; z-index: 30;
+    background: #300; color: #fbb; border: 1px solid #f66; padding: 8px 10px;
+    display: none;
+  }
+</style>
+</head>
+<body>
+  <div id="stage"><canvas id="gl"></canvas></div>
+
+  <div id="ui">
+    <h1>2·bit dither <small>b/w</small></h1>
+
+    <div class="row">
+      <label>Gray steps <span class="val" id="vSteps">12</span></label>
+      <input type="range" id="steps" min="2" max="16" step="1" value="12" />
+    </div>
+    <div class="row">
+      <label>Dot scale <span class="val" id="vScale">1</span></label>
+      <input type="range" id="scale" min="1" max="12" step="1" value="1" />
+    </div>
+    <div class="row">
+      <label>Brightness <span class="val" id="vBri">0.00</span></label>
+      <input type="range" id="bri" min="-0.5" max="0.5" step="0.01" value="0" />
+    </div>
+    <div class="row">
+      <label>Contrast <span class="val" id="vCon">1.00</span></label>
+      <input type="range" id="con" min="0.4" max="2.5" step="0.01" value="1.15" />
+    </div>
+    <div class="row">
+      <label>Gamma <span class="val" id="vGam">1.00</span></label>
+      <input type="range" id="gam" min="0.4" max="2.2" step="0.01" value="1.0" />
+    </div>
+
+    <div class="btns">
+      <button id="btnCam" aria-pressed="false">Camera</button>
+      <button id="btnImg" aria-pressed="true">Image</button>
+      <button id="btnInv" aria-pressed="false">Invert</button>
+      <button id="btnFreeze" aria-pressed="false">Freeze</button>
+    </div>
+    <div class="btns">
+      <button id="btnFile">Open file…</button>
+      <button id="btnSave">Save PNG</button>
+    </div>
+    <input type="file" id="file" accept="image/*" hidden />
+  </div>
+
+  <div id="hint">Ordered Bayer 8×8 · quantize → threshold · pure #000/#FFF output</div>
+  <div id="err"></div>
+
+<script>
+"use strict";
+/* ------------------------------------------------------------------ *
+ * bwindex.html
+ * 2-bit (bilevel) ordered dithering in a WebGL fragment shader.
+ * Luminance is posterized to N halftone gray steps (default 12),
+ * then an 8×8 Bayer matrix thresholds each pixel to pure black or
+ * white so the eye reconstructs the gray ramp.
+ * ------------------------------------------------------------------ */
+
+const cvs = document.getElementById("gl");
+const gl = cvs.getContext("webgl", { antialias: false, preserveDrawingBuffer: true });
+const errBox = document.getElementById("err");
+function fail(msg) { errBox.style.display = "block"; errBox.textContent = msg; console.error(msg); }
+if (!gl) fail("WebGL is not available in this browser.");
+
+/* ---- 8×8 Bayer ordered-dither matrix, normalized to (0,1) ---------- */
+const BAYER8 = (() => {
+  const m = [
+     0,32, 8,40, 2,34,10,42,
+    48,16,56,24,50,18,58,26,
+    12,44, 4,36,14,46, 6,38,
+    60,28,52,20,62,30,54,22,
+     3,35,11,43, 1,33, 9,41,
+    51,19,59,27,49,17,57,25,
+    15,47, 7,39,13,45, 5,37,
+    63,31,55,23,61,29,53,21,
+  ];
+  // Map to (0,1) with a half-cell offset so no threshold is exactly 0/1.
+  return new Float32Array(m.map(v => (v + 0.5) / 64));
+})();
+
+const VERT = `
+attribute vec2 aPos;
+varying vec2 vUV;
+void main(){
+  vUV = aPos * 0.5 + 0.5;
+  gl_Position = vec4(aPos, 0.0, 1.0);
+}`;
+
+const FRAG = `
+precision highp float;
+varying vec2 vUV;
+uniform sampler2D uTex;
+uniform vec2  uRes;        // output resolution in device pixels
+uniform float uBayer[64];
+uniform float uSteps;      // number of gray levels
+uniform float uScale;      // dither cell scale (chunkiness)
+uniform float uBri;
+uniform float uCon;
+uniform float uGam;
+uniform float uInvert;
+uniform float uFlipY;
+
+float luma(vec3 c){ return dot(c, vec3(0.299, 0.587, 0.114)); }
+
+float bayerAt(vec2 frag){
+  vec2 cell = floor(frag / uScale);
+  int x = int(mod(cell.x, 8.0));
+  int y = int(mod(cell.y, 8.0));
+  int idx = y * 8 + x;
+  // Dynamic index into a uniform array (allowed in GLSL ES 1.00).
+  for (int i = 0; i < 64; i++){ if (i == idx) return uBayer[i]; }
+  return 0.5;
+}
+
+void main(){
+  vec2 uv = vUV;
+  if (uFlipY > 0.5) uv.y = 1.0 - uv.y;
+  vec3 src = texture2D(uTex, uv).rgb;
+  float g = luma(src);
+
+  // tone controls
+  g = (g - 0.5) * uCon + 0.5 + uBri;
+  g = clamp(g, 0.0, 1.0);
+  g = pow(g, uGam);
+  if (uInvert > 0.5) g = 1.0 - g;
+
+  // posterize to N halftone gray steps
+  float steps = max(uSteps, 2.0);
+  float q = floor(g * (steps - 1.0) + 0.5) / (steps - 1.0);
+
+  // ordered threshold -> pure black or white
+  float t = bayerAt(gl_FragCoord.xy);
+  float o = q > t ? 1.0 : 0.0;
+
+  gl_FragColor = vec4(vec3(o), 1.0);
+}`;
+
+function compile(type, src){
+  const s = gl.createShader(type);
+  gl.shaderSource(s, src); gl.compileShader(s);
+  if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) fail(gl.getShaderInfoLog(s));
+  return s;
+}
+const prog = gl.createProgram();
+gl.attachShader(prog, compile(gl.VERTEX_SHADER, VERT));
+gl.attachShader(prog, compile(gl.FRAGMENT_SHADER, FRAG));
+gl.linkProgram(prog);
+if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) fail(gl.getProgramInfoLog(prog));
+gl.useProgram(prog);
+
+// Fullscreen triangle-pair
+const quad = gl.createBuffer();
+gl.bindBuffer(gl.ARRAY_BUFFER, quad);
+gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1, 1,-1, -1,1, 1,1]), gl.STATIC_DRAW);
+const aPos = gl.getAttribLocation(prog, "aPos");
+gl.enableVertexAttribArray(aPos);
+gl.vertexAttribPointer(aPos, 2, gl.FLOAT, false, 0, 0);
+
+const tex = gl.createTexture();
+gl.bindTexture(gl.TEXTURE_2D, tex);
+gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+
+const U = {};
+["uTex","uRes","uSteps","uScale","uBri","uCon","uGam","uInvert","uFlipY"].forEach(n => U[n] = gl.getUniformLocation(prog, n));
+U.uBayer = gl.getUniformLocation(prog, "uBayer");
+gl.uniform1fv(U.uBayer, BAYER8);
+gl.uniform1i(U.uTex, 0);
+
+/* ---------------- source management (image / camera) --------------- */
+const state = {
+  mode: "image",   // 'image' | 'camera'
+  invert: 0, freeze: false, flipY: 0,
+  steps: 12, scale: 1, bri: 0, con: 1.15, gam: 1.0,
+  srcW: 1280, srcH: 720,
+};
+let img = new Image();
+let video = null, stream = null;
+
+function loadImage(src){
+  img = new Image();
+  img.onload = () => {
+    state.srcW = img.naturalWidth; state.srcH = img.naturalHeight;
+    resize();
+    if (state.mode === "image") uploadTexture(img);
+  };
+  img.onerror = () => fail("Could not load image: " + src);
+  img.src = src;
+}
+loadImage("test.jpg");
+
+function uploadTexture(source){
+  gl.bindTexture(gl.TEXTURE_2D, tex);
+  gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
+  try {
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, source);
+  } catch (e) { /* not ready this frame */ }
+}
+
+async function startCamera(){
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" }, audio: false });
+    video = document.createElement("video");
+    video.playsInline = true; video.muted = true; video.srcObject = stream;
+    await video.play();
+    state.srcW = video.videoWidth || 640;
+    state.srcH = video.videoHeight || 480;
+    state.mode = "camera"; state.flipY = 1;   // mirror-ish / correct orientation for GL upload
+    resize();
+    setPressed();
+  } catch (e) {
+    fail("Camera unavailable: " + e.message);
+    state.mode = "image"; setPressed();
+  }
+}
+function stopCamera(){
+  if (stream) stream.getTracks().forEach(t => t.stop());
+  stream = null; video = null;
+}
+
+/* ------------------------- sizing ---------------------------------- */
+function resize(){
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  const availW = window.innerWidth, availH = window.innerHeight;
+  const ar = state.srcW / state.srcH;
+  let cssW = availW, cssH = availW / ar;
+  if (cssH > availH) { cssH = availH; cssW = availH * ar; }
+  cvs.style.width = cssW + "px";
+  cvs.style.height = cssH + "px";
+  cvs.width = Math.round(cssW * dpr);
+  cvs.height = Math.round(cssH * dpr);
+  gl.viewport(0, 0, cvs.width, cvs.height);
+}
+window.addEventListener("resize", resize);
+
+/* ------------------------- render loop ----------------------------- */
+function frame(){
+  if (state.mode === "camera" && video && video.readyState >= 2 && !state.freeze) {
+    uploadTexture(video);
+  } else if (state.mode === "image" && !state.freeze) {
+    // static; texture already uploaded on load
+  }
+  gl.uniform2f(U.uRes, cvs.width, cvs.height);
+  gl.uniform1f(U.uSteps, state.steps);
+  gl.uniform1f(U.uScale, state.scale * (Math.min(window.devicePixelRatio || 1, 2)));
+  gl.uniform1f(U.uBri, state.bri);
+  gl.uniform1f(U.uCon, state.con);
+  gl.uniform1f(U.uGam, state.gam);
+  gl.uniform1f(U.uInvert, state.invert);
+  gl.uniform1f(U.uFlipY, state.mode === "camera" ? 0 : state.flipY);
+  gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+
+/* ------------------------- UI wiring ------------------------------- */
+const $ = id => document.getElementById(id);
+function bind(id, key, label, fmt){
+  const el = $(id), out = $(label);
+  const apply = () => {
+    const v = parseFloat(el.value);
+    state[key] = v; out.textContent = fmt ? fmt(v) : v;
+    if (state.mode === "image") uploadTexture(img);
+  };
+  el.addEventListener("input", apply); apply();
+}
+bind("steps","steps","vSteps", v => v|0);
+bind("scale","scale","vScale", v => v|0);
+bind("bri","bri","vBri", v => v.toFixed(2));
+bind("con","con","vCon", v => v.toFixed(2));
+bind("gam","gam","vGam", v => v.toFixed(2));
+
+function setPressed(){
+  $("btnCam").setAttribute("aria-pressed", state.mode === "camera");
+  $("btnImg").setAttribute("aria-pressed", state.mode === "image");
+  $("btnInv").setAttribute("aria-pressed", !!state.invert);
+  $("btnFreeze").setAttribute("aria-pressed", state.freeze);
+}
+$("btnCam").onclick = () => { if (state.mode !== "camera") startCamera(); };
+$("btnImg").onclick = () => { stopCamera(); state.mode = "image"; state.flipY = 0; resize(); uploadTexture(img); setPressed(); };
+$("btnInv").onclick = () => { state.invert = state.invert ? 0 : 1; setPressed(); };
+$("btnFreeze").onclick = () => { state.freeze = !state.freeze; setPressed(); };
+$("btnFile").onclick = () => $("file").click();
+$("file").onchange = e => {
+  const f = e.target.files[0]; if (!f) return;
+  stopCamera(); state.mode = "image"; state.flipY = 0;
+  loadImage(URL.createObjectURL(f)); setPressed();
+};
+$("btnSave").onclick = () => {
+  const a = document.createElement("a");
+  a.download = "halftone-bw.png"; a.href = cvs.toDataURL("image/png"); a.click();
+};
+setPressed();
+</script>
+</body>
+</html>
