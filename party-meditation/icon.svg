@@ -1,0 +1,18 @@
+<svg width="192" height="192" viewBox="0 0 192 192" fill="none" xmlns="http://www.w3.org/2000/svg">
+<style>
+    @keyframes wave {
+        0% { transform: scale(0.8); opacity: 0.5; }
+        50% { transform: scale(1); opacity: 1; }
+        100% { transform: scale(0.8); opacity: 0.5; }
+    }
+    .circle {
+        animation: wave 3s infinite ease-in-out;
+    }
+    .c1 { animation-delay: 0s; }
+    .c2 { animation-delay: 1s; }
+    .c3 { animation-delay: 2s; }
+</style>
+<circle class="circle c1" cx="96" cy="96" r="80" stroke="#F0F0F0" stroke-width="4"/>
+<circle class="circle c2" cx="96" cy="96" r="60" stroke="#F0F0F0" stroke-width="4"/>
+<circle class="circle c3" cx="96" cy="96" r="40" stroke="#F0F0F0" stroke-width="4"/>
+</svg>
