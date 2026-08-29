@@ -1,0 +1,373 @@
+#!/bin/sh
+#
+# folk-printer-watchdog — keep CUPS queues pointed at the right printer on a
+# network with no mDNS (e.g. the SVA IT WiFi), where the printer's DHCP lease
+# moves it to a new IP and every `.local` name and `dnssd://` queue goes dead.
+#
+# For each printer listed in the config it will:
+#   1. make sure cupsd is running,
+#   2. find the printer's *current* IP by its MAC address (ARP/neighbour table,
+#      arp-scan, or a ping sweep of the local subnet) — no mDNS required,
+#   3. rewrite the CUPS queue's device-uri if the IP moved,
+#   4. re-enable a queue that CUPS paused when the old address stopped
+#      answering,
+#   5. optionally pin a `.local`-style name to that IP in /etc/hosts, so
+#      programs that still ask for `folk-printer.local` keep working.
+#
+# Safe to run repeatedly; it only touches CUPS when something is actually
+# wrong. Run from cron at midnight (see install.sh), or by hand any time the
+# printer stops answering.
+#
+# Usage: folk-printer-watchdog [-c CONFIG] [-n] [-q] [-v] [QUEUE ...]
+#   -c FILE  config file (default /etc/folk-printer-watchdog.conf)
+#   -n       dry run: report what would change, change nothing
+#   -q       quiet: log to the log file only, not to the terminal
+#   -v       verbose: show discovery details
+#   QUEUE    only check these queues (default: every queue in the config)
+
+set -u
+
+# cron runs with a minimal PATH; ip/arp-scan/lpadmin live in sbin on Debian.
+PATH=${PATH:-/usr/bin:/bin}:/usr/local/sbin:/usr/sbin:/sbin
+export PATH
+
+CONFIG=${FOLK_PRINTER_CONFIG:-/etc/folk-printer-watchdog.conf}
+DRY_RUN=no
+QUIET=no
+VERBOSE=no
+EXIT_CODE=0
+
+# --- Options ---------------------------------------------------------------
+
+while [ $# -gt 0 ]; do
+    case "$1" in
+        -c|--config) CONFIG=$2; shift 2 ;;
+        -n|--dry-run) DRY_RUN=yes; shift ;;
+        -q|--quiet) QUIET=yes; shift ;;
+        -v|--verbose) VERBOSE=yes; shift ;;
+        -h|--help) awk 'NR>1 && /^#/ {sub(/^# ?/, ""); print; next} NR>1 {exit}' "$0"; exit 0 ;;
+        --) shift; break ;;
+        -*) echo "unknown option: $1" >&2; exit 2 ;;
+        *) break ;;
+    esac
+done
+ONLY_QUEUES="$*"
+
+# --- Logging ---------------------------------------------------------------
+
+if [ -w /var/log ] || [ "$(id -u)" = 0 ]; then
+    LOG_FILE=${FOLK_PRINTER_LOG:-/var/log/folk-printer-watchdog.log}
+    STATE_DIR=${FOLK_PRINTER_STATE:-/var/lib/folk-printer-watchdog}
+else
+    LOG_FILE=${FOLK_PRINTER_LOG:-$HOME/.local/state/folk-printer-watchdog.log}
+    STATE_DIR=${FOLK_PRINTER_STATE:-$HOME/.local/state/folk-printer-watchdog}
+fi
+mkdir -p "$(dirname "$LOG_FILE")" "$STATE_DIR" 2>/dev/null || true
+
+log() {
+    line="$(date '+%Y-%m-%d %H:%M:%S') $*"
+    [ "$QUIET" = yes ] || echo "$line" >&2
+    echo "$line" >>"$LOG_FILE" 2>/dev/null || true
+}
+debug() { [ "$VERBOSE" = yes ] && log "  . $*"; return 0; }
+have() { command -v "$1" >/dev/null 2>&1; }
+lower() { echo "$1" | tr '[:upper:]' '[:lower:]'; }
+
+# Rotate the log ourselves so an unattended nightly job can't fill the disk.
+if [ -f "$LOG_FILE" ] && [ "$(wc -c <"$LOG_FILE" 2>/dev/null || echo 0)" -gt 1048576 ]; then
+    mv "$LOG_FILE" "$LOG_FILE.1" 2>/dev/null || true
+fi
+
+# --- Config ----------------------------------------------------------------
+
+if [ ! -r "$CONFIG" ]; then
+    log "ERROR: no config at $CONFIG (copy folk-printer-watchdog.conf.example there)"
+    exit 1
+fi
+
+# Optional settings, overridable at the top of the config file as KEY=value.
+SCAN_INTERFACE=""       # network interface to search; default = default route
+MAX_SWEEP_HOSTS=1024    # refuse to ping-sweep a subnet bigger than this
+PIN_HOSTS=yes           # maintain the /etc/hosts entry for named printers
+HOSTS_FILE=${FOLK_PRINTER_HOSTS:-/etc/hosts}
+FLUSH_STUCK_JOBS=no     # cancel queued jobs after repointing a moved printer
+
+# Only the KEY=value lines are shell; the rest of the file is the printer table.
+SETTINGS=$(mktemp) || exit 1
+grep -E '^[A-Z_]+=' "$CONFIG" >"$SETTINGS"
+# shellcheck disable=SC1090
+. "$SETTINGS"
+rm -f "$SETTINGS"
+
+# --- Network helpers -------------------------------------------------------
+
+default_iface() {
+    [ -n "$SCAN_INTERFACE" ] && { echo "$SCAN_INTERFACE"; return; }
+    ip -4 route show default 2>/dev/null | awk '/dev/ {for (i=1;i<NF;i++) if ($i=="dev") {print $(i+1); exit}}'
+}
+
+iface_cidr() {
+    ip -4 -o addr show dev "$1" scope global 2>/dev/null | awk '{print $4; exit}'
+}
+
+# Print every usable host address in a CIDR, or nothing if it is too big.
+hosts_in_cidr() {
+    awk -v cidr="$1" -v cap="$MAX_SWEEP_HOSTS" 'BEGIN {
+        split(cidr, p, "/"); n = p[2] + 0; split(p[1], o, ".")
+        addr = o[1]*16777216 + o[2]*65536 + o[3]*256 + o[4]
+        size = 2 ^ (32 - n)
+        if (size > cap) exit 0
+        net = addr - (addr % size)
+        for (i = net + 1; i < net + size - 1; i++)
+            printf "%d.%d.%d.%d\n", int(i/16777216)%256, int(i/65536)%256, int(i/256)%256, i%256
+    }'
+}
+
+broadcast_of_cidr() {
+    awk -v cidr="$1" 'BEGIN {
+        split(cidr, p, "/"); n = p[2] + 0; split(p[1], o, ".")
+        addr = o[1]*16777216 + o[2]*65536 + o[3]*256 + o[4]
+        size = 2 ^ (32 - n); net = addr - (addr % size); b = net + size - 1
+        printf "%d.%d.%d.%d\n", int(b/16777216)%256, int(b/65536)%256, int(b/256)%256, b%256
+    }'
+}
+
+# Look a MAC up in the kernel neighbour table.
+ip_for_mac() {
+    want=$(lower "$1")
+    ip -4 neigh show 2>/dev/null | awk -v mac="$want" '
+        { for (i = 1; i <= NF; i++) if ($i == "lladdr" && tolower($(i+1)) == mac) { print $1; exit } }'
+}
+
+# Fill the neighbour table so ip_for_mac has something to find: arp-scan if we
+# have it, otherwise a broadcast ping plus a parallel sweep of the subnet.
+populate_neighbours() {
+    iface=$1 cidr=$2
+    if have arp-scan && [ "$(id -u)" = 0 ]; then
+        debug "arp-scan on $iface"
+        arp-scan --interface="$iface" --localnet --quiet --plain >/dev/null 2>&1
+        return 0
+    fi
+    bcast=$(broadcast_of_cidr "$cidr")
+    [ -n "$bcast" ] && ping -b -c 2 -W 1 -n "$bcast" >/dev/null 2>&1
+    hosts=$(hosts_in_cidr "$cidr")
+    if [ -z "$hosts" ]; then
+        log "  subnet $cidr is larger than $MAX_SWEEP_HOSTS hosts; skipping ping sweep"
+        return 1
+    fi
+    debug "ping sweep of $cidr"
+    i=0
+    for host in $hosts; do
+        ping -c 1 -W 1 -n "$host" >/dev/null 2>&1 &
+        i=$((i + 1))
+        [ $((i % 64)) -eq 0 ] && wait
+    done
+    wait
+    return 0
+}
+
+port_open() {
+    host=$1 port=$2
+    if [ -x /bin/bash ] && have timeout; then
+        timeout 3 /bin/bash -c "exec 3<>/dev/tcp/$host/$port" >/dev/null 2>&1 && return 0
+        return 1
+    fi
+    if have nc; then
+        nc -z -w 3 "$host" "$port" >/dev/null 2>&1 && return 0
+        return 1
+    fi
+    ping -c 1 -W 2 -n "$host" >/dev/null 2>&1
+}
+
+# --- CUPS helpers ----------------------------------------------------------
+
+ensure_cupsd() {
+    lpstat -r 2>/dev/null | grep -q "is running" && return 0
+    have systemctl || return 1
+    # systemctl also fails when there is no systemd at all (a container), so
+    # only report a stopped daemon if it really is a service we can see.
+    systemctl is-active --quiet cups 2>/dev/null && return 0
+    log "cupsd is not answering; starting it"
+    [ "$DRY_RUN" = yes ] && return 1
+    systemctl start cups >/dev/null 2>&1 || systemctl start org.cups.cupsd >/dev/null 2>&1
+    sleep 2
+    lpstat -r 2>/dev/null | grep -q "is running"
+}
+
+queue_uri() {
+    lpstat -v "$1" 2>/dev/null | sed -n 's/^device for [^:]*: //p'
+}
+
+queue_disabled() {
+    lpstat -p "$1" 2>/dev/null | head -1 | grep -q "disabled"
+}
+
+uri_host() {
+    # socket://10.0.1.7:9100 or ipp://10.0.1.7/ipp/print -> 10.0.1.7
+    echo "$1" | sed -e 's|^[a-z]*://||' -e 's|/.*$||' -e 's|:[0-9]*$||' -e 's|^.*@||'
+}
+
+uri_for() {
+    host=$1 port=$2
+    case "$port" in
+        631) echo "ipp://$host/ipp/print" ;;
+        443) echo "ipps://$host/ipp/print" ;;
+        *)   echo "socket://$host:$port" ;;
+    esac
+}
+
+run() {
+    if [ "$DRY_RUN" = yes ]; then
+        log "  would run: $*"
+        return 0
+    fi
+    "$@" >/dev/null 2>&1
+}
+
+# --- /etc/hosts pinning ----------------------------------------------------
+# The SVA network has no mDNS, so `folk-printer.local` never resolves. Pinning
+# the name here keeps programs that hard-code it working after the IP moves.
+
+pin_host() {
+    name=$1 addr=$2
+    [ "$PIN_HOSTS" = yes ] || return 0
+    [ -w "$HOSTS_FILE" ] || { log "  cannot write $HOSTS_FILE (need root) to pin $name"; return 1; }
+    if grep -qE "^${addr}[[:space:]]+${name}([[:space:]]|\$)" "$HOSTS_FILE" 2>/dev/null; then
+        debug "$HOSTS_FILE already maps $name -> $addr"
+        return 0
+    fi
+    log "  pinning $name -> $addr in $HOSTS_FILE"
+    [ "$DRY_RUN" = yes ] && return 0
+    short=${name%.local}
+    tmp=$(mktemp) || return 1
+    grep -vE "[[:space:]]${name}([[:space:]]|\$)" "$HOSTS_FILE" >"$tmp"
+    printf '%s\t%s %s # folk-printer-watchdog\n' "$addr" "$name" "$short" >>"$tmp"
+    cat "$tmp" >"$HOSTS_FILE" && rm -f "$tmp"
+}
+
+# --- Discovery -------------------------------------------------------------
+# Order: last known good IP, then the configured fallback, then the MAC in the
+# neighbour table, then a sweep to refresh that table. A candidate only counts
+# if the printer port actually answers there — otherwise we would happily point
+# CUPS at whatever laptop inherited the printer's old lease.
+
+candidate_ok() {
+    addr=$1 port=$2 mac=$3
+    port_open "$addr" "$port" || { debug "$addr:$port closed"; return 1; }
+    if [ -n "$mac" ]; then
+        found=$(ip_for_mac "$mac")
+        if [ -n "$found" ] && [ "$found" != "$addr" ]; then
+            debug "$addr answers but MAC $mac is at $found"
+            return 1
+        fi
+    fi
+    return 0
+}
+
+discover() {
+    queue=$1 mac=$2 port=$3 fallback=$4
+    state_file="$STATE_DIR/$queue.ip"
+    for addr in "$(cat "$state_file" 2>/dev/null)" "$fallback" "$(ip_for_mac "$mac")"; do
+        [ -n "$addr" ] || continue
+        if candidate_ok "$addr" "$port" "$mac"; then
+            echo "$addr"; return 0
+        fi
+    done
+
+    [ -n "$mac" ] || return 1
+    iface=$(default_iface)
+    [ -n "$iface" ] || { log "  no default network interface; is the WiFi up?"; return 1; }
+    cidr=$(iface_cidr "$iface")
+    [ -n "$cidr" ] || { log "  interface $iface has no IPv4 address"; return 1; }
+    log "  searching $cidr on $iface for $mac (no mDNS, so this is an ARP hunt)"
+    populate_neighbours "$iface" "$cidr" || true
+    addr=$(ip_for_mac "$mac")
+    if [ -n "$addr" ] && candidate_ok "$addr" "$port" "$mac"; then
+        echo "$addr"; return 0
+    fi
+    return 1
+}
+
+# --- Per-printer check -----------------------------------------------------
+
+check_printer() {
+    queue=$1 mac=$(lower "$2") port=$3 name=$4 fallback=$5
+    log "checking queue '$queue' (mac=${mac:-none} port=$port)"
+
+    current=$(queue_uri "$queue")
+    if [ -z "$current" ]; then
+        log "  ERROR: no CUPS queue named '$queue'. Create it once with:"
+        log "         lpadmin -p $queue -E -v socket://<ip>:$port -m everywhere"
+        EXIT_CODE=1
+        return 1
+    fi
+    case "$current" in
+        usb://*|file:*|/*)
+            log "  '$queue' is a local ($current) queue; only checking it is enabled"
+            ;;
+        *)
+            addr=$(discover "$queue" "$mac" "$port" "$fallback")
+            if [ -z "$addr" ]; then
+                log "  ERROR: could not find '$queue' on the network."
+                log "         Last known device-uri: $current"
+                EXIT_CODE=1
+            else
+                echo "$addr" >"$STATE_DIR/$queue.ip" 2>/dev/null || true
+                want=$(uri_for "$addr" "$port")
+                if [ "$current" = "$want" ]; then
+                    debug "device-uri already $want"
+                else
+                    log "  address moved: $current -> $want"
+                    if run lpadmin -p "$queue" -v "$want" -E; then
+                        log "  device-uri updated"
+                        [ "$FLUSH_STUCK_JOBS" = yes ] && run cancel -a "$queue"
+                    else
+                        log "  ERROR: lpadmin failed (need root or the lpadmin group)"
+                        EXIT_CODE=1
+                    fi
+                fi
+                [ -n "$name" ] && pin_host "$name" "$addr"
+            fi
+            ;;
+    esac
+
+    if queue_disabled "$queue"; then
+        log "  queue was paused by CUPS; re-enabling"
+        run cupsenable "$queue"
+        run cupsaccept "$queue"
+    else
+        debug "queue is enabled"
+    fi
+}
+
+# --- Main ------------------------------------------------------------------
+
+log "=== folk-printer-watchdog on $(hostname) $([ "$DRY_RUN" = yes ] && echo '(dry run)') ==="
+
+if ! have lpstat || ! have lpadmin; then
+    log "ERROR: CUPS client tools (lpstat/lpadmin) not installed"
+    exit 1
+fi
+ensure_cupsd || { log "ERROR: cupsd will not start"; exit 1; }
+
+found_any=no
+# Config lines: QUEUE  MAC  PORT  NAME  FALLBACK_IP   (see the example file)
+while IFS= read -r line || [ -n "$line" ]; do
+    case "$line" in ''|'#'*|*=*) continue ;; esac
+    # shellcheck disable=SC2086
+    set -- $line
+    q=$1
+    m=${2:-}; [ "$m" = "-" ] && m=""
+    p=${3:-9100}; [ "$p" = "-" ] && p=9100
+    n=${4:-}; [ "$n" = "-" ] && n=""
+    f=${5:-}; [ "$f" = "-" ] && f=""
+    if [ -n "$ONLY_QUEUES" ]; then
+        case " $ONLY_QUEUES " in *" $q "*) ;; *) continue ;; esac
+    fi
+    found_any=yes
+    check_printer "$q" "$m" "$p" "$n" "$f"
+done <"$CONFIG"
+
+[ "$found_any" = no ] && log "no printers listed in $CONFIG${ONLY_QUEUES:+ matching '$ONLY_QUEUES'}"
+log "=== done (exit $EXIT_CODE) ==="
+exit $EXIT_CODE

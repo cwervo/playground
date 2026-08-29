@@ -1,0 +1,31 @@
+# folk-printer-watchdog configuration
+# Installed as /etc/folk-printer-watchdog.conf
+#
+# Two kinds of lines:
+#   KEY=value    optional settings (must be at the top, no spaces around =)
+#   a table row  one per printer, whitespace separated
+#
+# Settings ------------------------------------------------------------------
+# SCAN_INTERFACE=wlan0     # which interface to search (default: default route)
+# MAX_SWEEP_HOSTS=1024     # don't ping-sweep a subnet larger than this
+# PIN_HOSTS=yes            # keep NAME -> current IP in /etc/hosts (no mDNS here)
+# FLUSH_STUCK_JOBS=no      # cancel queued jobs after the printer's IP moves
+#
+# Printer table -------------------------------------------------------------
+# QUEUE     MAC                  PORT  NAME                 FALLBACK_IP
+#
+#   QUEUE        the CUPS queue name (see `lpstat -v`)
+#   MAC          the printer's MAC address — the one thing DHCP can't change.
+#                Find it while the printer is reachable:
+#                  ping -c1 <printer-ip> && ip neigh show <printer-ip>
+#                or from the printer's own network/config report page.
+#                Use "-" if you don't have it (then only FALLBACK_IP is tried).
+#   PORT         9100 raw/JetDirect (default), 631 IPP, 443 IPPS.
+#                Decides the device-uri: socket://IP:9100 vs ipp://IP/ipp/print
+#   NAME         optional hostname to pin in /etc/hosts, e.g. folk-printer.local
+#                Use "-" to skip.
+#   FALLBACK_IP  optional last-resort address to try before scanning. "-" to skip.
+#
+# Example — replace with the real queue name and MAC on folk-SVA:
+
+folk-printer   3c:2a:f4:00:00:00   9100   folk-printer.local   -
