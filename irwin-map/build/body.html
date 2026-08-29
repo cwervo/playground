@@ -1,0 +1,62 @@
+<div class="wrap">
+<header>
+  <p class="eyebrow">A three-hundred-mile circle drawn from Times Square</p>
+  <h1>Robert Irwin Within 300 Miles</h1>
+  <p class="dek">Irwin spent sixty years making work that only exists where you stand in it — a scrim in a particular room, a steel line cut into one hillside. So the honest question is not what he made, but <em>what you can still get to.</em> Thirteen places inside the circle, sorted by how you'd reach them.</p>
+  <div class="stats" id="stats"></div>
+</header>
+
+<div class="board">
+  <div class="side">
+  <section class="panel" aria-labelledby="mh">
+    <div class="panel-hd"><h2 id="mh">Out to 300 miles</h2><p class="hint">hover a county or a line</p></div>
+    <div class="mapwrap"><svg id="map" role="img" aria-label="Choropleth of counties within 300 miles of Times Square, with routes to thirteen Robert Irwin sites."></svg></div>
+  </section>
+    <section class="panel" aria-labelledby="dh" id="detailpanel">
+      <div class="panel-hd"><h2 id="dh">Selected</h2><p class="hint" id="detailhint"></p></div>
+      <div class="detail" id="detail"></div>
+    </section>
+  </div>
+
+  <div class="side">
+    <section class="panel" aria-labelledby="ih">
+      <div class="panel-hd"><h2 id="ih">The first two miles</h2><p class="hint">Manhattan</p></div>
+      <div class="mapwrap"><svg id="inset" role="img" aria-label="Inset map of Manhattan showing seven Robert Irwin sites reachable on foot or by subway."></svg></div>
+    </section>
+
+    <section class="panel" aria-labelledby="lh">
+      <div class="panel-hd"><h2 id="lh">How you get there</h2><p class="hint">click to filter</p></div>
+      <div class="legend" id="modes"></div>
+    </section>
+
+    <section class="panel" aria-labelledby="bh">
+      <div class="panel-hd"><h2 id="bh">County shading</h2><p class="hint">straight-line miles</p></div>
+      <div class="legend">
+        <div class="bands" id="bandsw"></div>
+        <div class="bandlabs"><span>0</span><span>50</span><span>100</span><span>150</span><span>200</span><span>250</span><span>300 mi</span></div>
+        <p class="legend-note">Each of the 282 counties is shaded by the great-circle distance from Times Square to its centroid. It is a measure of <em>how far</em>, not how long — no routing or timetable data is behind it.</p>
+      </div>
+    </section>
+  </div>
+</div>
+
+<section class="sect">
+  <h2>All thirteen</h2>
+  <div class="panel tablewrap">
+    <table>
+      <thead><tr><th scope="col">Place</th><th scope="col">Work</th><th scope="col">Getting there</th><th scope="col">Miles</th><th scope="col">Status</th></tr></thead>
+      <tbody id="tbody"></tbody>
+    </table>
+  </div>
+</section>
+
+<footer>
+  <h4>How this was made</h4>
+  <p><strong>Distance</strong> is great-circle mileage from Times Square (40.758° N, 73.986° W), computed per county centroid against the US Census county boundaries; 282 counties fall inside 300 miles. The map is an Albers equal-area conic projection with standard parallels at 37° and 44°. <strong>Travel notes are typical trips, not live schedules</strong> — check the operator before you go, and check with the institution before you travel for a specific work: most of these are collection holdings whose display rotates. Only Dia Beacon and Wellesley are permanently sited and reliably there.</p>
+  <h4>Color</h4>
+  <p>The six route hues were selected by search against a colour-vision-deficiency validator and pass every gate on all 15 pairs, in both light and dark themes: worst-case CVD separation ΔE 10.1 (target ≥ 8) and worst-case normal-vision separation ΔE 15.7 (floor ≥ 15), simulated for protanopia, deuteranopia and tritanopia. Each mode also carries a distinct dash pattern, and every route is directly labelled, so the encoding never rests on hue alone. The county shading is a single neutral ramp on purpose — it keeps the entire colour budget for the lines. Marker shape, not colour, carries whether a work is sited, held in a collection, or gone.</p>
+  <h4>Sources</h4>
+  <p>Dia Art Foundation on <a href="https://www.diaart.org/exhibition/exhibitions-projects/robert-irwin-excursus-homage-to-the-square-exhibition">Excursus: Homage to the Square³</a> and the <a href="https://www.diaart.org/exhibition/exhibitions-projects/robert-irwin-beacon-project-exhibition">Beacon project</a> · Whitney Museum on <a href="https://whitney.org/collection/works/2240">Scrim veil—Black rectangle—Natural light</a> · <a href="https://www1.wellesley.edu/davismuseum/whats-on/current/outdoor-sculpture-map">Wellesley College outdoor sculpture map</a> · <a href="https://buffaloakg.org/person/robert-irwin">Buffalo AKG Art Museum</a> · <a href="https://artgallery.yale.edu/news/robert-irwin-installation">Yale University Art Gallery</a> · <a href="https://www.metmuseum.org/art/collection/search/498391">The Metropolitan Museum of Art</a> · <a href="https://www.moma.org/collection/works/79227">MoMA</a> · <a href="https://en.wikipedia.org/wiki/Robert_Irwin_(artist)">Robert Irwin (1928–2023)</a>.</p>
+</footer>
+</div>
+<div id="tip" role="status" aria-live="polite"></div>
