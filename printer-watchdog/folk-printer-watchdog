@@ -101,9 +101,19 @@ rm -f "$SETTINGS"
 
 # --- Network helpers -------------------------------------------------------
 
-default_iface() {
-    [ -n "$SCAN_INTERFACE" ] && { echo "$SCAN_INTERFACE"; return; }
-    ip -4 route show default 2>/dev/null | awk '/dev/ {for (i=1;i<NF;i++) if ($i=="dev") {print $(i+1); exit}}'
+# Every interface worth searching, best first. Not just the default route's:
+# a Folk machine can perfectly well reach the printer over a wired link that
+# carries no default route, and on a network with no mDNS that link is often
+# exactly where someone put the printer.
+candidate_ifaces() {
+    if [ -n "$SCAN_INTERFACE" ]; then echo "$SCAN_INTERFACE"; return; fi
+    default=$(ip -4 route show default 2>/dev/null |
+        awk '{for (i = 1; i < NF; i++) if ($i == "dev") { print $(i+1); exit }}')
+    [ -n "$default" ] && echo "$default"
+    ip -4 -o addr show scope global 2>/dev/null | awk '{print $2}' | sort -u |
+        while read -r iface; do
+            [ "$iface" = "$default" ] || echo "$iface"
+        done
 }
 
 iface_cidr() {
@@ -130,6 +140,23 @@ broadcast_of_cidr() {
         size = 2 ^ (32 - n); net = addr - (addr % size); b = net + size - 1
         printf "%d.%d.%d.%d\n", int(b/16777216)%256, int(b/65536)%256, int(b/256)%256, b%256
     }'
+}
+
+# Read the MAC the kernel has for an address (a TCP connect to it will have
+# just resolved this, so it is fresh).
+mac_for_ip() {
+    ip -4 neigh show "$1" 2>/dev/null | awk '
+        { for (i = 1; i <= NF; i++) if ($i == "lladdr") { print tolower($(i+1)); exit } }'
+}
+
+# Is this address on our own segment? ARP only identifies on-link hosts; for
+# anything behind a router the neighbour entry is the router's MAC.
+on_link() {
+    case "$(ip -4 route get "$1" 2>/dev/null | head -1)" in
+        *" via "*) return 1 ;;
+        "") return 1 ;;
+        *) return 0 ;;
+    esac
 }
 
 # Look a MAC up in the kernel neighbour table.
@@ -202,18 +229,45 @@ queue_disabled() {
     lpstat -p "$1" 2>/dev/null | head -1 | grep -q "disabled"
 }
 
-uri_host() {
-    # socket://10.0.1.7:9100 or ipp://10.0.1.7/ipp/print -> 10.0.1.7
-    echo "$1" | sed -e 's|^[a-z]*://||' -e 's|/.*$||' -e 's|:[0-9]*$||' -e 's|^.*@||'
+# Build the queue's new device-uri. Keep everything about the old one except
+# the address: the resource path is not decoration — a shared CUPS queue lives
+# at /printers/NAME, IPP Everywhere hardware at /ipp/print, and some vendors at
+# /ipp/printer. Rewriting the path silently breaks printing.
+rewrite_uri() {
+    current=$1 host=$2 port=$3
+    scheme=${current%%://*}
+    case "$scheme" in
+        socket|ipp|ipps|http|https)
+            rest=${current#*://}
+            case "$rest" in
+                */*) resource="/${rest#*/}" ;;
+                *)   resource="" ;;
+            esac
+            echo "$scheme://$host:$port$resource"
+            ;;
+        *)
+            # dnssd:// (and anything else name-based) carries no address or
+            # path we can reuse, so fall back to the IPP Everywhere default.
+            case "$port" in
+                631) echo "ipp://$host:631/ipp/print" ;;
+                443) echo "ipps://$host:443/ipp/print" ;;
+                *)   echo "socket://$host:$port" ;;
+            esac
+            ;;
+    esac
 }
 
-uri_for() {
-    host=$1 port=$2
-    case "$port" in
-        631) echo "ipp://$host/ipp/print" ;;
-        443) echo "ipps://$host/ipp/print" ;;
-        *)   echo "socket://$host:$port" ;;
-    esac
+# Ask an IPP printer whether it really answers on the path we just built. Only
+# advisory: a numeric URI still beats a dnssd:// one that can never resolve.
+warn_if_unanswered() {
+    uri=$1
+    case "$uri" in ipp://*|ipps://*) ;; *) return 0 ;; esac
+    have ipptool || return 0
+    if ! ipptool -T 5 "$uri" get-printer-attributes.test >/dev/null 2>&1; then
+        log "  WARNING: $uri did not answer get-printer-attributes."
+        log "           The address is right but the resource path may not be;"
+        log "           check the printer's IPP path and set it with lpadmin -v."
+    fi
 }
 
 run() {
@@ -254,12 +308,23 @@ pin_host() {
 candidate_ok() {
     addr=$1 port=$2 mac=$3
     port_open "$addr" "$port" || { debug "$addr:$port closed"; return 1; }
-    if [ -n "$mac" ]; then
-        found=$(ip_for_mac "$mac")
-        if [ -n "$found" ] && [ "$found" != "$addr" ]; then
-            debug "$addr answers but MAC $mac is at $found"
-            return 1
-        fi
+    [ -n "$mac" ] || return 0
+    if ! on_link "$addr"; then
+        debug "$addr is off-link; trusting it without an ARP check"
+        return 0
+    fi
+    # Confirm the MAC *at that address*. Asking only "where is the printer's
+    # MAC?" is not enough: with an empty neighbour table it answers nothing,
+    # and whatever host inherited the printer's old lease would sail through.
+    # The port probe above already forced an ARP resolution, so this is fresh.
+    found=$(mac_for_ip "$addr")
+    if [ -z "$found" ]; then
+        debug "$addr answers but has no neighbour entry; not trusting it"
+        return 1
+    fi
+    if [ "$found" != "$mac" ]; then
+        debug "$addr answers but is $found, not $mac (someone took the lease)"
+        return 1
     fi
     return 0
 }
@@ -275,16 +340,19 @@ discover() {
     done
 
     [ -n "$mac" ] || return 1
-    iface=$(default_iface)
-    [ -n "$iface" ] || { log "  no default network interface; is the WiFi up?"; return 1; }
-    cidr=$(iface_cidr "$iface")
-    [ -n "$cidr" ] || { log "  interface $iface has no IPv4 address"; return 1; }
-    log "  searching $cidr on $iface for $mac (no mDNS, so this is an ARP hunt)"
-    populate_neighbours "$iface" "$cidr" || true
-    addr=$(ip_for_mac "$mac")
-    if [ -n "$addr" ] && candidate_ok "$addr" "$port" "$mac"; then
-        echo "$addr"; return 0
-    fi
+    searched=no
+    for iface in $(candidate_ifaces); do
+        cidr=$(iface_cidr "$iface")
+        [ -n "$cidr" ] || continue
+        searched=yes
+        log "  searching $cidr on $iface for $mac (no mDNS, so this is an ARP hunt)"
+        populate_neighbours "$iface" "$cidr" || true
+        addr=$(ip_for_mac "$mac")
+        if [ -n "$addr" ] && candidate_ok "$addr" "$port" "$mac"; then
+            echo "$addr"; return 0
+        fi
+    done
+    [ "$searched" = yes ] || log "  no network interface has an IPv4 address; is the WiFi up?"
     return 1
 }
 
@@ -313,13 +381,14 @@ check_printer() {
                 EXIT_CODE=1
             else
                 echo "$addr" >"$STATE_DIR/$queue.ip" 2>/dev/null || true
-                want=$(uri_for "$addr" "$port")
+                want=$(rewrite_uri "$current" "$addr" "$port")
                 if [ "$current" = "$want" ]; then
                     debug "device-uri already $want"
                 else
                     log "  address moved: $current -> $want"
                     if run lpadmin -p "$queue" -v "$want" -E; then
                         log "  device-uri updated"
+                        [ "$DRY_RUN" = yes ] || warn_if_unanswered "$want"
                         [ "$FLUSH_STUCK_JOBS" = yes ] && run cancel -a "$queue"
                     else
                         log "  ERROR: lpadmin failed (need root or the lpadmin group)"

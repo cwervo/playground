@@ -80,6 +80,80 @@ optional field. `PORT` picks the URI style: `9100` → `socket://IP:9100`,
 Settings can go at the top of the same file as `KEY=value`:
 `SCAN_INTERFACE`, `MAX_SWEEP_HOSTS`, `PIN_HOSTS`, `FLUSH_STUCK_JOBS`.
 
+## Testing: an emulated SVA network
+
+`test/emulate.sh` runs the watchdog against a real, if miniature, version of the
+problem — no mocks anywhere in the path under test:
+
+```sh
+sudo ./test/emulate.sh          # build the lab, run every scenario, tear down
+sudo ./test/emulate.sh up       # leave it running
+sudo ./test/emulate.sh shell    # a shell on the emulated folk-SVA machine
+```
+
+It builds three machines out of Linux network namespaces, joined by a bridge
+that plays the part of the AP:
+
+```
+  folk-SVA  ----+                        +----  the printer
+  cupsd         |                        |      cupsd :631  (real IPP)
+  avahi         +---  bridge (the AP) ---+      jetdirect :9100
+  watchdog      |     drops mDNS         |      avahi (real Bonjour)
+                |                        |      MAC 3c:2a:f4:ab:cd:01
+                +---  a laptop that grabs the printer's old DHCP lease
+```
+
+Everything the watchdog touches is real: real `cupsd` on both ends, real
+`lpadmin`/`lpstat`/`cupsenable`, real ARP tables, real ping sweeps, real Avahi
+daemons, real IPP transactions, and real job bytes captured at the device. Each
+machine gets its own mount and UTS namespace, so "no mDNS on folk-SVA" is
+genuinely no mDNS and not a shared socket in disguise. SVA mode is the bridge
+refusing to forward multicast to 224.0.0.251 — which is exactly what the real
+network does, and everything else follows from it.
+
+The scenarios, all asserted end to end:
+
+| # | Scenario | What it proves |
+|---|----------|----------------|
+| 1 | The network itself | mDNS resolves on a normal network and stops resolving in SVA mode, while ARP still finds the printer's MAC |
+| 2 | The queue you set up at home | `ipp://folk-printer.local`, `socket://folk-printer.local:9100` and a `dnssd://` queue are all repaired to numeric addresses, and a real job reaches the device |
+| 3 | Nothing wrong | A healthy queue is left completely alone |
+| 4 | The DHCP lease moves | Found again by MAC via a real ARP sweep, queue un-paused, `.local` name resolving again with no mDNS, and the job queued overnight prints itself |
+| 5 | A laptop takes the old address | The watchdog refuses the impostor and finds the real printer by MAC; the job goes to the printer, not the laptop |
+| 6 | The printer is switched off | No guessing, no thrashing: the queue is left as-is and the run exits non-zero; when the printer returns on a new address it is repaired |
+
+The lab needs root (network namespaces) and, on Debian/Ubuntu:
+
+```sh
+apt-get install iproute2 iputils-ping cups cups-daemon cups-client \
+                cups-filters avahi-daemon dbus
+```
+
+Note the `cups` package specifically: on Ubuntu, `cups-daemon` alone ships only
+the `ipp` backend, so `socket://` queues fail with "Bad device-uri scheme". If
+folk-SVA prints to port 9100, it needs `cups` installed too.
+
+### What the emulation found
+
+Three real defects, each fixed and then re-tested:
+
+- **The IPP resource path was being thrown away.** Rewriting
+  `ipp://folk-printer.local:631/printers/FolkPrinter` as `ipp://10.42.0.50/ipp/print`
+  points at an address that answers and a path that doesn't exist, so the queue
+  looks repaired and prints nothing. The watchdog now keeps the scheme and path
+  and substitutes only the address, and warns when it has to guess a path for a
+  `dnssd://` queue that never had one.
+- **A DHCP squatter could be adopted.** The old check asked "where is the
+  printer's MAC?", which answers nothing when the ARP table is empty — and
+  nothing was treated as agreement, so whatever host inherited the printer's old
+  lease would have been written into the queue. It now verifies the MAC *at* the
+  address it is about to use, and rejects an address it cannot confirm.
+- **Discovery gave up without a default route.** The subnet search only looked
+  at the default route's interface, so a Folk machine reaching the printer over
+  a second link (or with the WiFi default route down) would never scan the
+  subnet the printer was actually on. It now searches every interface with an
+  IPv4 address, best first.
+
 ## Check it
 
 ```sh

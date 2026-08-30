@@ -1,0 +1,16 @@
+#!/bin/sh
+# A CUPS backend standing in for the printer's data path: whatever the device
+# is asked to print, capture the bytes so a test can prove the job arrived.
+#
+# Installed as the emulated printer's backend, addressed as capture:///dir.
+# CUPS calls backends as: backend job-id user title copies options [file]
+if [ $# -eq 0 ]; then
+    echo 'direct capture "Unknown" "Capture job data"'
+    exit 0
+fi
+out=$(echo "$DEVICE_URI" | sed 's|^capture://||')
+mkdir -p "$out" 2>/dev/null
+f="$out/job-$1.prn"
+if [ -n "${6:-}" ]; then cat "$6" > "$f"; else cat > "$f"; fi
+echo "captured $(wc -c < "$f") bytes to $f" >&2
+exit 0

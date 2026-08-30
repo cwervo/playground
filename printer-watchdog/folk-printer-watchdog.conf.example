@@ -21,6 +21,8 @@
 #                or from the printer's own network/config report page.
 #                Use "-" if you don't have it (then only FALLBACK_IP is tried).
 #   PORT         9100 raw/JetDirect (default), 631 IPP, 443 IPPS.
+#                (port 9100 needs the `cups` package, not just cups-daemon:
+#                 that is where the socket:// backend lives on Debian/Ubuntu)
 #                Decides the device-uri: socket://IP:9100 vs ipp://IP/ipp/print
 #   NAME         optional hostname to pin in /etc/hosts, e.g. folk-printer.local
 #                Use "-" to skip.
