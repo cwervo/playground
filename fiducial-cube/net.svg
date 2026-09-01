@@ -1,0 +1,78 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128mm" height="172mm" viewBox="0 0 128 172" font-family="IBM Plex Mono, Menlo, Consolas, monospace">
+  <!-- Base Fiducial Cube — 2D net. 36 mm cube, 3×3 checker per face (12 mm cells).
+       Solid = cut · dashed = score + fold · hatched = glue tab · gray = color black.
+       Print at 100% (fits A5, A4, US Letter). -->
+  <defs>
+    <pattern id="glue-hatch" width="2.2" height="2.2" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+      <line x1="0" y1="0" x2="0" y2="2.2" stroke="#8a8781" stroke-width="0.45"/>
+    </pattern>
+    <!-- One face of the fiducial: 3×3 checker, gray squares get colored black -->
+    <g id="checker-face">
+      <rect x="0"  y="0"  width="12" height="12" fill="#c9c7c3"/>
+      <rect x="24" y="0"  width="12" height="12" fill="#c9c7c3"/>
+      <rect x="12" y="12" width="12" height="12" fill="#c9c7c3"/>
+      <rect x="0"  y="24" width="12" height="12" fill="#c9c7c3"/>
+      <rect x="24" y="24" width="12" height="12" fill="#c9c7c3"/>
+      <g stroke="#9b9892" stroke-width="0.15">
+        <line x1="12" y1="0" x2="12" y2="36"/>
+        <line x1="24" y1="0" x2="24" y2="36"/>
+        <line x1="0" y1="12" x2="36" y2="12"/>
+        <line x1="0" y1="24" x2="36" y2="24"/>
+      </g>
+    </g>
+  </defs>
+
+  <rect x="0" y="0" width="128" height="172" fill="#ffffff"/>
+
+  <!-- Glue tabs (hatched) -->
+  <g fill="url(#glue-hatch)" stroke="none">
+    <polygon points="10,40 18,32 38,32 46,40"/>      <!-- L top -->
+    <polygon points="10,40 2,48 2,68 10,76"/>        <!-- L left -->
+    <polygon points="10,76 18,84 38,84 46,76"/>      <!-- L bottom -->
+    <polygon points="82,40 90,32 110,32 118,40"/>    <!-- R top -->
+    <polygon points="118,40 126,48 126,68 118,76"/>  <!-- R right -->
+    <polygon points="82,76 90,84 110,84 118,76"/>    <!-- R bottom -->
+    <polygon points="46,148 54,156 74,156 82,148"/>  <!-- D bottom -->
+  </g>
+
+  <!-- Checker fiducial on all six faces: A top, L/B/R middle row, C bottom, D back -->
+  <use href="#checker-face" x="46" y="4"/>
+  <use href="#checker-face" x="10" y="40"/>
+  <use href="#checker-face" x="46" y="40"/>
+  <use href="#checker-face" x="82" y="40"/>
+  <use href="#checker-face" x="46" y="76"/>
+  <use href="#checker-face" x="46" y="112"/>
+
+  <!-- Score + fold lines (dashed) -->
+  <g stroke="#1c1b19" stroke-width="0.3" stroke-dasharray="1.8 1.2" fill="none">
+    <line x1="46" y1="40" x2="82" y2="40"/>
+    <line x1="46" y1="40" x2="46" y2="76"/>
+    <line x1="82" y1="40" x2="82" y2="76"/>
+    <line x1="46" y1="76" x2="82" y2="76"/>
+    <line x1="46" y1="112" x2="82" y2="112"/>
+    <line x1="10" y1="40" x2="46" y2="40"/>
+    <line x1="10" y1="40" x2="10" y2="76"/>
+    <line x1="10" y1="76" x2="46" y2="76"/>
+    <line x1="82" y1="40" x2="118" y2="40"/>
+    <line x1="118" y1="40" x2="118" y2="76"/>
+    <line x1="82" y1="76" x2="118" y2="76"/>
+    <line x1="46" y1="148" x2="82" y2="148"/>
+  </g>
+
+  <!-- Cut line (solid outline — the only line you cut) -->
+  <path d="M46,4 L82,4 L82,40 L90,32 L110,32 L118,40 L126,48 L126,68 L118,76 L110,84 L90,84 L82,76 L82,148 L74,156 L54,156 L46,148 L46,76 L38,84 L18,84 L10,76 L2,68 L2,48 L10,40 L18,32 L38,32 L46,40 L46,4 Z"
+        fill="none" stroke="#1c1b19" stroke-width="0.5" stroke-linejoin="round"/>
+
+  <!-- Legend -->
+  <g font-size="3" fill="#1c1b19">
+    <line x1="2" y1="161" x2="11" y2="161" stroke="#1c1b19" stroke-width="0.5"/>
+    <text x="13" y="162.1">cut</text>
+    <line x1="27" y1="161" x2="36" y2="161" stroke="#1c1b19" stroke-width="0.3" stroke-dasharray="1.8 1.2"/>
+    <text x="38" y="162.1">score+fold</text>
+    <rect x="72" y="157.8" width="7" height="6" fill="url(#glue-hatch)" stroke="#8a8781" stroke-width="0.2"/>
+    <text x="81" y="162.1">glue</text>
+    <rect x="97" y="157.8" width="7" height="6" fill="#c9c7c3"/>
+    <text x="106" y="162.1">color black</text>
+    <text x="2" y="169.5" fill="#c2453a">BASE FIDUCIAL CUBE · 36mm · PRINT AT 100%</text>
+  </g>
+</svg>

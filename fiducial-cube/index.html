@@ -1,0 +1,297 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Base Fiducial Cube</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;700;900&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+  :root {
+    --paper: #fdfdfb;
+    --ground: #edeae2;
+    --ink: #1c1b19;
+    --ink-soft: #57544d;
+    --pen-red: #c2453a;
+    --to-color: #c9c7c3;
+    --rule: #d8d4ca;
+    --mono: "IBM Plex Mono", Menlo, Consolas, monospace;
+    --sans: "Archivo", "Helvetica Neue", Arial, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--ground);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 15px;
+    line-height: 1.55;
+  }
+  .wrap {
+    max-width: 1060px;
+    margin: 0 auto;
+    padding: 40px 24px 64px;
+    display: grid;
+    grid-template-columns: minmax(300px, 440px) 1fr;
+    gap: 40px;
+    align-items: start;
+  }
+  @media (max-width: 760px) { .wrap { grid-template-columns: 1fr; } }
+
+  /* ---- The sheet ---- */
+  .sheet {
+    background: var(--paper);
+    border: 1px solid var(--rule);
+    box-shadow: 0 2px 6px rgba(28,27,25,.08), 0 12px 28px rgba(28,27,25,.08);
+    padding: 18px;
+    position: sticky;
+    top: 24px;
+  }
+  .sheet svg { display: block; width: 100%; height: auto; }
+
+  /* ---- Content ---- */
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    color: var(--pen-red);
+    margin: 0 0 10px;
+  }
+  h1 {
+    font-weight: 900;
+    font-size: clamp(28px, 4vw, 40px);
+    line-height: 1.05;
+    letter-spacing: -.01em;
+    margin: 0 0 12px;
+    text-wrap: balance;
+  }
+  .lede { color: var(--ink-soft); max-width: 58ch; margin: 0 0 20px; }
+  .print-btn {
+    font-family: var(--mono);
+    font-size: 13px;
+    letter-spacing: .06em;
+    background: var(--ink);
+    color: var(--paper);
+    border: none;
+    padding: 10px 18px;
+    cursor: pointer;
+    margin-bottom: 32px;
+  }
+  .print-btn:hover { background: #000; }
+  .print-btn:focus-visible { outline: 2px solid var(--pen-red); outline-offset: 2px; }
+
+  ol.steps { list-style: none; margin: 0; padding: 0; counter-reset: step; display: grid; gap: 18px; }
+  ol.steps > li {
+    counter-increment: step;
+    display: grid;
+    grid-template-columns: 44px 1fr;
+    gap: 14px;
+    background: var(--paper);
+    border: 1px solid var(--rule);
+    padding: 14px 16px;
+  }
+  ol.steps > li::before {
+    content: counter(step, decimal-leading-zero);
+    font-family: var(--mono);
+    font-size: 20px;
+    color: var(--pen-red);
+    line-height: 1.2;
+  }
+  .steps h2 {
+    font-size: 15px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .08em;
+    margin: 0 0 4px;
+  }
+  .steps p { margin: 0 0 6px; color: var(--ink-soft); }
+  .steps p:last-child { margin-bottom: 0; }
+  .steps strong { color: var(--ink); }
+
+  .notes { margin-top: 32px; border-top: 2px solid var(--ink); padding-top: 14px; }
+  .notes h2 {
+    font-family: var(--mono);
+    font-size: 12px;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    margin: 0 0 10px;
+  }
+  .notes p { color: var(--ink-soft); max-width: 62ch; margin: 0 0 10px; }
+  .notes strong { color: var(--ink); }
+  code { font-family: var(--mono); font-size: .92em; }
+
+  /* ---- Print: page 1 = net at true scale, page 2 = instructions ---- */
+  @media print {
+    body { background: #fff; }
+    .wrap { display: block; max-width: none; padding: 0; }
+    .sheet {
+      position: static; border: none; box-shadow: none; padding: 0;
+      break-after: page; page-break-after: always;
+    }
+    .sheet svg { width: 128mm; height: 172mm; }  /* exact size — do not scale */
+    .print-btn { display: none; }
+    .eyebrow { margin-top: 0; }
+    body { font-size: 11pt; }
+    ol.steps > li { border: none; border-top: 1px solid var(--rule); padding: 8px 0; break-inside: avoid; }
+    .sheet, ol.steps > li, .notes { background: #fff; }
+  }
+  @page { margin: 10mm; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <figure class="sheet" aria-label="Cut-and-fold net for the fiducial cube">
+    <svg xmlns="http://www.w3.org/2000/svg" width="128mm" height="172mm" viewBox="0 0 128 172" font-family="IBM Plex Mono, Menlo, Consolas, monospace">
+      <defs>
+        <pattern id="glue-hatch" width="2.2" height="2.2" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+          <line x1="0" y1="0" x2="0" y2="2.2" stroke="#8a8781" stroke-width="0.45"/>
+        </pattern>
+        <g id="checker-face">
+          <rect x="0"  y="0"  width="12" height="12" fill="#c9c7c3"/>
+          <rect x="24" y="0"  width="12" height="12" fill="#c9c7c3"/>
+          <rect x="12" y="12" width="12" height="12" fill="#c9c7c3"/>
+          <rect x="0"  y="24" width="12" height="12" fill="#c9c7c3"/>
+          <rect x="24" y="24" width="12" height="12" fill="#c9c7c3"/>
+          <g stroke="#9b9892" stroke-width="0.15">
+            <line x1="12" y1="0" x2="12" y2="36"/>
+            <line x1="24" y1="0" x2="24" y2="36"/>
+            <line x1="0" y1="12" x2="36" y2="12"/>
+            <line x1="0" y1="24" x2="36" y2="24"/>
+          </g>
+        </g>
+      </defs>
+
+      <rect x="0" y="0" width="128" height="172" fill="#ffffff"/>
+
+      <!-- Glue tabs -->
+      <g fill="url(#glue-hatch)" stroke="none">
+        <polygon points="10,40 18,32 38,32 46,40"/>
+        <polygon points="10,40 2,48 2,68 10,76"/>
+        <polygon points="10,76 18,84 38,84 46,76"/>
+        <polygon points="82,40 90,32 110,32 118,40"/>
+        <polygon points="118,40 126,48 126,68 118,76"/>
+        <polygon points="82,76 90,84 110,84 118,76"/>
+        <polygon points="46,148 54,156 74,156 82,148"/>
+      </g>
+
+      <!-- Checker fiducial on all six faces -->
+      <use href="#checker-face" x="46" y="4"/>
+      <use href="#checker-face" x="10" y="40"/>
+      <use href="#checker-face" x="46" y="40"/>
+      <use href="#checker-face" x="82" y="40"/>
+      <use href="#checker-face" x="46" y="76"/>
+      <use href="#checker-face" x="46" y="112"/>
+
+      <!-- Score + fold lines -->
+      <g stroke="#1c1b19" stroke-width="0.3" stroke-dasharray="1.8 1.2" fill="none">
+        <line x1="46" y1="40" x2="82" y2="40"/>
+        <line x1="46" y1="40" x2="46" y2="76"/>
+        <line x1="82" y1="40" x2="82" y2="76"/>
+        <line x1="46" y1="76" x2="82" y2="76"/>
+        <line x1="46" y1="112" x2="82" y2="112"/>
+        <line x1="10" y1="40" x2="46" y2="40"/>
+        <line x1="10" y1="40" x2="10" y2="76"/>
+        <line x1="10" y1="76" x2="46" y2="76"/>
+        <line x1="82" y1="40" x2="118" y2="40"/>
+        <line x1="118" y1="40" x2="118" y2="76"/>
+        <line x1="82" y1="76" x2="118" y2="76"/>
+        <line x1="46" y1="148" x2="82" y2="148"/>
+      </g>
+
+      <!-- Cut line -->
+      <path d="M46,4 L82,4 L82,40 L90,32 L110,32 L118,40 L126,48 L126,68 L118,76 L110,84 L90,84 L82,76 L82,148 L74,156 L54,156 L46,148 L46,76 L38,84 L18,84 L10,76 L2,68 L2,48 L10,40 L18,32 L38,32 L46,40 L46,4 Z"
+            fill="none" stroke="#1c1b19" stroke-width="0.5" stroke-linejoin="round"/>
+
+      <!-- Legend -->
+      <g font-size="3" fill="#1c1b19">
+        <line x1="2" y1="161" x2="11" y2="161" stroke="#1c1b19" stroke-width="0.5"/>
+        <text x="13" y="162.1">cut</text>
+        <line x1="27" y1="161" x2="36" y2="161" stroke="#1c1b19" stroke-width="0.3" stroke-dasharray="1.8 1.2"/>
+        <text x="38" y="162.1">score+fold</text>
+        <rect x="72" y="157.8" width="7" height="6" fill="url(#glue-hatch)" stroke="#8a8781" stroke-width="0.2"/>
+        <text x="81" y="162.1">glue</text>
+        <rect x="97" y="157.8" width="7" height="6" fill="#c9c7c3"/>
+        <text x="106" y="162.1">color black</text>
+        <text x="2" y="169.5" fill="#c2453a">BASE FIDUCIAL CUBE · 36mm · PRINT AT 100%</text>
+      </g>
+    </svg>
+  </figure>
+
+  <main>
+    <p class="eyebrow">Papercraft pattern · one sheet · 36 mm cube</p>
+    <h1>Base Fiducial Cube</h1>
+    <p class="lede">The sketched checkerboard fiducial, unfolded into a cut-and-glue net.
+      Every face carries the same 3×3 checker (12&nbsp;mm cells). Color the gray squares,
+      score the dashed lines, cut the solid outline, glue the hatched tabs.</p>
+    <button class="print-btn" type="button" onclick="window.print()">PRINT PATTERN →</button>
+
+    <ol class="steps">
+      <li>
+        <div>
+          <h2>Print</h2>
+          <p>Print at <strong>100% / “Actual size”</strong> — don’t let the dialog shrink it.
+             The sheet fits A5, A4, and US&nbsp;Letter. Cardstock (160–250&nbsp;gsm) makes a
+             sturdier block; plain paper works too.</p>
+          <p>Want a bigger cube? On A4/Letter choose <strong>“Fit to page”</strong> instead —
+             you’ll get a ≈53&nbsp;mm cube, and every step below is scale-free.</p>
+        </div>
+      </li>
+      <li>
+        <div>
+          <h2>Color</h2>
+          <p>Fill every <strong>gray square solid black</strong> with a broad marker, crayon,
+             or paint — the sketch’s “black &amp; white paper” idea, in ink. Work right up to the
+             cell edges: crisp black/white boundaries are what a camera locks onto.
+             Leave the white squares and the tabs clean.</p>
+        </div>
+      </li>
+      <li>
+        <div>
+          <h2>Score</h2>
+          <p>Before cutting, run a scoring tool (empty ballpoint, the back of a butter knife,
+             a bone folder) along <strong>every dashed line</strong> against a ruler.
+             Scoring while the sheet is still whole is far easier than after.</p>
+        </div>
+      </li>
+      <li>
+        <div>
+          <h2>Cut</h2>
+          <p>Cut along the <strong>solid outline only</strong>. Dashed lines are never cut.</p>
+        </div>
+      </li>
+      <li>
+        <div>
+          <h2>Fold</h2>
+          <p>Crease every dashed line <strong>away from the printed side</strong>, so the
+             pattern ends up on the outside of the cube. Sharpen each crease fully before gluing.</p>
+        </div>
+      </li>
+      <li>
+        <div>
+          <h2>Glue</h2>
+          <p>Thin layer of glue stick or PVA on the hatched side of each tab.</p>
+          <p><strong>a.</strong> Roll the vertical strip of four faces into a square tube and
+             glue its single bottom tab inside the open edge of the top face.</p>
+          <p><strong>b.</strong> Cap each end: glue the three tabs of a side face, fold the tabs
+             inward, fold the cap flush, and press its tabs against the inside walls for a few
+             seconds. Done — one 36&nbsp;mm fiducial block.</p>
+        </div>
+      </li>
+    </ol>
+
+    <div class="notes">
+      <h2>From the sketch</h2>
+      <p><strong>No printer at all?</strong> The original idea works as drawn: cut 12&nbsp;mm
+         squares of black paper and glue five per face, checker-wise, onto a white 36&nbsp;mm cube.</p>
+      <p><strong>Blocks.</strong> Print several sheets and stack the cubes — the checker pattern
+         continues across a stack, like the tower in the sketch.</p>
+      <p><strong>Telling faces apart.</strong> All six faces are identical, which is fine for
+         detection. If you need to know <em>which</em> face is up (pose tracking), ink a small
+         mark into a white corner cell of one or two faces.</p>
+    </div>
+  </main>
+
+</div>
+</body>
+</html>
