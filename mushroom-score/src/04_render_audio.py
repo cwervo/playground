@@ -22,6 +22,7 @@ from scipy.signal import butter, lfilter, lfilter_zi, fftconvolve
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 OUT = ROOT / "out"
 SR = 48000
+KICK_NOTE = 36
 BLOCK = 512
 
 
@@ -94,27 +95,46 @@ def time_varying_lp(x, cutoff_curve, q_order=2):
 # ------------------------------------------------------------------ drums ---
 
 def drum(kind, dur=1.0):
+    """
+    Drum voices built for transient punch: a fast pitch sweep and a separate
+    click layer on the kick, a bright snap plus body on the snare, and short
+    decays throughout so the kit stays articulate at 133 BPM instead of
+    smearing into the pad.
+    """
     n = int(dur * SR)
     t = np.arange(n) / SR
-    rng = np.random.default_rng({"kick": 1, "snare": 2, "hat": 3,
-                                 "crash": 4, "tom": 5}[kind])
+    rng = np.random.default_rng({"kick": 1, "snare": 2, "hat": 3, "crash": 4,
+                                 "tom": 5, "openhat": 6}[kind])
     if kind == "kick":
-        f = 105 * np.exp(-t * 34) + 44
-        env = np.exp(-t * 9.5)
-        x = np.sin(2 * np.pi * np.cumsum(f) / SR) * env
-        x += rng.normal(0, 1, n) * np.exp(-t * 190) * 0.35   # beater click
+        # Fast sweep into a low sustained body, plus a hard click transient.
+        f = 190 * np.exp(-t * 62) + 47
+        body = np.sin(2 * np.pi * np.cumsum(f) / SR) * np.exp(-t * 11.0)
+        sub = np.sin(2 * np.pi * 46 * t) * np.exp(-t * 7.0) * 0.55
+        click = rng.normal(0, 1, n) * np.exp(-t * 420) * 0.55
+        bc, ac = butter(2, 2200 / (SR / 2), btype="high")
+        click = lfilter(bc, ac, click)
+        x = np.tanh((body + sub) * 1.9) + click
     elif kind == "tom":
-        f = 180 * np.exp(-t * 16) + 92
-        x = np.sin(2 * np.pi * np.cumsum(f) / SR) * np.exp(-t * 7.5)
+        f = 210 * np.exp(-t * 22) + 92
+        x = np.sin(2 * np.pi * np.cumsum(f) / SR) * np.exp(-t * 8.5)
+        x = np.tanh(x * 1.5)
     elif kind == "snare":
         noise = rng.normal(0, 1, n)
-        b, a = butter(2, [900 / (SR / 2), 7200 / (SR / 2)], btype="band")
-        x = lfilter(b, a, noise) * np.exp(-t * 16)
-        x += np.sin(2 * np.pi * 190 * t) * np.exp(-t * 24) * 0.5
+        b, a = butter(2, [1400 / (SR / 2), 9500 / (SR / 2)], btype="band")
+        snap = lfilter(b, a, noise) * np.exp(-t * 30)
+        b2, a2 = butter(2, [200 / (SR / 2), 2600 / (SR / 2)], btype="band")
+        tail = lfilter(b2, a2, noise) * np.exp(-t * 15) * 0.6
+        body = (np.sin(2 * np.pi * 185 * t) + 0.7 * np.sin(2 * np.pi * 278 * t))
+        body *= np.exp(-t * 34) * 0.55
+        x = np.tanh((snap + tail + body) * 1.4)
     elif kind == "hat":
         noise = rng.normal(0, 1, n)
-        b, a = butter(4, 7000 / (SR / 2), btype="high")
-        x = lfilter(b, a, noise) * np.exp(-t * 62)
+        b, a = butter(4, 8200 / (SR / 2), btype="high")
+        x = lfilter(b, a, noise) * np.exp(-t * 130)
+    elif kind == "openhat":
+        noise = rng.normal(0, 1, n)
+        b, a = butter(4, 7400 / (SR / 2), btype="high")
+        x = lfilter(b, a, noise) * np.exp(-t * 13)
     else:  # crash
         noise = rng.normal(0, 1, n)
         b, a = butter(2, 2600 / (SR / 2), btype="high")
@@ -122,9 +142,26 @@ def drum(kind, dur=1.0):
     return x / (np.max(np.abs(x)) + 1e-9)
 
 
-DRUM_MAP = {36: ("kick", 0.9, 1.0), 41: ("tom", 0.8, 0.72),
-            38: ("snare", 0.5, 0.72), 42: ("hat", 0.14, 0.34),
-            49: ("crash", 2.2, 0.62)}
+DRUM_MAP = {36: ("kick", 0.7, 1.15), 41: ("tom", 0.7, 0.70),
+            38: ("snare", 0.42, 0.88), 42: ("hat", 0.10, 0.40),
+            46: ("openhat", 0.42, 0.34), 49: ("crash", 2.2, 0.58)}
+
+
+def compress(x, thresh_db, ratio, win_ms=10.0, smooth_ms=18.0, makeup_db=0.0):
+    """
+    Level-detecting compressor: short-window RMS into a static gain curve, with
+    the gain itself smoothed so it does not zipper. Not a sample-accurate
+    attack/release model, but it glues the kit and adds the density the mix
+    wants, at a cost that stays vectorised.
+    """
+    w = max(1, int(win_ms / 1000.0 * SR))
+    kern = np.ones(w) / w
+    env = np.sqrt(np.convolve(x * x, kern, mode="same")) + 1e-9
+    thresh = 10 ** (thresh_db / 20.0)
+    gain = np.where(env > thresh, (env / thresh) ** (1.0 / ratio - 1.0), 1.0)
+    a = np.exp(-1.0 / (smooth_ms / 1000.0 * SR))
+    gain = lfilter([1 - a], [1, -a], gain)
+    return x * gain * (10 ** (makeup_db / 20.0))
 
 
 # ---------------------------------------------------------------- reverb ----
@@ -235,22 +272,50 @@ def main():
     i1 = np.clip(i0 + 1, 0, n_tot - 1)
     lead_ch = lead[i0] * (1 - frac) + lead[i1] * frac
 
-    # Stereo placement, then a shared plate.
+    # --- sidechain: duck the music under every kick -----------------------
+    # This is most of what "punchy" means. Each kick carves a short dip in the
+    # sustained voices, so the transient lands in its own space and the track
+    # breathes on the beat instead of sitting flat behind a wall of pad.
+    duck = np.ones(n_tot)
+    dip = np.exp(-np.arange(int(0.20 * SR)) / SR / 0.085)
+    for ch, note, vel, t0, _t1 in notes:
+        if ch != 9 or note != KICK_NOTE:
+            continue
+        s = int(t0 * SR)
+        e = min(n_tot, s + len(dip))
+        duck[s:e] = np.minimum(duck[s:e], 1.0 - dip[: e - s])
+
+    def ducked(sig, depth):
+        return sig * (1.0 - depth * (1.0 - duck))
+
+    lead = ducked(lead, 0.30)
+    lead_ch = ducked(lead_ch, 0.30)
+    pad = ducked(pad, 0.45)
+    bass = ducked(bass, 0.55)
+
+    # Glue the kit so the ghost notes and hats sit under the accents.
+    drums = compress(drums, thresh_db=-19.0, ratio=4.0, win_ms=6.0,
+                     smooth_ms=10.0, makeup_db=4.5)
+
+    # Stereo placement, then a shared plate. The plate is fed from the tuned
+    # voices only - reverb on the kit would undo the punch just added.
     ir = reverb_ir()
-    left = 0.62 * lead + 0.38 * lead_ch + pad * 0.9 + bass + drums * 0.95
-    right = 0.38 * lead + 0.62 * lead_ch + pad * 1.0 + bass + drums * 0.95
+    musicL = 0.62 * lead + 0.38 * lead_ch + pad * 0.85 + bass
+    musicR = 0.38 * lead + 0.62 * lead_ch + pad * 0.95 + bass
+    wetL = fftconvolve(musicL, ir)[:n_tot]
+    wetR = fftconvolve(musicR, ir)[:n_tot]
 
-    wetL = fftconvolve(left, ir)[:n_tot]
-    wetR = fftconvolve(right, ir)[:n_tot]
-    left = left * 0.82 + wetL * 0.30
-    right = right * 0.82 + wetR * 0.30
+    left = musicL * 0.86 + wetL * 0.26 + drums * 1.15
+    right = musicR * 0.86 + wetR * 0.26 + drums * 1.15
 
-    # Master: DC-blocking high-pass, soft clip, normalise to -1 dBFS.
+    # Master: DC-blocking high-pass, bus compression, soft clip, -1 dBFS.
     b, a = butter(2, 28 / (SR / 2), btype="high")
     left, right = lfilter(b, a, left), lfilter(b, a, right)
     peak = max(np.max(np.abs(left)), np.max(np.abs(right)), 1e-9)
-    left, right = left / peak * 1.15, right / peak * 1.15
-    left, right = np.tanh(left), np.tanh(right)
+    left, right = left / peak, right / peak
+    left = compress(left, thresh_db=-15.0, ratio=2.6, makeup_db=5.0)
+    right = compress(right, thresh_db=-15.0, ratio=2.6, makeup_db=5.0)
+    left, right = np.tanh(left * 1.05), np.tanh(right * 1.05)
     peak = max(np.max(np.abs(left)), np.max(np.abs(right)), 1e-9)
     g = 10 ** (-1.0 / 20.0) / peak
     stereo = np.stack([left * g, right * g], axis=1)

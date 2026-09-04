@@ -126,14 +126,50 @@ else, and paper-white is score furniture. The navy frame carries a near-black
 underlay and a one-pixel bright core so it survives against dark bark without
 becoming a different colour.
 
+### The pad lurch was the chord cut, not classifier flicker
+
+I assumed the harmony lurched because the stop classifier flickered between MID
+and TIGHT during a fast push, and added hysteresis — a challenger must be 12 %
+closer and stay closer for 0.20 s before the state moves. Then I counted: **8 raw
+transitions, 8 after hysteresis.** There was no flicker to remove. The classifier
+was already stable, and my diagnosis had been a guess.
+
+What actually lurched was the pad *cutting*: each chord ended hard at its section
+boundary and the next began from silence. The fix is the overlap — every chord now
+rings 0.45 s past its section, and because the pad has a slow attack the incoming
+chord fades up through the outgoing one's tail.
+
+The hysteresis stays as a cheap guard for re-runs on other footage, and it is not
+inert: it delays each transition by up to six frames, which is visible in the
+score's stop ribbon and shifts every section boundary about 0.2 s later.
+
+### Making the beat punchier
+
+The first cut had only the five cue hits and a flow-gated hat, so it was flat
+between the arches. Two changes:
+
+**Notes.** A backbeat on the derived grid, with density tiered by the zoom curve —
+under 0.28 a spare two-and-four, above 0.62 the full sixteenth pattern with ghost
+snares and an open hat. So the kit builds and releases with the camera. Grid hits
+within a 1/6-note of a cue are dropped and the cues sit above the groove in
+velocity, so the analysis accents stay accents rather than dissolving into the
+pattern. The hats now ride the ego-compensated plant motion, which is the fix
+for the hi-hat problem noted here before — the weeds thicken the kit, the camera
+doesn't.
+
+**Mix.** Punch is mostly mix, not notes. Every kick ducks pad, lead and bass
+through a short sidechain dip; the kit gets its own bus compressor; the plate is
+fed from the tuned voices only, so reverb never smears the transients. Net:
+RMS −16.2 → **−13.8 dBFS** with a **12.8 dB** crest factor, so it got louder and
+denser without being flattened.
+
 ### What I would do next
 
-The pad currently changes on stopping-point boundaries, which makes the harmony
-lurch when the classifier flickers between MID and TIGHT during a fast push. A
-hysteresis band on the stop classifier, or crossfading the pad over ~200 ms, would
-smooth it. The hi-hat is also gated on global flow, so it thickens during camera
-motion rather than during plant motion — running it off the ego-compensated
-residual instead would tie it to the weeds.
+The lead still re-evaluates on every 1/8 whether or not the zoom has moved, which
+gives it a slightly mechanical tick under the new kit; gating it on zoom velocity
+would let it hold through the plateaus. The groove tiers are also hard-thresholded,
+so a zoom hovering near 0.62 can toggle the pattern between bars — the same
+hysteresis idea would apply, and this time there is a real flicker to fix.
 
 ---
 

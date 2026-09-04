@@ -36,8 +36,9 @@ Upload the 720 × 1280 master directly; do not let the platform letterbox it.
 >
 > The camera's zoom is the melody — closer is higher. The two moments it pushes all
 > the way in are a kick; the three moments it pulls all the way out are a crash. The
-> tempo isn't a choice: the camera pushes in twice, 7.2 seconds apart, and calling
-> that four bars gives 133.2 BPM.
+> beat gets denser the closer the camera gets, and the hats follow the weeds moving.
+> The tempo isn't a choice: the camera pushes in twice, 7.2 seconds apart, and
+> calling that four bars gives 133.2 BPM.
 >
 > Hardest part was the wide shots. The cap is 0.05% of the frame there, and a sunlit
 > sidewalk slab is brighter, bigger and rounder than the mushroom — it beat it on
@@ -54,7 +55,8 @@ Upload the 720 × 1280 master directly; do not let the platform letterbox it.
 > I turned a sidewalk mushroom into a song.
 >
 > Navy = the mushroom. Magenta = the plants moving. Amber = a drum hit.
-> Zoom in and the pitch goes up. All the way in is a kick, all the way out is a crash.
+> Zoom in and the pitch goes up, and the beat gets denser. All the way in is a kick,
+> all the way out is a crash.
 >
 > 133.2 BPM — the camera set that, not me. It pushes in twice, 7.2 s apart.
 

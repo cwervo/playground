@@ -368,11 +368,57 @@ def main():
     # ---- pass B: resolve the cap track ------------------------------------
     track_cap(frame_cands, n, AW, AH, cap_area, cap_cx, cap_cy, cap_box, cap_ok)
 
-    # ---- nearest reference stopping point (needs the resolved cap size) ----
+    # ---- nearest reference stopping point, with hysteresis -----------------
+    # Plain per-frame argmin flickers between MID and TIGHT during a fast push,
+    # and because the pad takes its chord from this state, every flicker became
+    # an audible harmonic lurch. A challenger must therefore be clearly better
+    # (SWITCH_RATIO) and stay better for SWITCH_HOLD frames before the state
+    # moves. The camera's real dwell on a framing is far longer than the hold,
+    # so genuine changes still land within ~0.2 s.
+    SWITCH_RATIO = 0.88
+    SWITCH_HOLD = int(round(0.20 * FPS))
+
+    dists = np.zeros((n, len(stop_names)))
     for i in range(n):
         fv = np.array([mean_L[i], mean_a[i], mean_b[i],
                        plant_share[i] * 100.0, cap_area[i] * 300.0])
-        stop_idx[i] = int(np.argmin(np.linalg.norm(stop_sig - fv, axis=1)))
+        dists[i] = np.linalg.norm(stop_sig - fv, axis=1)
+
+    state = int(np.argmin(dists[0]))
+    pending, pending_n = state, 0
+    for i in range(n):
+        cand = int(np.argmin(dists[i]))
+        if cand == state:
+            pending, pending_n = state, 0
+        elif dists[i][cand] < dists[i][state] * SWITCH_RATIO:
+            pending_n = pending_n + 1 if cand == pending else 1
+            pending = cand
+            if pending_n >= SWITCH_HOLD:
+                state, pending_n = cand, 0
+        else:
+            pending_n = 0
+        stop_idx[i] = state
+
+    raw_stop = np.argmin(dists, axis=1)
+    print(f"  stop classifier: {int((raw_stop[1:] != raw_stop[:-1]).sum())} raw transitions "
+          f"-> {int((stop_idx[1:] != stop_idx[:-1]).sum())} after hysteresis")
+
+    # ---- plant motion, with camera ego-motion removed ---------------------
+    # The residual after subtracting each frame's global flow is what actually
+    # describes the weeds moving, as opposed to the camera moving past them.
+    # Stage 05 draws this; stage 03 uses it to gate the hats, so the kit
+    # thickens with plant movement rather than with camera movement.
+    ego_u = np.median(vec_u.reshape(n, -1), axis=1)
+    ego_v = np.median(vec_v.reshape(n, -1), axis=1)
+    ru = vec_u - ego_u[:, None, None]
+    rv = vec_v - ego_v[:, None, None]
+    rmag = np.sqrt(ru * ru + rv * rv)
+    wsum = vec_w.reshape(n, -1).sum(axis=1)
+    plant_motion = np.where(
+        wsum > 1e-6,
+        (rmag * vec_w).reshape(n, -1).sum(axis=1) / np.maximum(wsum, 1e-6),
+        0.0)
+    plant_motion = smooth(plant_motion, 5)
 
     # ---- fill cap-track gaps, then build the zoom curve -------------------
     if not cap_ok.any():
@@ -420,6 +466,7 @@ def main():
         cap_area=cap_area, cap_cx=cap_cx, cap_cy=cap_cy, cap_box=cap_box,
         cap_ok=cap_ok, plant_share=plant_share, mush_share=mush_share,
         plant_L=plant_L, mean_L=mean_L, mean_a=mean_a, mean_b=mean_b,
+        plant_motion=plant_motion, stop_dists=dists,
         flow_mag=flow_mag, flow_div=div_s, stop_idx=stop_idx,
         vec_u=vec_u, vec_v=vec_v, vec_w=vec_w, GX=GX, GY=GY,
     )

@@ -73,7 +73,7 @@ Three photos of it — tight, mid, wide — are the stopping points. Each one ge
 
 Navy is the mushroom. Magenta is the plants moving. Amber is a drum hit.
 
-The camera's zoom is the melody — closer is higher. The two moments it pushes all the way in are a kick; the three moments it pulls all the way out are a crash. The tempo isn't a choice: the camera pushes in twice, 7.2 seconds apart, and calling that four bars gives 133.2 BPM.
+The camera's zoom is the melody — closer is higher. The two moments it pushes all the way in are a kick; the three moments it pulls all the way out are a crash. The beat gets denser the closer the camera gets, and the hats follow the weeds moving. The tempo isn't a choice: the camera pushes in twice, 7.2 seconds apart, and calling that four bars gives 133.2 BPM.
 
 Hardest part was the wide shots. The cap is 0.05% of the frame there, and a sunlit sidewalk slab is brighter, bigger and rounder than the mushroom — it beat it on every test I tried. Fixed by tracking through time instead of judging each frame alone: lock on where the cap fills the frame, then walk outward and never let it jump.
 
@@ -84,7 +84,8 @@ Sound is a synth I wrote in numpy, driven by a MIDI file the video generated.
 CAP_SHORT = """I turned a sidewalk mushroom into a song.
 
 Navy = the mushroom. Magenta = the plants moving. Amber = a drum hit.
-Zoom in and the pitch goes up. All the way in is a kick, all the way out is a crash.
+Zoom in and the pitch goes up, and the beat gets denser.
+All the way in is a kick, all the way out is a crash.
 
 133.2 BPM — the camera set that, not me. It pushes in twice, 7.2 s apart."""
 
@@ -102,12 +103,24 @@ FIRST = ("Full process notes, the timing chart and the MIDI are in the repo — 
          "generates the MIDI, and the MIDI generates the audio, so you can open the .mid, "
          "change it, and re-render the track.")
 
+_ev = json.loads((WORK / "midi_events.json").read_text())
+_spb, _bar = _ev["seconds_per_beat"], _ev["bar_seconds"]
+
+
+def _bb(t):
+    return (f"{int(t // _bar) + 1}.{int((t % _bar) / _spb) + 1}."
+            f"{int(round(((t % _bar) % _spb) / _spb * 480)):03d}")
+
+
 CUE_ROWS = [
-    (1, 0, "00:00.000", "1.1.000", "MAX ZOOM OUT", "crash 49 + snare 38", "0.001"),
-    (2, 213, "00:07.107", "4.4.373", "MAX ZOOM IN", "kick 36 + low tom 41", "0.999"),
-    (3, 325, "00:10.844", "7.1.035", "MAX ZOOM OUT", "crash 49 + snare 38", "0.001"),
-    (4, 429, "00:14.314", "8.4.373", "MAX ZOOM IN", "kick 36 + low tom 41", "0.977"),
-    (5, 475, "00:15.849", "9.4.089", "MAX ZOOM OUT", "crash 49 + snare 38", "0.048"),
+    (i, q["frame"], f"{int(q['t'] // 60):02d}:{q['t'] % 60:06.3f}", _bb(q["t"]),
+     "MAX ZOOM IN" if q["k"] == "IN" else "MAX ZOOM OUT",
+     "kick 36 + low tom 41" if q["k"] == "IN" else "crash 49 + snare 38",
+     f"{q['zoom']:.3f}")
+    for i, q in enumerate(
+        sorted(([{**e, "k": "IN"} for e in _a["zoom_in_extrema"]]
+                + [{**e, "k": "OUT"} for e in _a["zoom_out_extrema"]]),
+               key=lambda q: q["frame"]), 1)
 ]
 
 
@@ -531,6 +544,24 @@ footer {{
       a second — so the first arch scored a prominence of 0.04 and was discarded. True
       topographic prominence, descending from each peak until the signal rises above it
       again, recovers both.</p>
+    </div>
+
+    <div class="note-b">
+      <h3>The groove is tiered by the zoom</h3>
+      <p>The first cut had only the five cue hits and a sparse hat, which left the
+      track flat between arches. The kit now runs a backbeat on the derived grid with
+      its density <strong>tiered by the zoom curve</strong> — wide framings get a spare
+      two-and-four, the pushes in unlock sixteenth kicks, ghost snares and an open hat
+      — so the beat builds and releases with the camera rather than running flat
+      underneath it.</p>
+      <p>Punch is mostly mix, not notes: every kick ducks the pad, lead and bass
+      through a short sidechain dip, the kit gets its own bus compressor, and the
+      plate is fed from the tuned voices only so reverb never smears the transients.
+      That took the track from <span class="r">−16.2</span> to
+      <span class="r">−13.8 dBFS</span> RMS while keeping a
+      <span class="r">12.8 dB</span> crest factor. The hats now ride the
+      ego-compensated plant motion, so the weeds thicken the kit and the camera
+      doesn't.</p>
     </div>
 
     <div class="note-b">

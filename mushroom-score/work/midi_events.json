@@ -37,19 +37,19 @@
       "t": 0.0,
       "frame": 0,
       "event": "SECTION WIDE",
-      "detail": "pad [38, 45, 50, 53], bass 26, through 3.136s"
+      "detail": "pad [38, 45, 50, 53], bass 26, through 3.337s"
     },
     {
-      "t": 3.136,
-      "frame": 94,
+      "t": 3.337,
+      "frame": 100,
       "event": "SECTION MID",
-      "detail": "pad [46, 53, 58, 62], bass 34, through 4.204s"
+      "detail": "pad [46, 53, 58, 62], bass 34, through 4.438s"
     },
     {
-      "t": 4.204,
-      "frame": 126,
+      "t": 4.438,
+      "frame": 133,
       "event": "SECTION TIGHT",
-      "detail": "pad [50, 57, 62, 65], bass 38, through 9.543s"
+      "detail": "pad [50, 57, 62, 65], bass 38, through 9.743s"
     },
     {
       "t": 7.107,
@@ -58,16 +58,16 @@
       "detail": "kick 36 + low tom 41"
     },
     {
-      "t": 9.543,
-      "frame": 286,
+      "t": 9.743,
+      "frame": 292,
       "event": "SECTION MID",
-      "detail": "pad [46, 53, 58, 62], bass 34, through 10.277s"
+      "detail": "pad [46, 53, 58, 62], bass 34, through 10.477s"
     },
     {
-      "t": 10.277,
-      "frame": 308,
+      "t": 10.477,
+      "frame": 314,
       "event": "SECTION WIDE",
-      "detail": "pad [38, 45, 50, 53], bass 26, through 11.612s"
+      "detail": "pad [38, 45, 50, 53], bass 26, through 11.812s"
     },
     {
       "t": 10.844,
@@ -76,16 +76,16 @@
       "detail": "crash 49 + snare 38"
     },
     {
-      "t": 11.612,
-      "frame": 348,
+      "t": 11.812,
+      "frame": 354,
       "event": "SECTION MID",
-      "detail": "pad [46, 53, 58, 62], bass 34, through 12.613s"
+      "detail": "pad [46, 53, 58, 62], bass 34, through 12.813s"
     },
     {
-      "t": 12.613,
-      "frame": 378,
+      "t": 12.813,
+      "frame": 384,
       "event": "SECTION TIGHT",
-      "detail": "pad [50, 57, 62, 65], bass 38, through 15.582s"
+      "detail": "pad [50, 57, 62, 65], bass 38, through 15.749s"
     },
     {
       "t": 14.314,
@@ -94,10 +94,10 @@
       "detail": "kick 36 + low tom 41"
     },
     {
-      "t": 15.582,
-      "frame": 467,
+      "t": 15.749,
+      "frame": 472,
       "event": "SECTION MID",
-      "detail": "pad [46, 53, 58, 62], bass 34, through 15.949s"
+      "detail": "pad [46, 53, 58, 62], bass 34, through 16.149s"
     },
     {
       "t": 15.849,
@@ -106,8 +106,8 @@
       "detail": "crash 49 + snare 38"
     },
     {
-      "t": 15.949,
-      "frame": 478,
+      "t": 16.149,
+      "frame": 484,
       "event": "SECTION WIDE",
       "detail": "pad [38, 45, 50, 53], bass 26, through 16.95s"
     }

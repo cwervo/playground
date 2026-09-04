@@ -144,21 +144,25 @@ def main():
 
     flow_n = np.clip(flow_mag / (np.percentile(flow_mag, 97) + 1e-9), 0, 1)
 
-    if SCORE_FRAMES.exists():
-        shutil.rmtree(SCORE_FRAMES)
-    SCORE_FRAMES.mkdir(parents=True)
-    (OUT / "plates").mkdir(parents=True, exist_ok=True)
+    preview = os.environ.get("PREVIEW")
+
+    # Only a full run may clear the output directories. Doing this before
+    # checking PREVIEW once wiped 508 finished frames to render a single
+    # preview - a preview must never destroy a completed render.
     seq_dir = OUT / "score_seq"
-    if seq_dir.exists():
-        shutil.rmtree(seq_dir)
-    seq_dir.mkdir(parents=True)
+    if not preview:
+        for d_ in (SCORE_FRAMES, seq_dir):
+            if d_.exists():
+                shutil.rmtree(d_)
+    SCORE_FRAMES.mkdir(parents=True, exist_ok=True)
+    seq_dir.mkdir(parents=True, exist_ok=True)
+    (OUT / "plates").mkdir(parents=True, exist_ok=True)
 
     # Which frames go into the printed filmstrip.
     seq_idx = sorted(set(list(np.linspace(0, n - 1, 36).astype(int))
                          + [f for f, _ in cues]))
     plate_idx = {f: f"cue_{i:02d}_{k}" for i, (f, k) in enumerate(cues)}
 
-    preview = os.environ.get("PREVIEW")
     todo = [int(v) for v in preview.split(",")] if preview else list(range(n))
     print(f"rendering {len(todo)} score frames at {W}x{H} ...")
     for i in todo:

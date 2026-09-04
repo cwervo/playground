@@ -30,8 +30,10 @@ Bar.beat.tick below is `bar.beat.tick` from the top of the clip, bar 1 beat 1 at
 
 ## Drum cues — the zoom extrema
 
-Every drum hit in the piece is a turning point of the camera's zoom. There are no
-other drum events except the flow-gated hi-hat, which has no fixed positions.
+These five hits are the analysis speaking directly: each is a turning point of
+the camera's zoom. They sit above the groove in velocity and carry drums the
+groove never uses - low tom, crash - so they read as accents rather than as
+part of the pattern. Grid hits falling within a 1/6-note of a cue are dropped.
 
 | # | frame | timecode | bar.beat.tick | cue | drums | zoom |
 |---:|---:|---|---|---|---|---:|
@@ -49,15 +51,15 @@ that section's chord and the bass its root.
 
 | # | stop | in | out | dur | bar.beat.tick | pad | bass |
 |---:|---|---|---|---:|---|---|---|
-| 1 | **WIDE** | `00:00.000` | `00:03.103` | 3.10 s | `1.1.000` | Dm (low, open) [38, 45, 50, 53] | D1 |
-| 2 | **MID** | `00:03.136` | `00:04.171` | 1.04 s | `2.3.462` | Bb (bVI) [46, 53, 58, 62] | Bb1 |
-| 3 | **TIGHT** | `00:04.204` | `00:09.510` | 5.31 s | `3.2.160` | Dm (octave up) [50, 57, 62, 65] | D2 |
-| 4 | **MID** | `00:09.543` | `00:10.244` | 0.70 s | `6.2.089` | Bb (bVI) [46, 53, 58, 62] | Bb1 |
-| 5 | **WIDE** | `00:10.277` | `00:11.578` | 1.30 s | `6.3.391` | Dm (low, open) [38, 45, 50, 53] | D1 |
-| 6 | **MID** | `00:11.612` | `00:12.579` | 0.97 s | `7.2.374` | Bb (bVI) [46, 53, 58, 62] | Bb1 |
-| 7 | **TIGHT** | `00:12.613` | `00:15.549` | 2.94 s | `8.1.000` | Dm (octave up) [50, 57, 62, 65] | D2 |
-| 8 | **MID** | `00:15.582` | `00:15.916` | 0.33 s | `9.3.284` | Bb (bVI) [46, 53, 58, 62] | Bb1 |
-| 9 | **WIDE** | `00:15.949` | `00:16.917` | 0.97 s | `9.4.195` | Dm (low, open) [38, 45, 50, 53] | D1 |
+| 1 | **WIDE** | `00:00.000` | `00:03.303` | 3.30 s | `1.1.000` | Dm (low, open) [38, 45, 50, 53] | D1 |
+| 2 | **MID** | `00:03.337` | `00:04.404` | 1.07 s | `2.4.196` | Bb (bVI) [46, 53, 58, 62] | Bb1 |
+| 3 | **TIGHT** | `00:04.438` | `00:09.710` | 5.27 s | `3.2.409` | Dm (octave up) [50, 57, 62, 65] | D2 |
+| 4 | **MID** | `00:09.743` | `00:10.444` | 0.70 s | `6.2.302` | Bb (bVI) [46, 53, 58, 62] | Bb1 |
+| 5 | **WIDE** | `00:10.477` | `00:11.778` | 1.30 s | `6.4.124` | Dm (low, open) [38, 45, 50, 53] | D1 |
+| 6 | **MID** | `00:11.812` | `00:12.779` | 0.97 s | `7.3.107` | Bb (bVI) [46, 53, 58, 62] | Bb1 |
+| 7 | **TIGHT** | `00:12.813` | `00:15.716` | 2.90 s | `8.1.214` | Dm (octave up) [50, 57, 62, 65] | D2 |
+| 8 | **MID** | `00:15.749` | `00:16.116` | 0.37 s | `9.3.462` | Bb (bVI) [46, 53, 58, 62] | Bb1 |
+| 9 | **WIDE** | `00:16.149` | `00:16.917` | 0.77 s | `9.4.408` | Dm (low, open) [38, 45, 50, 53] | D1 |
 
 The shape is a double arch — **WIDE → MID → TIGHT → MID → WIDE → MID → TIGHT → MID → WIDE**.
 
@@ -66,7 +68,9 @@ The shape is a double arch — **WIDE → MID → TIGHT → MID → WIDE → MID
 | source | range | destination |
 |---|---|---|
 | zoom curve (apparent cap scale) | 0 → 1 | LEAD pitch, D3–D6 on the pentatonic |
-| optical-flow magnitude | 0 → 1 | LEAD velocity 40–118; hi-hat gate and velocity |
+| optical-flow magnitude | 0 → 1 | LEAD velocity 40–118 |
+| plant motion, ego-compensated | 0 → 1 | hi-hat and open-hat velocity |
+| zoom curve, tiered | <0.28 / <0.62 / above | groove density: 2+4, +1/16 kick, full |
 | plant mask share | 0 → 25 % | CC1 → chorus depth on the lead |
 | frame mean L\* | 30 → 75 | CC74 → lead filter cutoff, 420 Hz – 6.6 kHz |
 | nearest stopping point | TIGHT/MID/WIDE | pad chord + bass root |
