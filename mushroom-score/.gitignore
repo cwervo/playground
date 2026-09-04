@@ -1,0 +1,14 @@
+# Intermediate render products - large and fully regenerable from src/.
+work/frames/
+work/score_frames/
+work/contact/
+work/contact_sheet.png
+work/contact_small.jpg
+work/preview.jpg
+work/track_check.png
+work/plate_check.jpg
+work/anchor_debug_*.jpg
+work/dbg*.jpg
+work/dbgv_*.png
+work/p45.jpg
+work/p916.jpg

@@ -1,0 +1,84 @@
+{
+  "analysis_long_edge": 900,
+  "stops": {
+    "TIGHT": {
+      "file": "ref_1_tight.jpg",
+      "mushroom_lab": [
+        91.956,
+        -2.078,
+        -0.562
+      ],
+      "mushroom_blob_share": 0.04483,
+      "plant_lab": [
+        43.567,
+        -16.641,
+        24.219
+      ],
+      "plant_blob_share": 0.17562,
+      "signature": {
+        "L_mean": 48.5855,
+        "a_mean": -3.282,
+        "b_mean": 9.7214,
+        "chroma_mean": 11.6297,
+        "white_share": 0.1154,
+        "green_share": 0.2398
+      }
+    },
+    "MID": {
+      "file": "ref_2_mid.jpg",
+      "mushroom_lab": [
+        95.02,
+        -0.359,
+        4.219
+      ],
+      "mushroom_blob_share": 0.00674,
+      "plant_lab": [
+        46.503,
+        -15.625,
+        24.125
+      ],
+      "plant_blob_share": 0.16754,
+      "signature": {
+        "L_mean": 51.2302,
+        "a_mean": -1.6184,
+        "b_mean": 12.4848,
+        "chroma_mean": 14.0402,
+        "white_share": 0.089,
+        "green_share": 0.2142
+      }
+    },
+    "WIDE": {
+      "file": "ref_3_wide.jpg",
+      "mushroom_lab": [
+        95.154,
+        -1.219,
+        5.227
+      ],
+      "mushroom_blob_share": 0.00051,
+      "plant_lab": [
+        41.309,
+        -11.5,
+        21.469
+      ],
+      "plant_blob_share": 0.01637,
+      "signature": {
+        "L_mean": 57.5127,
+        "a_mean": -0.0159,
+        "b_mean": 3.1247,
+        "chroma_mean": 6.2545,
+        "white_share": 0.1343,
+        "green_share": 0.0396
+      }
+    }
+  },
+  "anchor_mushroom_lab": [
+    95.02,
+    -1.219,
+    4.219
+  ],
+  "anchor_plant_lab": [
+    43.567,
+    -15.625,
+    24.125
+  ]
+}

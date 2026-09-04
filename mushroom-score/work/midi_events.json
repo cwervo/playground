@@ -1,0 +1,115 @@
+{
+  "bpm": 133.2,
+  "ticks_per_beat": 480,
+  "seconds_per_beat": 0.45045,
+  "bar_seconds": 1.8018,
+  "duration_s": 16.95,
+  "lead_notes": 37,
+  "scale": "D minor pentatonic (D F G A C)",
+  "chords": {
+    "WIDE": [
+      38,
+      45,
+      50,
+      53
+    ],
+    "MID": [
+      46,
+      53,
+      58,
+      62
+    ],
+    "TIGHT": [
+      50,
+      57,
+      62,
+      65
+    ]
+  },
+  "cues": [
+    {
+      "t": 0.0,
+      "frame": 0,
+      "event": "DRUM max-zoom-OUT",
+      "detail": "crash 49 + snare 38"
+    },
+    {
+      "t": 0.0,
+      "frame": 0,
+      "event": "SECTION WIDE",
+      "detail": "pad [38, 45, 50, 53], bass 26, through 3.136s"
+    },
+    {
+      "t": 3.136,
+      "frame": 94,
+      "event": "SECTION MID",
+      "detail": "pad [46, 53, 58, 62], bass 34, through 4.204s"
+    },
+    {
+      "t": 4.204,
+      "frame": 126,
+      "event": "SECTION TIGHT",
+      "detail": "pad [50, 57, 62, 65], bass 38, through 9.543s"
+    },
+    {
+      "t": 7.107,
+      "frame": 213,
+      "event": "DRUM max-zoom-IN",
+      "detail": "kick 36 + low tom 41"
+    },
+    {
+      "t": 9.543,
+      "frame": 286,
+      "event": "SECTION MID",
+      "detail": "pad [46, 53, 58, 62], bass 34, through 10.277s"
+    },
+    {
+      "t": 10.277,
+      "frame": 308,
+      "event": "SECTION WIDE",
+      "detail": "pad [38, 45, 50, 53], bass 26, through 11.612s"
+    },
+    {
+      "t": 10.844,
+      "frame": 325,
+      "event": "DRUM max-zoom-OUT",
+      "detail": "crash 49 + snare 38"
+    },
+    {
+      "t": 11.612,
+      "frame": 348,
+      "event": "SECTION MID",
+      "detail": "pad [46, 53, 58, 62], bass 34, through 12.613s"
+    },
+    {
+      "t": 12.613,
+      "frame": 378,
+      "event": "SECTION TIGHT",
+      "detail": "pad [50, 57, 62, 65], bass 38, through 15.582s"
+    },
+    {
+      "t": 14.314,
+      "frame": 429,
+      "event": "DRUM max-zoom-IN",
+      "detail": "kick 36 + low tom 41"
+    },
+    {
+      "t": 15.582,
+      "frame": 467,
+      "event": "SECTION MID",
+      "detail": "pad [46, 53, 58, 62], bass 34, through 15.949s"
+    },
+    {
+      "t": 15.849,
+      "frame": 475,
+      "event": "DRUM max-zoom-OUT",
+      "detail": "crash 49 + snare 38"
+    },
+    {
+      "t": 15.949,
+      "frame": 478,
+      "event": "SECTION WIDE",
+      "detail": "pad [38, 45, 50, 53], bass 26, through 16.95s"
+    }
+  ]
+}

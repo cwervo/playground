@@ -1,0 +1,119 @@
+{
+  "frames": 508,
+  "fps": 29.97,
+  "duration_s": 16.95,
+  "analysis_size": [
+    288,
+    512
+  ],
+  "grid": 24,
+  "deltaE2000_radius": {
+    "mushroom": 16.0,
+    "plant": 20.0
+  },
+  "anchor_mushroom_lab": [
+    95.02,
+    -1.219,
+    4.219
+  ],
+  "anchor_plant_lab": [
+    43.567,
+    -15.625,
+    24.125
+  ],
+  "zoom_in_extrema": [
+    {
+      "frame": 213,
+      "t": 7.107,
+      "zoom": 0.999
+    },
+    {
+      "frame": 429,
+      "t": 14.314,
+      "zoom": 0.9771
+    }
+  ],
+  "zoom_out_extrema": [
+    {
+      "frame": 0,
+      "t": 0.0,
+      "zoom": 0.0008
+    },
+    {
+      "frame": 325,
+      "t": 10.844,
+      "zoom": 0.0013
+    },
+    {
+      "frame": 475,
+      "t": 15.849,
+      "zoom": 0.0481
+    }
+  ],
+  "capscale_vs_divergence_corr": 0.8548,
+  "stop_segments": [
+    {
+      "stop": "WIDE",
+      "start_frame": 0,
+      "end_frame": 93,
+      "start_s": 0.0,
+      "end_s": 3.103
+    },
+    {
+      "stop": "MID",
+      "start_frame": 94,
+      "end_frame": 125,
+      "start_s": 3.136,
+      "end_s": 4.171
+    },
+    {
+      "stop": "TIGHT",
+      "start_frame": 126,
+      "end_frame": 285,
+      "start_s": 4.204,
+      "end_s": 9.51
+    },
+    {
+      "stop": "MID",
+      "start_frame": 286,
+      "end_frame": 307,
+      "start_s": 9.543,
+      "end_s": 10.244
+    },
+    {
+      "stop": "WIDE",
+      "start_frame": 308,
+      "end_frame": 347,
+      "start_s": 10.277,
+      "end_s": 11.578
+    },
+    {
+      "stop": "MID",
+      "start_frame": 348,
+      "end_frame": 377,
+      "start_s": 11.612,
+      "end_s": 12.579
+    },
+    {
+      "stop": "TIGHT",
+      "start_frame": 378,
+      "end_frame": 466,
+      "start_s": 12.613,
+      "end_s": 15.549
+    },
+    {
+      "stop": "MID",
+      "start_frame": 467,
+      "end_frame": 477,
+      "start_s": 15.582,
+      "end_s": 15.916
+    },
+    {
+      "stop": "WIDE",
+      "start_frame": 478,
+      "end_frame": 507,
+      "start_s": 15.949,
+      "end_s": 16.917
+    }
+  ]
+}
