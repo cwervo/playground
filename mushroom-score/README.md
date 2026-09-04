@@ -21,6 +21,7 @@ The music is not scored to the video. The video *is* the score.
 | post artifact | `out/mushroom_score_post_4x5.png`, `out/mushroom_score_cover_9x16.png` |
 | timing | [`TIMING.md`](TIMING.md) — cue table, sections, sync notes |
 | caption copy | [`POST.md`](POST.md) |
+| published page | `out/post_kit.html` |
 
 ## Pipeline
 
@@ -34,6 +35,7 @@ src/04_render_audio.py   the .mid      -> out/mushroom_track.wav     synthesis
 src/05_render_score.py   analysis+wav  -> out/mushroom_visual_score.mp4
 src/06_poster.py         score frames  -> out/*_post_4x5.png, *_cover_9x16.png
 src/07_docs.py           analysis+midi -> TIMING.md
+src/08_post_kit.py       analysis+out  -> out/post_kit.html   the published page
 ```
 
 ```bash
