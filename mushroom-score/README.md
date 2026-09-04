@@ -163,14 +163,41 @@ fed from the tuned voices only, so reverb never smears the transients. Net:
 RMS −16.2 → **−13.8 dBFS** with a **12.8 dB** crest factor, so it got louder and
 denser without being flattened.
 
+### Two more fixes, and two more wrong guesses
+
+I had flagged two things as next steps. Measuring them first showed I was wrong
+about the cause of both — the same mistake as the pad lurch — but that both had a
+real defect underneath.
+
+**"The groove tiers can toggle between bars."** They cannot: across the clip there
+are 8 tier changes and **0 toggles**. But the measurement found the actual defect —
+**8 of 8 tier changes landed mid-bar**, so the kit changed density halfway through a
+bar, which reads as a stumble rather than a build. The tier is now decided once per
+bar from that bar's median zoom. Thresholds are also a Schmitt trigger (rise at
+0.62, fall at 0.54; rise at 0.28, fall at 0.22) — nothing oscillates on this
+footage, but the per-bar decision alone would still be exposed to it, and the guard
+is free.
+
+**"The lead re-evaluates every 1/8 whether or not the zoom moved."** It does not —
+it only emits on a pitch change, and it holds up to 3.6 s across the plateaus. The
+real problem was the opposite of a stuck note: **28 of 37 notes were exactly one
+eighth**, the shortest the grid could express, because during the fast pushes the
+zoom crossed *more than one rung* of the pentatonic ladder between samples — 17 of
+75 transitions skipped rungs, leaping up to 4 at once. The melody was undersampling
+its own control signal. Moving the lead to the 1/16 grid drops that to 8 of 52 with
+a maximum jump of 2. Because notes are only emitted on a pitch change, this buys
+resolution on the ramps without adding a single note to the holds: 37 → 53 notes,
+all of the new ones inside pushes.
+
+The lesson, three times over: measure the signal before naming the cause. Each of
+my three diagnoses from listening — pad flicker, tier toggling, a ticking lead — was
+wrong, and each time the measurement pointed at a different, real defect nearby.
+
 ### What I would do next
 
-The lead still re-evaluates on every 1/8 whether or not the zoom has moved, which
-gives it a slightly mechanical tick under the new kit; gating it on zoom velocity
-would let it hold through the plateaus. The groove tiers are also hard-thresholded,
-so a zoom hovering near 0.62 can toggle the pattern between bars — the same
-hysteresis idea would apply, and this time there is a real flicker to fix.
-
----
-
-Source: `IMG_5823.mov`, iPhone 16 Pro, 2026-09-04, 40.7184 N 73.9496 W.
+Bar 4 jumps straight from tier 0 to tier 2 with no bar in between, because the
+camera crosses the whole zoom range in under a bar — the build is a step, not a
+ramp. That is faithful to the footage and arguably lands as a drop, but a
+half-bar tier grid would let it ramp if that reads better. The pad's 0.45 s tail
+is also a fixed constant; scaling it with the incoming section's length would stop
+the very short MID sections (0.37 s) from being mostly crossfade.

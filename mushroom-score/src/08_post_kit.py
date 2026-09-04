@@ -554,6 +554,15 @@ footer {{
       two-and-four, the pushes in unlock sixteenth kicks, ghost snares and an open hat
       — so the beat builds and releases with the camera rather than running flat
       underneath it.</p>
+      <p>Two follow-up fixes came from measuring rather than listening. All eight
+      tier changes were landing <em>mid-bar</em>, so the kit changed density halfway
+      through a bar — it now decides once per bar from that bar's median zoom. And
+      the lead was undersampling its own control signal: on the 1/8 grid the zoom
+      crossed more than one rung of the pentatonic ladder between samples on
+      <span class="r">17 of 75</span> transitions, leaping up to four at once. On the
+      1/16 grid that is <span class="r">8 of 52</span>, max jump 2 — and because
+      notes only fire on a pitch change, the holds gained nothing and the pushes
+      gained all 16 new notes.</p>
       <p>Punch is mostly mix, not notes: every kick ducks the pad, lead and bass
       through a short sidechain dip, the kit gets its own bus compressor, and the
       plate is fed from the tuned voices only so reverb never smears the transients.

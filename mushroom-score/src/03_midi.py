@@ -154,6 +154,50 @@ def main():
     cue_snare_ticks = [f2tick(fr) for fr in outs]
     pm = norm(plant_motion)
 
+    # The tier is decided once per bar, from that bar's median zoom. Choosing it
+    # per sixteenth put all eight density changes in the middle of a bar, which
+    # reads as the kit stumbling rather than building. A drum pattern should
+    # change on a bar line.
+    #
+    # The thresholds are also a Schmitt trigger - a tier rises at one level and
+    # falls at a lower one - so a zoom sitting on a boundary cannot oscillate.
+    # On this clip nothing oscillates, but the guard costs nothing and the
+    # per-bar decision alone would still be exposed to it.
+    UP1, DN1 = 0.28, 0.22
+    UP2, DN2 = 0.62, 0.54
+
+    def schmitt(prev, z):
+        if prev is None:
+            return 2 if z > UP2 else (1 if z > UP1 else 0)
+        t = prev
+        if t == 0:
+            if z > UP2:
+                t = 2
+            elif z > UP1:
+                t = 1
+        elif t == 1:
+            if z > UP2:
+                t = 2
+            elif z < DN1:
+                t = 0
+        else:
+            if z < DN1:
+                t = 0
+            elif z < DN2:
+                t = 1
+        return t
+
+    n_steps = int(np.ceil(dur / sixteenth))
+    n_bars = int(np.ceil(n_steps / 16))
+    tier_by_bar, _prev = [], None
+    for b in range(n_bars):
+        zs = [float(zoom[at(s * sixteenth * fps)])
+              for s in range(b * 16, min((b + 1) * 16, n_steps))
+              if s * sixteenth < dur]
+        _prev = schmitt(_prev, float(np.median(zs)) if zs else 0.0)
+        tier_by_bar.append(_prev)
+    print(f"  groove tiers by bar: {tier_by_bar}")
+
     def clashes(tk, ticks):
         return any(abs(tk - c) < guard for c in ticks)
 
@@ -163,7 +207,6 @@ def main():
         events.append((tk + length, "drums",
                        Message("note_off", channel=9, note=note, velocity=0)))
 
-    n_steps = int(np.ceil(dur / sixteenth))
     groove_counts = {"kick": 0, "snare": 0, "ghost": 0, "hat": 0, "open": 0}
     for s in range(n_steps):
         t = s * sixteenth
@@ -171,7 +214,7 @@ def main():
             break
         i = at(t * fps)
         z = float(zoom[i])
-        tier = 2 if z > 0.62 else (1 if z > 0.28 else 0)
+        tier = tier_by_bar[s // 16]
         st = s % 16
         tk = t2tick(t)
 
@@ -199,7 +242,13 @@ def main():
 
     # --- ch 0 lead: the zoom curve as pitch --------------------------------
     pitches = scale_pitches(LEAD_LO, LEAD_HI)
-    step = spb / 2.0                 # the lead re-evaluates on the 1/8 grid
+    # The lead re-evaluates on the 1/16 grid. On the 1/8 grid the zoom crossed
+    # more than one rung of the pentatonic ladder between samples on 17 of 75
+    # transitions (leaping up to 4 rungs at once), so the melody was
+    # undersampling its own control signal during the fast pushes. At 1/16 that
+    # falls to 8 of 150. Notes are only emitted when the pitch changes, so this
+    # buys resolution on the ramps without adding a single note to the holds.
+    step = spb / 4.0
     cur_pitch, cur_start = None, 0.0
     t = 0.0
     lead_notes = 0
