@@ -1,0 +1,534 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Image Stitcher</title>
+<style>
+  :root {
+    --bg: #f4f4f2;
+    --panel: #ffffff;
+    --ink: #1c1c1a;
+    --muted: #6b6b66;
+    --line: #d9d9d4;
+    --accent: #2f6fed;
+    --accent-ink: #ffffff;
+    --danger: #c9372c;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #161615;
+      --panel: #1f1f1d;
+      --ink: #ecece8;
+      --muted: #9a9a94;
+      --line: #343431;
+      --accent: #6a96ff;
+      --accent-ink: #0d1a3a;
+    }
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; }
+  body {
+    font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif;
+    background: var(--bg);
+    color: var(--ink);
+  }
+  header {
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--line);
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+  }
+  header h1 { font-size: 18px; margin: 0; }
+  header span { color: var(--muted); }
+  main {
+    display: grid;
+    grid-template-columns: 320px 1fr;
+    min-height: calc(100% - 50px);
+  }
+  @media (max-width: 800px) { main { grid-template-columns: 1fr; } }
+
+  aside {
+    padding: 16px;
+    border-right: 1px solid var(--line);
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+  section h2 {
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    color: var(--muted);
+    margin: 0 0 8px;
+  }
+  .drop {
+    display: block;
+    border: 2px dashed var(--line);
+    border-radius: 8px;
+    padding: 22px 12px;
+    text-align: center;
+    color: var(--muted);
+    cursor: pointer;
+    transition: border-color .15s, background .15s;
+  }
+  .drop.over, .drop:hover { border-color: var(--accent); color: var(--ink); }
+  .drop input { display: none; }
+
+  .row { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
+  .row label { flex: 1; color: var(--muted); }
+  .row input[type=number], .row select, .row input[type=color] {
+    width: 96px;
+    flex: none;
+    padding: 5px 7px;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    background: var(--panel);
+    color: var(--ink);
+    font: inherit;
+  }
+  .row select { width: 150px; }
+  .row input[type=color] { padding: 2px; height: 30px; }
+  .row input[type=checkbox] { width: auto; }
+  .hint { color: var(--muted); font-size: 12px; margin: -4px 0 8px; }
+
+  button {
+    font: inherit;
+    padding: 7px 12px;
+    border-radius: 6px;
+    border: 1px solid var(--line);
+    background: var(--panel);
+    color: var(--ink);
+    cursor: pointer;
+  }
+  button.primary { background: var(--accent); color: var(--accent-ink); border-color: transparent; }
+  button:disabled { opacity: .45; cursor: default; }
+  .btns { display: flex; gap: 8px; flex-wrap: wrap; }
+
+  #thumbs {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(64px, 1fr));
+    gap: 6px;
+    list-style: none;
+    padding: 0; margin: 0;
+  }
+  #thumbs li {
+    position: relative;
+    aspect-ratio: 1;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    overflow: hidden;
+    background: var(--panel);
+    cursor: grab;
+  }
+  #thumbs li.dragging { opacity: .4; }
+  #thumbs li.drop-before { box-shadow: -3px 0 0 var(--accent); }
+  #thumbs li.drop-after  { box-shadow:  3px 0 0 var(--accent); }
+  #thumbs img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  #thumbs .idx {
+    position: absolute; left: 3px; top: 3px;
+    font-size: 10px; padding: 1px 5px; border-radius: 4px;
+    background: rgba(0,0,0,.6); color: #fff;
+  }
+  #thumbs .rm {
+    position: absolute; right: 2px; top: 2px;
+    width: 18px; height: 18px; padding: 0; line-height: 16px;
+    font-size: 12px; border-radius: 50%;
+    background: rgba(0,0,0,.6); color: #fff; border: 0;
+  }
+
+  .stage {
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    min-width: 0;
+  }
+  .stage .bar {
+    display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
+  }
+  .stage .bar .info { color: var(--muted); margin-left: auto; }
+  .canvas-wrap {
+    flex: 1;
+    overflow: auto;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background:
+      repeating-conic-gradient(var(--line) 0 25%, transparent 0 50%) 0 0 / 16px 16px;
+    display: grid;
+    place-items: start;
+    padding: 12px;
+    min-height: 320px;
+  }
+  #out { max-width: 100%; height: auto; display: block; }
+  #out.actual { max-width: none; }
+  .empty { color: var(--muted); place-self: center; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Image Stitcher</h1>
+  <span>Drop images, pick a grid, download one big image.</span>
+</header>
+
+<main>
+  <aside>
+    <section>
+      <h2>Images</h2>
+      <label class="drop" id="drop">
+        <input type="file" id="file" accept="image/*" multiple>
+        Click or drop images here<br><small>(you can also paste from the clipboard)</small>
+      </label>
+      <p class="hint" id="count" style="margin-top:8px"></p>
+      <ul id="thumbs"></ul>
+      <div class="btns" style="margin-top:8px">
+        <button id="clear" disabled>Clear all</button>
+      </div>
+    </section>
+
+    <section>
+      <h2>Grid</h2>
+      <div class="row">
+        <label for="cols">Columns (N)</label>
+        <input type="number" id="cols" min="1" value="3">
+      </div>
+      <div class="row">
+        <label for="rows">Rows (M)</label>
+        <input type="number" id="rows" min="1" value="1">
+      </div>
+      <div class="row">
+        <label for="autoRows">Auto rows from image count</label>
+        <input type="checkbox" id="autoRows" checked>
+      </div>
+      <div class="row">
+        <label for="order">Fill order</label>
+        <select id="order">
+          <option value="row">Rows first</option>
+          <option value="col">Columns first</option>
+        </select>
+      </div>
+    </section>
+
+    <section>
+      <h2>Cells</h2>
+      <div class="row">
+        <label for="sizeMode">Cell size</label>
+        <select id="sizeMode">
+          <option value="max">Largest image</option>
+          <option value="min">Smallest image</option>
+          <option value="first">First image</option>
+          <option value="fixed">Fixed</option>
+        </select>
+      </div>
+      <div class="row" id="fixedRow" hidden>
+        <label>Width × Height</label>
+        <input type="number" id="cellW" min="1" value="512" style="width:70px">
+        <input type="number" id="cellH" min="1" value="512" style="width:70px">
+      </div>
+      <div class="row">
+        <label for="fit">Fit</label>
+        <select id="fit">
+          <option value="contain">Contain (letterbox)</option>
+          <option value="cover">Cover (crop)</option>
+          <option value="stretch">Stretch</option>
+          <option value="none">Original size (centered)</option>
+        </select>
+      </div>
+      <div class="row">
+        <label for="gap">Gap (px)</label>
+        <input type="number" id="gap" min="0" value="0">
+      </div>
+      <div class="row">
+        <label for="pad">Outer padding (px)</label>
+        <input type="number" id="pad" min="0" value="0">
+      </div>
+      <div class="row">
+        <label for="bg">Background</label>
+        <input type="color" id="bg" value="#ffffff">
+      </div>
+      <div class="row">
+        <label for="transparent">Transparent background</label>
+        <input type="checkbox" id="transparent">
+      </div>
+    </section>
+
+    <section>
+      <h2>Export</h2>
+      <div class="row">
+        <label for="format">Format</label>
+        <select id="format">
+          <option value="image/png">PNG</option>
+          <option value="image/jpeg">JPEG</option>
+          <option value="image/webp">WebP</option>
+        </select>
+      </div>
+      <div class="row" id="qualityRow" hidden>
+        <label for="quality">Quality</label>
+        <input type="number" id="quality" min="1" max="100" value="92">
+      </div>
+      <div class="btns">
+        <button class="primary" id="download" disabled>Download</button>
+        <button id="copy" disabled>Copy to clipboard</button>
+      </div>
+    </section>
+  </aside>
+
+  <div class="stage">
+    <div class="bar">
+      <button id="zoom">Fit to window</button>
+      <span class="info" id="info"></span>
+    </div>
+    <div class="canvas-wrap" id="wrap">
+      <div class="empty" id="empty">No images yet.</div>
+      <canvas id="out" hidden></canvas>
+    </div>
+  </div>
+</main>
+
+<script>
+(() => {
+  const $ = id => document.getElementById(id);
+  const els = {
+    drop: $('drop'), file: $('file'), thumbs: $('thumbs'), count: $('count'), clear: $('clear'),
+    cols: $('cols'), rows: $('rows'), autoRows: $('autoRows'), order: $('order'),
+    sizeMode: $('sizeMode'), fixedRow: $('fixedRow'), cellW: $('cellW'), cellH: $('cellH'),
+    fit: $('fit'), gap: $('gap'), pad: $('pad'), bg: $('bg'), transparent: $('transparent'),
+    format: $('format'), qualityRow: $('qualityRow'), quality: $('quality'),
+    download: $('download'), copy: $('copy'),
+    zoom: $('zoom'), info: $('info'), wrap: $('wrap'), empty: $('empty'), out: $('out'),
+  };
+
+  /** @type {{img: HTMLImageElement|ImageBitmap, name: string, url: string, w: number, h: number}[]} */
+  let images = [];
+  let nextId = 0;
+  let actualSize = false;
+
+  // ---------- loading ----------
+  async function addFiles(fileList) {
+    const files = [...fileList].filter(f => f.type.startsWith('image/'));
+    if (!files.length) return;
+    const loaded = await Promise.all(files.map(loadFile));
+    images.push(...loaded.filter(Boolean));
+    renderThumbs();
+    render();
+  }
+
+  function loadFile(file) {
+    return new Promise(resolve => {
+      const url = URL.createObjectURL(file);
+      const img = new Image();
+      img.onload = () => resolve({ id: nextId++, img, name: file.name, url, w: img.naturalWidth, h: img.naturalHeight });
+      img.onerror = () => { URL.revokeObjectURL(url); resolve(null); };
+      img.src = url;
+    });
+  }
+
+  els.file.addEventListener('change', e => { addFiles(e.target.files); e.target.value = ''; });
+
+  ['dragenter', 'dragover'].forEach(t => els.drop.addEventListener(t, e => {
+    e.preventDefault(); els.drop.classList.add('over');
+  }));
+  ['dragleave', 'drop'].forEach(t => els.drop.addEventListener(t, e => {
+    e.preventDefault(); els.drop.classList.remove('over');
+  }));
+  els.drop.addEventListener('drop', e => addFiles(e.dataTransfer.files));
+  // Dropping anywhere on the page also works.
+  document.addEventListener('dragover', e => e.preventDefault());
+  document.addEventListener('drop', e => { e.preventDefault(); if (e.target.closest('#drop')) return; addFiles(e.dataTransfer.files); });
+  document.addEventListener('paste', e => {
+    const files = [...(e.clipboardData?.files || [])];
+    if (files.length) addFiles(files);
+  });
+
+  els.clear.addEventListener('click', () => {
+    images.forEach(i => URL.revokeObjectURL(i.url));
+    images = [];
+    renderThumbs();
+    render();
+  });
+
+  // ---------- thumbnails (with drag reorder) ----------
+  let dragId = null;
+  function renderThumbs() {
+    els.thumbs.innerHTML = '';
+    images.forEach((im, i) => {
+      const li = document.createElement('li');
+      li.draggable = true;
+      li.dataset.id = im.id;
+      li.title = `${im.name} (${im.w}×${im.h})`;
+      li.innerHTML = `<img src="${im.url}" alt=""><span class="idx">${i + 1}</span><button class="rm" title="Remove">×</button>`;
+      li.querySelector('.rm').addEventListener('click', () => {
+        URL.revokeObjectURL(im.url);
+        images = images.filter(x => x !== im);
+        renderThumbs(); render();
+      });
+      li.addEventListener('dragstart', e => {
+        dragId = im.id; li.classList.add('dragging');
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', String(im.id));
+      });
+      li.addEventListener('dragend', () => { dragId = null; clearDropMarks(); li.classList.remove('dragging'); });
+      li.addEventListener('dragover', e => {
+        if (dragId === null) return;
+        e.preventDefault(); e.stopPropagation();
+        clearDropMarks();
+        const r = li.getBoundingClientRect();
+        li.classList.add(e.clientX < r.left + r.width / 2 ? 'drop-before' : 'drop-after');
+      });
+      li.addEventListener('drop', e => {
+        if (dragId === null) return;
+        e.preventDefault(); e.stopPropagation();
+        const r = li.getBoundingClientRect();
+        const before = e.clientX < r.left + r.width / 2;
+        const from = images.findIndex(x => x.id === dragId);
+        const [moved] = images.splice(from, 1);
+        let to = images.findIndex(x => x === im);
+        if (!before) to += 1;
+        images.splice(to, 0, moved);
+        renderThumbs(); render();
+      });
+      els.thumbs.appendChild(li);
+    });
+    els.count.textContent = images.length ? `${images.length} image${images.length === 1 ? '' : 's'} — drag to reorder` : '';
+    els.clear.disabled = !images.length;
+  }
+  function clearDropMarks() {
+    els.thumbs.querySelectorAll('.drop-before,.drop-after').forEach(n => n.classList.remove('drop-before', 'drop-after'));
+  }
+
+  // ---------- layout + render ----------
+  const num = (el, min = 0) => Math.max(min, Math.floor(Number(el.value) || 0));
+
+  function cellSize() {
+    const mode = els.sizeMode.value;
+    if (!images.length) return { w: 1, h: 1 };
+    if (mode === 'fixed') return { w: num(els.cellW, 1), h: num(els.cellH, 1) };
+    if (mode === 'first') return { w: images[0].w, h: images[0].h };
+    const pick = mode === 'min' ? Math.min : Math.max;
+    return { w: pick(...images.map(i => i.w)), h: pick(...images.map(i => i.h)) };
+  }
+
+  function gridDims() {
+    const cols = num(els.cols, 1);
+    let rows;
+    if (els.autoRows.checked) {
+      rows = Math.max(1, Math.ceil(images.length / cols));
+      els.rows.value = rows;
+    } else {
+      rows = num(els.rows, 1);
+    }
+    return { cols, rows };
+  }
+
+  function render() {
+    const has = images.length > 0;
+    els.empty.hidden = has;
+    els.out.hidden = !has;
+    els.download.disabled = els.copy.disabled = !has;
+    if (!has) { els.info.textContent = ''; return; }
+
+    const { cols, rows } = gridDims();
+    const { w: cw, h: ch } = cellSize();
+    const gap = num(els.gap), pad = num(els.pad);
+    const W = pad * 2 + cols * cw + (cols - 1) * gap;
+    const H = pad * 2 + rows * ch + (rows - 1) * gap;
+
+    const c = els.out;
+    c.width = W; c.height = H;
+    const ctx = c.getContext('2d');
+    ctx.clearRect(0, 0, W, H);
+    if (!els.transparent.checked) { ctx.fillStyle = els.bg.value; ctx.fillRect(0, 0, W, H); }
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+
+    const fit = els.fit.value;
+    const byCol = els.order.value === 'col';
+    const n = Math.min(images.length, cols * rows);
+    for (let i = 0; i < n; i++) {
+      const r = byCol ? i % rows : Math.floor(i / cols);
+      const col = byCol ? Math.floor(i / rows) : i % cols;
+      const x = pad + col * (cw + gap);
+      const y = pad + r * (ch + gap);
+      drawInto(ctx, images[i], x, y, cw, ch, fit);
+    }
+
+    const placed = n, dropped = images.length - n;
+    els.info.textContent = `${W} × ${H} px · ${cols} × ${rows} grid · ${placed} placed` + (dropped ? ` · ${dropped} not shown (grid too small)` : '');
+  }
+
+  function drawInto(ctx, im, x, y, cw, ch, fit) {
+    const { img, w, h } = im;
+    if (fit === 'stretch') { ctx.drawImage(img, x, y, cw, ch); return; }
+    if (fit === 'none') {
+      ctx.save(); ctx.beginPath(); ctx.rect(x, y, cw, ch); ctx.clip();
+      ctx.drawImage(img, x + (cw - w) / 2, y + (ch - h) / 2, w, h);
+      ctx.restore(); return;
+    }
+    const s = fit === 'cover' ? Math.max(cw / w, ch / h) : Math.min(cw / w, ch / h);
+    const dw = w * s, dh = h * s;
+    const dx = x + (cw - dw) / 2, dy = y + (ch - dh) / 2;
+    if (fit === 'cover') {
+      ctx.save(); ctx.beginPath(); ctx.rect(x, y, cw, ch); ctx.clip();
+      ctx.drawImage(img, dx, dy, dw, dh);
+      ctx.restore();
+    } else {
+      ctx.drawImage(img, dx, dy, dw, dh);
+    }
+  }
+
+  // ---------- controls ----------
+  const controls = ['cols', 'rows', 'autoRows', 'order', 'sizeMode', 'cellW', 'cellH', 'fit', 'gap', 'pad', 'bg', 'transparent'];
+  controls.forEach(id => els[id].addEventListener('input', render));
+  els.autoRows.addEventListener('input', () => { els.rows.disabled = els.autoRows.checked; });
+  els.rows.disabled = els.autoRows.checked;
+  els.rows.addEventListener('input', () => { if (document.activeElement === els.rows) els.autoRows.checked = false; els.rows.disabled = false; });
+  els.sizeMode.addEventListener('input', () => { els.fixedRow.hidden = els.sizeMode.value !== 'fixed'; });
+  els.format.addEventListener('input', () => { els.qualityRow.hidden = els.format.value === 'image/png'; });
+
+  els.zoom.addEventListener('click', () => {
+    actualSize = !actualSize;
+    els.out.classList.toggle('actual', actualSize);
+    els.zoom.textContent = actualSize ? 'Fit to window' : 'Actual size';
+  });
+  els.zoom.textContent = 'Actual size';
+
+  function toBlob(type) {
+    const q = type === 'image/png' ? undefined : num(els.quality, 1) / 100;
+    return new Promise(res => els.out.toBlob(res, type, q));
+  }
+  const ext = { 'image/png': 'png', 'image/jpeg': 'jpg', 'image/webp': 'webp' };
+
+  els.download.addEventListener('click', async () => {
+    const type = els.format.value;
+    const blob = await toBlob(type);
+    if (!blob) return;
+    const { cols, rows } = gridDims();
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `stitched-${cols}x${rows}.${ext[type]}`;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+  });
+
+  els.copy.addEventListener('click', async () => {
+    try {
+      const blob = await toBlob('image/png');
+      await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+      flash(els.copy, 'Copied!');
+    } catch (err) {
+      flash(els.copy, 'Copy failed');
+      console.error(err);
+    }
+  });
+  function flash(btn, text) {
+    const old = btn.textContent; btn.textContent = text;
+    setTimeout(() => (btn.textContent = old), 1200);
+  }
+
+  // Expose for testing / tinkering.
+  window.stitcher = { get images() { return images; }, render, addFiles };
+})();
+</script>
+</body>
+</html>
