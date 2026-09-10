@@ -1,0 +1,412 @@
+<title>Leaving Los Angeles</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600&display=swap">
+<style>
+:root{
+  --bg:#f3f4f7; --surface:#ffffff; --ink:#1b1d24; --ink-2:#4b5060; --muted:#7a8090;
+  --line:#d6d9e2; --ocean:#dfe4ee; --neighbor:#e8eaef; --neighbor-line:#c3c7d2;
+  --nodata:#c9ccd5; --focus:#1b1d24; --tip-bg:#1b1d24; --tip-ink:#f3f4f7;
+  --shadow:0 1px 2px rgba(20,22,30,.06),0 6px 20px rgba(20,22,30,.08);
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#14161c; --surface:#1d2029; --ink:#eceef3; --ink-2:#b6bac6; --muted:#8a90a0;
+    --line:#2f3340; --ocean:#101219; --neighbor:#1a1d25; --neighbor-line:#363a48;
+    --nodata:#3a3e4b; --focus:#eceef3; --tip-bg:#eceef3; --tip-ink:#14161c;
+    --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px rgba(0,0,0,.45);
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#14161c; --surface:#1d2029; --ink:#eceef3; --ink-2:#b6bac6; --muted:#8a90a0;
+  --line:#2f3340; --ocean:#101219; --neighbor:#1a1d25; --neighbor-line:#363a48;
+  --nodata:#3a3e4b; --focus:#eceef3; --tip-bg:#eceef3; --tip-ink:#14161c;
+  --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px rgba(0,0,0,.45);
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 Barlow,"Helvetica Neue",Arial,sans-serif;
+  padding-block:20px 40px;padding-inline:clamp(16px,3vw,36px)}
+h1,h2,h3{margin:0;font-family:"Barlow Condensed","Arial Narrow",Arial,sans-serif;text-wrap:balance}
+h1{font-size:clamp(30px,4.5vw,46px);font-weight:700;line-height:1;letter-spacing:.005em;text-transform:uppercase}
+.sub{color:var(--ink-2);max-width:60ch;margin-top:8px}
+.eyebrow{font-family:"Barlow Condensed",Arial,sans-serif;font-weight:600;font-size:13px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.wrap{max-width:1380px;margin:0 auto}
+header{display:flex;flex-wrap:wrap;gap:14px 32px;align-items:flex-end;justify-content:space-between;margin-bottom:18px}
+.badge{display:inline-flex;align-items:center;gap:8px;padding:5px 10px;border:1px solid var(--line);border-radius:999px;font-size:13px;color:var(--ink-2);background:var(--surface)}
+.badge i{width:8px;height:8px;border-radius:50%;background:var(--muted);display:inline-block}
+.badge.live i{background:#2e9e5b}
+.grid{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:20px;align-items:start}
+@media (max-width:900px){.grid{grid-template-columns:1fr}}
+.mapbox{position:relative;background:var(--ocean);border:1px solid var(--line);border-radius:6px;overflow:hidden;box-shadow:var(--shadow)}
+.mapbox svg{display:block;width:100%;height:auto;touch-action:none;cursor:grab}
+.mapbox svg:active{cursor:grabbing}
+.mapctl{position:absolute;top:10px;right:10px;display:flex;flex-direction:column;gap:4px}
+.mapctl button{width:32px;height:32px;border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:4px;font:600 18px/1 Barlow,sans-serif;cursor:pointer}
+.mapctl button:focus-visible,button:focus-visible,input:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+.tip{position:absolute;pointer-events:none;background:var(--tip-bg);color:var(--tip-ink);padding:6px 9px;border-radius:4px;font-size:13px;line-height:1.35;white-space:nowrap;transform:translate(-50%,calc(-100% - 12px));opacity:0;transition:opacity .08s}
+.tip b{font-family:"Barlow Condensed",sans-serif;font-size:17px;font-weight:600;display:block}
+.panel{display:flex;flex-direction:column;gap:16px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:14px 16px}
+.exits{display:grid;gap:0;padding:0;overflow:hidden}
+.exit{display:grid;grid-template-columns:1fr auto;gap:2px 12px;padding:12px 16px;border-top:1px solid var(--line);align-items:baseline}
+.exit:first-child{border-top:0}
+.exit .k{grid-column:1;display:flex;align-items:center;gap:8px}
+.exit .k svg{flex:none}
+.exit .t{grid-column:2;grid-row:1/3;font-family:"Barlow Condensed",sans-serif;font-size:34px;font-weight:700;line-height:1;font-variant-numeric:tabular-nums;text-align:right}
+.exit .t small{font-size:15px;font-weight:600;color:var(--ink-2);margin-left:2px}
+.exit .v{grid-column:1;color:var(--ink-2);font-size:13.5px}
+.alts{margin:0;padding:0 16px 12px;list-style:none;font-size:13px;color:var(--ink-2);display:grid;gap:3px}
+.alts li{display:flex;justify-content:space-between;gap:10px;font-variant-numeric:tabular-nums}
+.alts li span:last-child{color:var(--ink);font-weight:500}
+.legend .bar{display:flex;height:16px;border-radius:3px;overflow:hidden;margin-top:10px}
+.legend .bar span{flex:1;transition:transform .08s}
+.legend .bar span.on{transform:scaleY(1.5)}
+.legend .ticks{position:relative;height:18px;margin-top:4px;font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
+.legend .ticks span{position:absolute;transform:translateX(-50%);white-space:nowrap}
+.legend .ticks span:first-child{transform:none}
+.legend .ticks span:last-child{transform:translateX(-100%)}
+.legend p{margin:8px 0 0;font-size:13px;color:var(--ink-2)}
+.opts{display:grid;gap:8px;font-size:14px}
+.opts label{display:flex;gap:8px;align-items:center}
+.btn{display:inline-flex;align-items:center;gap:8px;padding:8px 14px;border-radius:4px;border:1px solid var(--ink);background:var(--ink);color:var(--bg);font:600 14px Barlow,sans-serif;cursor:pointer}
+.btn.secondary{background:transparent;color:var(--ink)}
+.btn[disabled]{opacity:.5;cursor:default}
+.btn[hidden],.prog[hidden]{display:none}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.status{font-size:13px;color:var(--ink-2);min-height:1.4em}
+.prog{height:4px;background:var(--line);border-radius:2px;overflow:hidden;margin-top:8px}
+.prog i{display:block;height:100%;width:0;background:var(--ink);transition:width .2s}
+.notes{font-size:13px;color:var(--ink-2)}
+.notes p{margin:0 0 8px}
+.notes code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;background:var(--bg);padding:1px 4px;border-radius:3px}
+.keyline{display:grid;gap:6px;font-size:13px;color:var(--ink-2);margin-top:10px}
+.keyline div{display:flex;align-items:center;gap:8px}
+.keyline svg{flex:none}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+
+<div class="wrap">
+<header>
+  <div>
+    <div class="eyebrow">Drive time from 1st &amp; Main, Downtown Los Angeles</div>
+    <h1>Leaving Los Angeles</h1>
+    <p class="sub">Every cell is colored by how long it takes to drive there, in 30‑minute steps. Blue is near, red is far, blended through OKLab. The heavy line is California; inside it, Los Angeles County and the city itself.</p>
+  </div>
+  <div class="badge" id="modeBadge"><i></i><span id="modeText">Estimated from highway model</span></div>
+</header>
+
+<div class="grid">
+  <div class="mapbox">
+    <svg id="map" role="img" aria-label="Choropleth of drive time from downtown Los Angeles across California"></svg>
+    <div class="mapctl"><button id="zin" aria-label="Zoom in">+</button><button id="zout" aria-label="Zoom out">−</button><button id="zla" aria-label="Zoom to Los Angeles" title="Zoom to LA">LA</button><button id="zca" aria-label="Zoom to California" title="Reset">CA</button></div>
+    <div class="tip" id="tip"></div>
+  </div>
+
+  <aside class="panel">
+    <div class="card exits" id="exits"></div>
+
+    <div class="card legend">
+      <div class="eyebrow">Minutes from Downtown LA · 30‑minute bands</div>
+      <div class="bar" id="bar"></div>
+      <div class="ticks" id="ticks"></div>
+      <p>Hover or tap the map to read a cell. Cells with no routable road are gray.</p>
+      <div class="keyline">
+        <div><svg width="26" height="10"><line x1="0" y1="5" x2="26" y2="5" stroke="currentColor" stroke-width="2.4"/></svg>California</div>
+        <div><svg width="26" height="10"><line x1="0" y1="5" x2="26" y2="5" stroke="currentColor" stroke-width="1.6" stroke-dasharray="5 3"/></svg>Los Angeles County</div>
+        <div><svg width="26" height="10"><line x1="0" y1="5" x2="26" y2="5" stroke="currentColor" stroke-width="1.2" stroke-dasharray="2 2"/></svg>City of Los Angeles<span id="cityNote"></span></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="eyebrow">Live routing</div>
+      <p class="notes" style="margin:6px 0 10px">Replace the estimate with real routed times from the public OSRM server. Needs internet; about 60 small requests.</p>
+      <div class="row">
+        <button class="btn" id="loadOsrm">Load live OSRM times</button>
+        <button class="btn secondary" id="useModel" hidden>Back to model</button>
+        <button class="btn secondary" id="dl" hidden>Save JSON</button>
+      </div>
+      <div class="prog" id="prog" hidden><i></i></div>
+      <div class="status" id="status"></div>
+    </div>
+
+    <div class="card">
+      <div class="eyebrow">Options</div>
+      <div class="opts" style="margin-top:8px">
+        <label><input type="checkbox" id="showRoads"> Show the model's highway graph</label>
+        <label><input type="checkbox" id="showCounties" checked> Show other county lines</label>
+      </div>
+    </div>
+
+    <div class="card notes">
+      <div class="eyebrow" style="margin-bottom:6px">How the estimate works</div>
+      <p>A hand-coded graph of California's freeways and state highways is routed from downtown with class speeds (rural freeway 68 mph, metro freeway 50, two-lane highway 52, mountain pass 38). Each cell adds the straight-line hop to the nearest road at 30 mph.</p>
+      <p>State and county lines are Census cartographic boundaries (us-atlas). <span id="cityApprox"></span></p>
+    </div>
+  </aside>
+</div>
+</div>
+
+<script>/*__D3__*/</script>
+<script>
+/*__DATA__*/
+/*__GEO__*/
+
+// ---------- OKLab ----------
+const lin = c => c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+const gam = c => c <= 0.0031308 ? 12.92 * c : 1.055 * Math.pow(c, 1 / 2.4) - 0.055;
+function hexToOklab(hex) {
+  const r = lin(parseInt(hex.slice(1, 3), 16) / 255), g = lin(parseInt(hex.slice(3, 5), 16) / 255), b = lin(parseInt(hex.slice(5, 7), 16) / 255);
+  const l = Math.cbrt(0.4122214708 * r + 0.5363325363 * g + 0.0514459929 * b);
+  const m = Math.cbrt(0.2119034982 * r + 0.6806995451 * g + 0.1073969566 * b);
+  const s = Math.cbrt(0.0883024619 * r + 0.2817188376 * g + 0.6299787005 * b);
+  return [0.2104542553 * l + 0.7936177850 * m - 0.0040720468 * s,
+          1.9779984951 * l - 2.4285922050 * m + 0.4505937099 * s,
+          0.0259040371 * l + 0.7827717662 * m - 0.8086757660 * s];
+}
+function oklabToHex([L, a, b]) {
+  const l = (L + 0.3963377774 * a + 0.2158037573 * b) ** 3;
+  const m = (L - 0.1055613458 * a - 0.0638541728 * b) ** 3;
+  const s = (L - 0.0894841775 * a - 1.2914855480 * b) ** 3;
+  const rgb = [4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s,
+              -1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s,
+              -0.0041960863 * l - 0.7034186147 * m + 1.7076147010 * s];
+  return '#' + rgb.map(c => Math.round(Math.max(0, Math.min(1, gam(c))) * 255).toString(16).padStart(2, '0')).join('');
+}
+const BLUE = hexToOklab('#1f56e0'), RED = hexToOklab('#d92b2b');
+const mixOklab = t => oklabToHex(BLUE.map((v, i) => v + (RED[i] - v) * t));
+
+// ---------- state ----------
+const BAND = 30;
+let mode = 'model';
+let osrm = DATA.osrm;
+try { const c = localStorage.getItem('la-escape-osrm-v1'); if (c) osrm = JSON.parse(c); } catch (e) {}
+if (osrm && osrm.cells) mode = 'osrm';
+
+const cellMinutes = () => mode === 'osrm' ? osrm.cells : DATA.cells.map(c => c[3]);
+const exitData = () => mode === 'osrm' && osrm.exits ? osrm.exits : DATA.exits;
+
+// ---------- map ----------
+const W = 860, H = 960;
+const svg = d3.select('#map').attr('viewBox', [0, 0, W, H]);
+const proj = d3.geoConicConformal().parallels([34, 40.5]).rotate([119, 0]).fitExtent([[24, 24], [W - 24, H - 24]], GEO.ca);
+const path = d3.geoPath(proj);
+
+const root = svg.append('g');
+const defs = svg.append('defs');
+defs.append('clipPath').attr('id', 'caClip').append('path').datum(GEO.ca).attr('d', path);
+
+root.append('g').selectAll('path').data(GEO.neighbors.features).join('path').attr('d', path)
+  .attr('fill', 'var(--neighbor)').attr('stroke', 'var(--neighbor-line)').attr('stroke-width', .8);
+root.append('path').datum(GEO.ca).attr('d', path).attr('fill', 'var(--nodata)');
+
+const cellFeatures = DATA.cells.map((c, i) => ({ type: 'Feature', i, geometry: { type: 'Polygon', coordinates: [[[c[0], c[1]], [c[0], c[1] + c[2]], [c[0] + c[2], c[1] + c[2]], [c[0] + c[2], c[1]], [c[0], c[1]]]] } }));
+const cellsG = root.append('g').attr('clip-path', 'url(#caClip)');
+const cellSel = cellsG.selectAll('path').data(cellFeatures).join('path').attr('d', path).attr('stroke', 'none').attr('shape-rendering', 'crispEdges');
+
+const countyMesh = root.append('path').datum(GEO.countyMesh).attr('d', path).attr('fill', 'none').attr('stroke', 'var(--bg)').attr('stroke-opacity', .55).attr('stroke-width', .6);
+const roadsG = root.append('g').attr('display', 'none');
+roadsG.selectAll('path').data(DATA.routes).join('path')
+  .attr('d', r => path({ type: 'LineString', coordinates: r.pts }))
+  .attr('fill', 'none').attr('stroke', 'var(--surface)').attr('stroke-opacity', .8)
+  .attr('stroke-width', r => r.cls.startsWith('freeway') ? 1.4 : .7);
+
+const stroke = 'var(--ink)';
+root.append('path').datum(GEO.county).attr('d', path).attr('fill', 'none').attr('stroke', stroke).attr('stroke-width', 1.6).attr('stroke-dasharray', '5 3').attr('class', 'bd');
+root.append('path').datum(GEO.city).attr('d', path).attr('fill', 'none').attr('stroke', stroke).attr('stroke-width', 1.1).attr('stroke-dasharray', '2 2').attr('class', 'bd');
+root.append('path').datum(GEO.ca).attr('d', path).attr('fill', 'none').attr('stroke', stroke).attr('stroke-width', 2.4).attr('stroke-linejoin', 'round').attr('class', 'bd');
+
+// neighbor labels
+const labelsG = root.append('g').attr('font-family', '"Barlow Condensed",Arial,sans-serif').attr('font-weight', 600).attr('font-size', 15).attr('letter-spacing', '.12em').attr('fill', 'var(--muted)').attr('text-anchor', 'middle');
+[['OREGON', -121.4, 42.35, 0], ['NEVADA', -117.4, 39.3, 0], ['ARIZONA', -114.38, 34.45, 90], ['MEXICO', -116.2, 32.25, 0], ['PACIFIC OCEAN', -122.9, 35.3, 0]].forEach(([t, lo, la, rot]) => {
+  const p = proj([lo, la]); if (p) labelsG.append('text').attr('transform', `translate(${p[0]},${p[1]}) rotate(${rot})`).text(t);
+});
+
+const markG = root.append('g');
+const originP = proj([DATA.origin.lon, DATA.origin.lat]);
+
+// ---------- zoom ----------
+let k = 1;
+const zoom = d3.zoom().scaleExtent([1, 14]).translateExtent([[0, 0], [W, H]]).on('zoom', ev => {
+  k = ev.transform.k;
+  root.attr('transform', ev.transform);
+  root.selectAll('.bd').attr('stroke-width', function () { return +this.dataset.w / Math.sqrt(k); });
+  markG.attr('font-size', 13 / Math.sqrt(k));
+  markG.selectAll('.pin').attr('r', 4.5 / Math.sqrt(k)).attr('stroke-width', 1.5 / Math.sqrt(k));
+  markG.selectAll('.orig').attr('r', 5.5 / Math.sqrt(k)).attr('stroke-width', 2 / Math.sqrt(k));
+  countyMesh.attr('stroke-width', .6 / k);
+  labelsG.attr('font-size', 15 / Math.sqrt(k));
+});
+root.selectAll('.bd').each(function () { this.dataset.w = this.getAttribute('stroke-width'); });
+svg.call(zoom);
+d3.select('#zin').on('click', () => svg.transition().duration(250).call(zoom.scaleBy, 1.6));
+d3.select('#zout').on('click', () => svg.transition().duration(250).call(zoom.scaleBy, 1 / 1.6));
+d3.select('#zca').on('click', () => svg.transition().duration(400).call(zoom.transform, d3.zoomIdentity));
+d3.select('#zla').on('click', () => {
+  const [[x0, y0], [x1, y1]] = path.bounds(GEO.county);
+  const s = Math.min(14, .9 / Math.max((x1 - x0) / W, (y1 - y0) / H));
+  svg.transition().duration(500).call(zoom.transform, d3.zoomIdentity.translate(W / 2, H / 2).scale(s).translate(-(x0 + x1) / 2, -(y0 + y1) / 2));
+});
+
+// ---------- coloring ----------
+const fmt = m => {
+  if (m == null || !isFinite(m)) return 'no route';
+  const h = Math.floor(m / 60), mm = Math.round(m % 60);
+  return h ? `${h} h ${String(mm).padStart(2, '0')} min` : `${mm} min`;
+};
+const fmtBig = m => {
+  if (m == null || !isFinite(m)) return '<span class="t">—</span>';
+  const h = Math.floor(m / 60), mm = Math.round(m % 60);
+  return h ? `<span class="t">${h}<small>h</small> ${String(mm).padStart(2, '0')}<small>m</small></span>` : `<span class="t">${mm}<small>min</small></span>`;
+};
+let nBands = 1, bandColor = [];
+function render() {
+  const mins = cellMinutes();
+  const valid = mins.filter(m => m != null && isFinite(m));
+  const maxM = d3.max(valid) || BAND;
+  nBands = Math.ceil(maxM / BAND);
+  bandColor = d3.range(nBands).map(i => mixOklab(nBands > 1 ? i / (nBands - 1) : 0));
+  cellSel.attr('fill', d => { const m = mins[d.i]; return m == null || !isFinite(m) ? 'var(--nodata)' : bandColor[Math.min(nBands - 1, Math.floor(m / BAND))]; });
+  d3.select('#bar').selectAll('span').data(bandColor).join('span').style('background', c => c);
+  const stepH = nBands > 16 ? 120 : 60;
+  const ticks = d3.range(0, nBands * BAND + 1, stepH);
+  d3.select('#ticks').selectAll('span').data(ticks).join('span').style('left', t => (100 * t / (nBands * BAND)) + '%').text(t => t === 0 ? '0' : (t / 60) + ' h');
+  renderExits();
+  const live = mode === 'osrm';
+  d3.select('#modeBadge').classed('live', live);
+  d3.select('#modeText').text(live ? 'Live OSRM routing' + (osrm.fetchedAt ? ' · ' + new Date(osrm.fetchedAt).toLocaleDateString() : '') : 'Estimated from highway model');
+  d3.select('#useModel').property('hidden', !live);
+  d3.select('#dl').property('hidden', !live);
+}
+
+const bearing = (lon, lat) => {
+  const dx = (lon - DATA.origin.lon) * Math.cos(DATA.origin.lat * Math.PI / 180), dy = lat - DATA.origin.lat;
+  const a = (Math.atan2(dx, dy) * 180 / Math.PI + 360) % 360;
+  return ['north', 'northeast', 'east', 'southeast', 'south', 'southwest', 'west', 'northwest'][Math.round(a / 45) % 8];
+};
+const pinSvg = (dash, w) => `<svg width="22" height="10"><line x1="0" y1="5" x2="22" y2="5" stroke="currentColor" stroke-width="${w}" ${dash ? `stroke-dasharray="${dash}"` : ''}/></svg>`;
+function renderExits() {
+  const ex = exitData();
+  const rows = [
+    ['city', 'Leave the city', pinSvg('2 2', 1.2)],
+    ['county', 'Leave LA County', pinSvg('5 3', 1.6)],
+    ['state', 'Leave California', pinSvg('', 2.4)],
+  ];
+  const html = rows.map(([key, title, icon]) => {
+    const list = (ex[key] || []).filter(c => c.minutes != null && isFinite(c.minutes)).slice().sort((a, b) => a.minutes - b.minutes);
+    const best = list[0];
+    const via = best ? (best.label ? `via ${best.route} at ${best.label}` : `via ${best.route} heading ${bearing(best.lon, best.lat)}`) : 'no crossing found';
+    let alts = '';
+    if (key === 'state' && list.length > 1) {
+      const seen = new Set(), keep = [];
+      for (const c of list) { const dest = (c.label || '').split(', ').pop(); if (dest && !seen.has(dest)) { seen.add(dest); keep.push(c); } }
+      alts = `<ul class="alts">${keep.slice(0, 5).map(c => `<li><span>${c.route} · ${c.label}</span><span>${fmt(c.minutes)}</span></li>`).join('')}</ul>`;
+    } else if (list.length > 1) {
+      alts = `<ul class="alts">${list.slice(1, 4).map(c => `<li><span>${c.route} heading ${bearing(c.lon, c.lat)}</span><span>${fmt(c.minutes)}</span></li>`).join('')}</ul>`;
+    }
+    return `<div class="exit"><div class="k">${icon}<h3>${title}</h3></div>${fmtBig(best && best.minutes)}<div class="v">${via}</div></div>${alts}`;
+  }).join('');
+  d3.select('#exits').html(html);
+
+  // markers: fastest crossing per boundary + one per state-exit destination
+  const marks = [];
+  ['city', 'county'].forEach(key => { const b = (ex[key] || [])[0]; if (b) marks.push({ ...b, key }); });
+  const seen = new Set();
+  (ex.state || []).slice().sort((a, b) => a.minutes - b.minutes).forEach(c => { const d = (c.label || '').split(', ').pop(); if (!seen.has(d)) { seen.add(d); marks.push({ ...c, key: 'state' }); } });
+  markG.selectAll('*').remove();
+  markG.attr('font-family', '"Barlow Condensed",Arial,sans-serif').attr('font-weight', 600).attr('font-size', 13 / Math.sqrt(k)).attr('fill', 'var(--ink)');
+  marks.forEach(m => {
+    const p = proj([m.lon, m.lat]); if (!p) return;
+    const g = markG.append('g').attr('transform', `translate(${p[0]},${p[1]})`);
+    g.append('circle').attr('class', 'pin').attr('r', 4.5 / Math.sqrt(k)).attr('fill', 'var(--surface)').attr('stroke', 'var(--ink)').attr('stroke-width', 1.5 / Math.sqrt(k));
+    if (m.key === 'state') {
+      const north = m.lat > 41.9;
+      const t = g.append('text').attr('x', north ? 0 : 7).attr('y', north ? -9 : 4).attr('paint-order', 'stroke').attr('stroke', 'var(--bg)').attr('stroke-width', 3).attr('stroke-linejoin', 'round').text(`${fmt(m.minutes)} · ${m.label.split(', ').pop()}`);
+      if (north) t.attr('text-anchor', 'middle'); else if (m.lon < -122) t.attr('text-anchor', 'end').attr('x', -7);
+    }
+    g.append('title').text(`${m.route}: ${fmt(m.minutes)}`);
+  });
+  const o = markG.append('g').attr('transform', `translate(${originP[0]},${originP[1]})`);
+  o.append('circle').attr('class', 'orig').attr('r', 5.5 / Math.sqrt(k)).attr('fill', 'var(--ink)').attr('stroke', 'var(--bg)').attr('stroke-width', 2 / Math.sqrt(k));
+  o.append('title').text('Downtown Los Angeles');
+}
+
+// ---------- hover ----------
+const tip = d3.select('#tip'), box = document.querySelector('.mapbox');
+cellSel.on('pointerenter pointermove', (ev, d) => {
+  const m = cellMinutes()[d.i];
+  const b = m == null || !isFinite(m) ? -1 : Math.min(nBands - 1, Math.floor(m / BAND));
+  const r = box.getBoundingClientRect();
+  tip.style('left', (ev.clientX - r.left) + 'px').style('top', (ev.clientY - r.top) + 'px').style('opacity', 1)
+    .html(`<b>${fmt(m)}</b>${b < 0 ? 'no routable road nearby' : `band ${fmt(b * BAND)} – ${fmt((b + 1) * BAND)}`}`);
+  d3.select('#bar').selectAll('span').classed('on', (c, i) => i === b);
+  d3.select(ev.currentTarget).attr('stroke', 'var(--ink)').attr('stroke-width', 1 / k).raise();
+}).on('pointerleave', ev => {
+  tip.style('opacity', 0); d3.select('#bar').selectAll('span').classed('on', false);
+  d3.select(ev.currentTarget).attr('stroke', 'none');
+});
+
+// ---------- options ----------
+d3.select('#showRoads').on('change', function () { roadsG.attr('display', this.checked ? null : 'none'); });
+d3.select('#showCounties').on('change', function () { countyMesh.attr('display', this.checked ? null : 'none'); });
+if (DATA.cityIsApprox) {
+  d3.select('#cityNote').text(' (approx.)');
+  d3.select('#cityApprox').text('The city outline is a hand-traced approximation; drop LA GeoHub\'s City Boundary GeoJSON in data/la_city.geojson and rebuild for exact limits.');
+}
+
+// ---------- live OSRM ----------
+const OSRM = 'https://router.project-osrm.org/table/v1/driving/';
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+async function table(dests) {
+  const coords = [[DATA.origin.lon, DATA.origin.lat], ...dests].map(p => p[0].toFixed(5) + ',' + p[1].toFixed(5)).join(';');
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const res = await fetch(OSRM + coords + '?sources=0&annotations=duration');
+    if (res.status === 429 || res.status >= 500) { await sleep(1500 * (attempt + 1)); continue; }
+    const j = await res.json();
+    if (j.code !== 'Ok') throw new Error(j.message || j.code);
+    return j.durations[0].slice(1).map(s => s == null ? null : s / 60);
+  }
+  throw new Error('OSRM kept rate-limiting; try again in a minute.');
+}
+const status = (t) => d3.select('#status').text(t);
+d3.select('#loadOsrm').on('click', async function () {
+  const btn = d3.select(this).attr('disabled', true);
+  const prog = d3.select('#prog').property('hidden', false);
+  try {
+    const centers = DATA.cells.map(c => [c[0] + c[2] / 2, c[1] + c[2] / 2]);
+    const CH = 99, out = [];
+    const chunks = Math.ceil(centers.length / CH);
+    for (let i = 0; i < chunks; i++) {
+      status(`Routing cells ${i * CH + 1}–${Math.min(centers.length, (i + 1) * CH)} of ${centers.length}…`);
+      out.push(...await table(centers.slice(i * CH, (i + 1) * CH)));
+      prog.select('i').style('width', (100 * (i + 1) / (chunks + 1)) + '%');
+      await sleep(250);
+    }
+    status('Routing border crossings…');
+    const exits = {};
+    for (const key of ['city', 'county', 'state']) {
+      const list = DATA.exits[key];
+      const mins = await table(list.map(c => [c.lon, c.lat]));
+      exits[key] = list.map((c, j) => ({ ...c, minutes: mins[j] == null ? null : +mins[j].toFixed(1) })).filter(c => c.minutes != null).sort((a, b) => a.minutes - b.minutes);
+      await sleep(250);
+    }
+    osrm = { fetchedAt: new Date().toISOString(), source: 'router.project-osrm.org', cells: out.map(m => m == null ? null : +m.toFixed(1)), exits };
+    try { localStorage.setItem('la-escape-osrm-v1', JSON.stringify(osrm)); } catch (e) {}
+    mode = 'osrm'; render();
+    prog.select('i').style('width', '100%');
+    status(`Done. ${out.filter(m => m != null).length} of ${out.length} cells routed. Saved in this browser.`);
+  } catch (e) {
+    status('Could not reach OSRM: ' + e.message + ' (open this file locally with internet access).');
+  }
+  btn.attr('disabled', null);
+});
+d3.select('#useModel').on('click', () => { mode = 'model'; render(); status('Showing the highway-model estimate.'); });
+d3.select('#dl').on('click', () => {
+  const blob = new Blob([JSON.stringify(osrm)], { type: 'application/json' });
+  const a = Object.assign(document.createElement('a'), { href: URL.createObjectURL(blob), download: 'osrm_times.json' });
+  document.body.appendChild(a); a.click(); a.remove();
+  status('Saved osrm_times.json. Put it in data/ and run build.py to bake it in.');
+});
+
+render();
+</script>
