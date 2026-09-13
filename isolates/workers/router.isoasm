@@ -1,0 +1,107 @@
+; A small router: dispatches on method and path prefix, uses subroutines.
+;   GET  /            -> index
+;   GET  /api/time    -> JSON timestamp
+;   GET  /api/random  -> a random number
+;   POST /api/shout   -> uppercases the request body
+;   anything else     -> 404
+
+req.path
+push "/"
+eq
+jnz index
+
+req.path
+push "/api/time"
+eq
+jnz api_time
+
+req.path
+push "/api/random"
+eq
+jnz api_random
+
+req.path
+push "/api/shout"
+eq
+jnz api_shout
+
+; fall through: 404
+push 404
+res.status
+push "no route for "
+req.method
+concat
+push " "
+concat
+req.path
+concat
+push "\n"
+concat
+res.body
+halt
+
+index:
+call html
+push "<h1>router worker</h1><ul><li><a href=\"api/time\">/api/time</a></li><li><a href=\"api/random\">/api/random</a></li><li>POST /api/shout</li></ul>"
+res.body
+halt
+
+api_time:
+call json
+push "{\"now_ms\":"
+time
+concat
+push "}\n"
+concat
+res.body
+halt
+
+api_random:
+call json
+push "{\"value\":"
+push 1000000
+rand
+concat
+push "}\n"
+concat
+res.body
+halt
+
+api_shout:
+req.method
+push "POST"
+eq
+jz method_not_allowed
+push "method: "
+req.method
+concat
+log
+req.body
+upper
+push "!\n"
+concat
+res.body
+halt
+
+method_not_allowed:
+push 405
+res.status
+push "allow"
+push "POST"
+res.header
+push "use POST\n"
+res.body
+halt
+
+; --- subroutines -------------------------------------------------
+html:
+push "content-type"
+push "text/html; charset=utf-8"
+res.header
+ret
+
+json:
+push "content-type"
+push "application/json"
+res.header
+ret

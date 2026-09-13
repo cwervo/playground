@@ -1,0 +1,10 @@
+{
+  "name": "isolates dashboard",
+  "short_name": "isolates",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#101418",
+  "theme_color": "#f6821f",
+  "description": "Control plane for the isolates worker platform.",
+  "icons": []
+}

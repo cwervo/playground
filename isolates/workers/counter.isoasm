@@ -1,0 +1,47 @@
+; Hit counter backed by the worker's KV namespace.
+; GET /        -> increments and shows the global count
+; GET /reset   -> clears the count
+
+req.path
+push "/reset"
+eq
+jz count
+
+push "hits"
+kv.del
+push "counter reset\n"
+res.body
+halt
+
+count:
+push "hits"
+kv.get
+atoi              ; "" -> 0 when the key is missing
+push 1
+add
+store 0           ; local 0 = new count
+
+push "hits"
+load 0
+kv.put
+
+push "content-type"
+push "text/plain"
+res.header
+
+push "this worker has been hit "
+load 0
+concat            ; concat formats ints for you
+push " time"
+concat
+load 0
+push 1
+eq
+jnz singular
+push "s"
+concat
+singular:
+push "\n"
+concat
+res.body
+halt

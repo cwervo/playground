@@ -1,0 +1,96 @@
+; REST-style key/value API over the worker's KV namespace.
+;   GET    /<key>        -> value or 404
+;   PUT    /<key>  body  -> store
+;   DELETE /<key>        -> remove
+;   GET    /             -> usage
+
+req.path
+push 1
+push -1
+substr            ; strip the leading "/"
+store 0           ; local 0 = key
+
+load 0
+len
+jz usage
+
+req.method
+push "GET"
+eq
+jnz get
+
+req.method
+push "PUT"
+eq
+jnz put
+
+req.method
+push "POST"
+eq
+jnz put
+
+req.method
+push "DELETE"
+eq
+jnz del
+
+push 405
+res.status
+push "unsupported method\n"
+res.body
+halt
+
+get:
+load 0
+kv.has
+jz missing
+load 0
+kv.get
+res.body
+halt
+
+missing:
+push 404
+res.status
+push "no such key: "
+load 0
+concat
+push "\n"
+concat
+res.body
+halt
+
+put:
+load 0
+req.body
+kv.put
+push 201
+res.status
+push "stored "
+load 0
+concat
+push " ("
+concat
+req.body
+len
+concat
+push " bytes)\n"
+concat
+res.body
+halt
+
+del:
+load 0
+kv.del
+push "deleted "
+load 0
+concat
+push "\n"
+concat
+res.body
+halt
+
+usage:
+push "kv-store worker\n  GET /<key>\n  PUT /<key> <body>\n  DELETE /<key>\n"
+res.body
+halt

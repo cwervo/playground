@@ -1,0 +1,95 @@
+; Query-string parser and a tiny template engine.
+;   /?name=ada&greeting=hi   -> "hi, ada!"
+; Shows substr/find loops for parsing without any helper syscalls.
+
+req.query
+store 0            ; local 0 = remaining query
+push "friend"
+store 1            ; local 1 = name
+push "hello"
+store 2            ; local 2 = greeting
+
+next_pair:
+load 0
+len
+jz render
+
+; split off the first "k=v" pair at "&"
+load 0
+push "&"
+find
+store 3            ; local 3 = index of "&" or -1
+load 3
+push 0
+lt
+jnz last_pair
+
+load 0
+push 0
+load 3
+substr
+store 4            ; local 4 = current pair
+load 0
+load 3
+push 1
+add
+push -1
+substr
+store 0
+jmp handle_pair
+
+last_pair:
+load 0
+store 4
+push ""
+store 0
+
+handle_pair:
+load 4
+push "="
+find
+store 5            ; local 5 = index of "="
+load 5
+push 0
+lt
+jnz next_pair
+
+load 4
+push 0
+load 5
+substr
+store 6            ; local 6 = key
+load 4
+load 5
+push 1
+add
+push -1
+substr
+store 7            ; local 7 = value
+
+load 6
+push "name"
+eq
+jz not_name
+load 7
+store 1
+jmp next_pair
+not_name:
+load 6
+push "greeting"
+eq
+jz next_pair
+load 7
+store 2
+jmp next_pair
+
+render:
+load 2
+push ", "
+concat
+load 1
+concat
+push "!\n"
+concat
+res.body
+halt

@@ -1,0 +1,18 @@
+; Hello world: the smallest possible worker.
+; Each request runs this script from the top in a fresh isolate fiber.
+
+push "content-type"
+push "text/plain; charset=utf-8"
+res.header
+
+push "hello from worker "
+worker            ; -> this worker's name
+concat
+push " on "
+concat
+req.path
+concat
+push "\n"
+concat
+res.body
+halt

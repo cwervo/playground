@@ -1,0 +1,35 @@
+; Echo the request back as JSON.
+
+push "content-type"
+push "application/json"
+res.header
+
+push "{\"method\":\""
+req.method
+concat
+push "\",\"path\":\""
+concat
+req.path
+concat
+push "\",\"query\":\""
+concat
+req.query
+concat
+push "\",\"user_agent\":\""
+concat
+push "user-agent"
+req.header
+concat
+push "\",\"body_length\":"
+concat
+req.body
+len
+concat
+push ",\"time_ms\":"
+concat
+time
+concat
+push "}\n"
+concat
+res.body
+halt

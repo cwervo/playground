@@ -1,0 +1,9 @@
+build/
+bin/
+data/
+dashboard/.dart_tool/
+dashboard/build/
+dashboard/.flutter-plugins
+dashboard/.flutter-plugins-dependencies
+dashboard/pubspec.lock
+*.o

@@ -1,0 +1,71 @@
+; Demonstrates resource limits and fair scheduling.
+;   /            -> does about 50k instructions of work (fits the default budget)
+;   /forever     -> loops until the CPU limit trips (error 1102)
+;   /memory      -> grows a string until the memory limit trips (error 1102)
+;   /trap        -> divides by zero (error 1101)
+
+req.path
+push "/forever"
+eq
+jnz forever
+
+req.path
+push "/memory"
+eq
+jnz memory
+
+req.path
+push "/trap"
+eq
+jnz trap
+
+; 25 rounds of 2000 instructions, yielding between rounds so that other
+; isolates get scheduled in between.
+push 0
+store 0
+work_loop:
+push 2000
+spin
+yield
+load 0
+push 1
+add
+dup
+store 0
+push 25
+lt
+jnz work_loop
+
+push "did "
+load 0
+push 2000
+mul
+concat
+push " instructions of busywork\n"
+concat
+res.body
+halt
+
+forever:
+push "spinning forever..."
+log
+spin_loop:
+push 1000
+spin
+jmp spin_loop
+
+memory:
+push "x"
+store 1
+grow:
+load 1
+load 1
+concat
+store 1
+jmp grow
+
+trap:
+push 1
+push 0
+div
+halt
