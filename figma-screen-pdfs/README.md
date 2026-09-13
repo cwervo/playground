@@ -13,9 +13,29 @@ the Figma render, and the text can be selected, searched and copied.
 | Path | What |
 |---|---|
 | `screens.json` | The 46 screens in board order, plus the layers that were skipped and why |
-| `data/<id>.json` | Text layers per screen, read from Figma (content, box, font size, alignment) |
+| `data/<id>.json` | Text layers per screen (content, box, font size, alignment) |
+| `data/page-metadata.xml` | Raw layer metadata for the whole page, from the Figma MCP `get_metadata` tool |
+| `derive_from_metadata.py` | Fallback that derives `data/<id>.json` from the page metadata |
 | `renders/` | Pixel renders of each screen, one PNG per screen (see below) |
 | `build_pdfs.py` | Builds `pdfs/NN - <screen name>.pdf` and `pdfs/All screens.pdf` (with bookmarks) |
+
+## Status of `data/`
+
+14 screens were read directly from Figma with the Plugin API script below
+(`"source"` absent): the first 10 onboarding screens, Main screen - Borrowing,
+Main screen - Requests, Timeline and Add item. The other 32 carry
+`"source": "metadata"`: the Figma MCP call quota for this seat ran out, so
+they were derived from `page-metadata.xml` by `derive_from_metadata.py`. For
+those screens the text comes from the layer names (Figma names text layers
+after their content, folding line breaks to spaces), positions were validated
+against the 14 directly-read screens, font size and alignment are estimated,
+and text that lives inside component instances (for example shared list rows
+or navigation bars) is not listed in the metadata and so is not embedded.
+Re-running the script below for those ids once the quota resets replaces the
+derived files with exact ones; the builder needs no change.
+
+The invisible text uses DejaVu Sans, which has no colour emoji, so the 🎂 and
+💖 characters on the profile screens are not searchable.
 
 ## Getting the renders
 

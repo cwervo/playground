@@ -1,0 +1,70 @@
+{
+ "id": "227:10284",
+ "name": "Stats",
+ "w": 402.0,
+ "h": 874.0,
+ "count": 4,
+ "source": "metadata",
+ "texts": [
+  {
+   "id": "227:10295",
+   "c": "Stats",
+   "x": 112.0,
+   "y": 65.0,
+   "w": 178.0,
+   "h": 37.0,
+   "fs": null,
+   "font": null,
+   "lh": null,
+   "align": null,
+   "valign": null,
+   "o": 1,
+   "rot": 0
+  },
+  {
+   "id": "324:1777",
+   "c": "Activity",
+   "x": 46.34,
+   "y": 151.09,
+   "w": 309.54,
+   "h": 7.82,
+   "fs": null,
+   "font": null,
+   "lh": null,
+   "align": null,
+   "valign": null,
+   "o": 1,
+   "rot": 0
+  },
+  {
+   "id": "324:1784",
+   "c": "My items",
+   "x": -45.0,
+   "y": 449.0,
+   "w": 309.54,
+   "h": 7.82,
+   "fs": null,
+   "font": null,
+   "lh": null,
+   "align": null,
+   "valign": null,
+   "o": 1,
+   "rot": 0
+  },
+  {
+   "id": "324:1788",
+   "c": "Collectory",
+   "x": 140.0,
+   "y": 449.0,
+   "w": 309.54,
+   "h": 7.82,
+   "fs": null,
+   "font": null,
+   "lh": null,
+   "align": null,
+   "valign": null,
+   "o": 1,
+   "rot": 0
+  }
+ ]
+}

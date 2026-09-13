@@ -84,6 +84,17 @@ def load_texts(screen):
     return json.loads(p.read_text(encoding="utf-8"))
 
 
+def estimate_font_size(font, text, rect):
+    """For layers whose font size is unknown (data derived from metadata):
+    the largest size at which the wrapped text still fits the box."""
+    lines = text.split("\n")
+    for fs in range(72, 3, -1):
+        n_lines = sum(max(1, -(-font.text_length(line, fontsize=fs) // max(rect.width - 0.5, 1))) for line in lines)
+        if n_lines * fs * 1.2 <= rect.height + 0.5:
+            return float(fs)
+    return 4.0
+
+
 def add_text_layer(page, texts, font, fontfile):
     """Write each Figma text layer as invisible text inside its bounding box."""
     written = 0
@@ -91,10 +102,10 @@ def add_text_layer(page, texts, font, fontfile):
         text = t["c"].replace("\u2028", "\n").replace("\r", "\n")
         if not text.strip():
             continue
-        rect = pymupdf.Rect(t["x"], t["y"], t["x"] + t["w"], t["y"] + t["h"])
+        rect = pymupdf.Rect(t["x"], t["y"], t["x"] + t["w"], t["y"] + t["h"]) & page.rect
         if rect.is_empty or rect.width < 1 or rect.height < 1:
             continue
-        fs = float(t.get("fs") or 12)
+        fs = float(t["fs"]) if t.get("fs") else estimate_font_size(font, text, rect)
         align = ALIGN.get(t.get("align"), pymupdf.TEXT_ALIGN_LEFT)
         lines = text.split("\n")
         # Line height ratio: Figma gives px or %, or AUTO (about 1.2 for most fonts).
