@@ -98,11 +98,11 @@ class WorkerDetail extends WorkerSummary {
   final String script;
   final Map<String, String> env;
 
-  WorkerDetail.fromJson(Map<String, dynamic> j)
+  WorkerDetail.fromJson(super.j)
       : script = _str(j['script']),
         env = ((j['env'] as Map?) ?? const {})
             .map((k, v) => MapEntry(k.toString(), v.toString())),
-        super.fromJson(j);
+        super.fromJson();
 }
 
 class LogEntry {

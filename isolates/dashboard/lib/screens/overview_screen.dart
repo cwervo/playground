@@ -92,7 +92,7 @@ class _OverviewScreenState extends State<OverviewScreen> {
             physics: const NeverScrollableScrollPhysics(),
             mainAxisSpacing: 12,
             crossAxisSpacing: 12,
-            childAspectRatio: 2.1,
+            childAspectRatio: 3.6,
             children: [
               StatCard(
                   label: 'Isolates',

@@ -1040,24 +1040,6 @@ int iso_server_run(iso_platform *p, const iso_server_opts *opts)
             break;
         }
 
-        if (pfds[0].revents & POLLIN) {
-            for (;;) {
-                int fd = accept(sv.listen_fd, NULL, NULL);
-                if (fd < 0)
-                    break;
-                set_nonblock(fd);
-                setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &one, sizeof one);
-                conn *c = calloc(1, sizeof *c);
-                c->fd = fd;
-                c->state = C_READ;
-                c->t0 = iso_now_ns();
-                c->next = sv.conns;
-                sv.conns = c;
-                sv.nconns++;
-                sv.total_conns++;
-            }
-        }
-
         n = 1;
         for (conn *c = sv.conns; c; c = c->next, n++) {
             short ev = pfds[n].revents;
@@ -1091,6 +1073,30 @@ int iso_server_run(iso_platform *p, const iso_server_opts *opts)
                     c->out_off += (size_t)w;
                 if (c->out_off >= c->out.n)
                     c->state = C_CLOSE;
+            }
+        }
+
+        /* Accept after dispatching events: new connections are prepended
+         * to the list, which would misalign it with pfds[]. */
+        if (pfds[0].revents & POLLIN) {
+            for (;;) {
+                int fd = accept(sv.listen_fd, NULL, NULL);
+                if (fd < 0)
+                    break;
+                set_nonblock(fd);
+                setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &one, sizeof one);
+                conn *c = calloc(1, sizeof *c);
+                if (!c) {
+                    close(fd);
+                    continue;
+                }
+                c->fd = fd;
+                c->state = C_READ;
+                c->t0 = iso_now_ns();
+                c->next = sv.conns;
+                sv.conns = c;
+                sv.nconns++;
+                sv.total_conns++;
             }
         }
 

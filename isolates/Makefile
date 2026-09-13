@@ -66,8 +66,11 @@ bench: bin/isolates
 asm-listing: build/context_asm.o
 	objdump -d build/context_asm.o
 
+# Same-origin build, served by `isolates serve --dashboard dashboard/build/web`
+# (which `make run` does automatically once the build exists).
 dashboard:
-	cd dashboard && flutter pub get && flutter build web --release
+	cd dashboard && flutter pub get && flutter build web --release \
+	  --no-web-resources-cdn --dart-define=ISOLATES_API=
 
 clean:
 	rm -rf build bin

@@ -6,8 +6,8 @@ directory. It talks only to the runtime's JSON control plane (`/api/...`).
 ```sh
 flutter pub get
 flutter run -d chrome                       # dev: points at http://127.0.0.1:8787
-flutter build web --dart-define=ISOLATES_API=   # prod: same-origin, serve with
-../bin/isolates serve --dashboard build/web       # the runtime itself
+flutter build web --no-web-resources-cdn --dart-define=ISOLATES_API=
+../bin/isolates serve --dashboard build/web   # prod: same-origin, served by the runtime
 ```
 
 The API URL can also be changed at runtime from the toolbar button at the

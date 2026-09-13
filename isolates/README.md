@@ -150,12 +150,16 @@ served from anywhere during development.
 
 ## Dashboard
 
+![overview](docs/dashboard-overview.png)
+
+![invoke console showing an error 1102](docs/dashboard-invoke.png)
+
 ```sh
 cd dashboard
 flutter pub get
 flutter run -d chrome                            # against http://127.0.0.1:8787
-flutter build web --dart-define=ISOLATES_API=    # same-origin build, then:
-cd .. && make run                                # picks up dashboard/build/web
+cd .. && make dashboard                          # same-origin web build, then
+make run                                         # serves it at http://127.0.0.1:8787/
 ```
 
 `make run` serves the built dashboard at `http://127.0.0.1:8787/` when it

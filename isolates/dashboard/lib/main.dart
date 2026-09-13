@@ -109,7 +109,7 @@ class _ShellState extends State<Shell> {
             selectedIndex: _section.index,
             onDestinationSelected: (i) => setState(() {
               _section = _Section.values[i];
-              if (_section != _Section.workers) _openWorker = null;
+              _openWorker = null; // selecting Workers again returns to the list
             }),
             labelType: NavigationRailLabelType.all,
             leading: Padding(

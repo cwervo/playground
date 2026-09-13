@@ -331,24 +331,20 @@ class _NewWorkerDialogState extends State<NewWorkerDialog> {
                 child: SingleChildScrollView(
                   child: Column(
                     children: [
-                      RadioListTile<ExampleScript?>(
-                        value: null,
-                        groupValue: _selected,
-                        dense: true,
+                      _ChoiceTile(
+                        selected: _selected == null,
                         title: const Text('Blank script'),
-                        onChanged: (v) => setState(() => _selected = null),
+                        onTap: () => setState(() => _selected = null),
                       ),
                       for (final ex in examples)
-                        RadioListTile<ExampleScript?>(
-                          value: ex,
-                          groupValue: _selected,
-                          dense: true,
+                        _ChoiceTile(
+                          selected: identical(_selected, ex),
                           title: Text(ex.name, style: const TextStyle(fontFamily: 'monospace')),
                           subtitle: ex.description.isEmpty ? null : Text(ex.description),
-                          onChanged: (v) => setState(() {
-                            _selected = v;
-                            if (v != null && (_name.text.isEmpty || examples.any((e) => e.name == _name.text))) {
-                              _name.text = v.name;
+                          onTap: () => setState(() {
+                            _selected = ex;
+                            if (_name.text.isEmpty || examples.any((e) => e.name == _name.text)) {
+                              _name.text = ex.name;
                             }
                           }),
                         ),
@@ -367,6 +363,36 @@ class _NewWorkerDialogState extends State<NewWorkerDialog> {
         TextButton(onPressed: _busy ? null : () => Navigator.pop(context), child: const Text('Cancel')),
         FilledButton(onPressed: _busy ? null : _create, child: const Text('Deploy')),
       ],
+    );
+  }
+}
+
+class _ChoiceTile extends StatelessWidget {
+  const _ChoiceTile({
+    required this.selected,
+    required this.title,
+    required this.onTap,
+    this.subtitle,
+  });
+
+  final bool selected;
+  final Widget title;
+  final Widget? subtitle;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return ListTile(
+      dense: true,
+      selected: selected,
+      leading: Icon(
+        selected ? Icons.radio_button_checked : Icons.radio_button_off,
+        color: selected ? cs.primary : cs.onSurfaceVariant,
+      ),
+      title: title,
+      subtitle: subtitle,
+      onTap: onTap,
     );
   }
 }
