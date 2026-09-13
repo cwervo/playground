@@ -1,0 +1,49 @@
+# XcodeGen spec. Run `xcodegen generate` in this folder, then open PiPStamp.xcodeproj.
+# Before building: set DEVELOPMENT_TEAM, and change the bundle IDs and the App
+# Group (here and in both .entitlements files) to ones registered to your team.
+name: PiPStamp
+options:
+  bundleIdPrefix: com.cwervo
+  deploymentTarget:
+    iOS: "16.0"
+  createIntermediateGroups: true
+settings:
+  base:
+    SWIFT_VERSION: "5.9"
+    CODE_SIGN_STYLE: Automatic
+    DEVELOPMENT_TEAM: ""
+    TARGETED_DEVICE_FAMILY: "1,2"
+    MARKETING_VERSION: "0.1.0"
+    CURRENT_PROJECT_VERSION: "1"
+targets:
+  PiPStamp:
+    type: application
+    platform: iOS
+    sources:
+      - path: PiPStamp
+      - path: Shared
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.cwervo.pipstamp
+        INFOPLIST_FILE: PiPStamp/Info.plist
+        CODE_SIGN_ENTITLEMENTS: PiPStamp/PiPStamp.entitlements
+        GENERATE_INFOPLIST_FILE: NO
+    dependencies:
+      - target: PiPStampKeyboard
+        embed: true
+  PiPStampKeyboard:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: PiPStampKeyboard
+      - path: Shared
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.cwervo.pipstamp.keyboard
+        INFOPLIST_FILE: PiPStampKeyboard/Info.plist
+        CODE_SIGN_ENTITLEMENTS: PiPStampKeyboard/PiPStampKeyboard.entitlements
+        GENERATE_INFOPLIST_FILE: NO
+        APPLICATION_EXTENSION_API_ONLY: YES
+        # Add PIPSTAMP_PRIVATE_HOST_ID here to read the host app's bundle ID
+        # through a private property. Fine for personal builds, not for the App Store.
+        SWIFT_ACTIVE_COMPILATION_CONDITIONS: "$(inherited)"
