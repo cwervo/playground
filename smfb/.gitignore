@@ -1,0 +1,11 @@
+build/
+build-*/
+*.xcodeproj/
+*.xcworkspace/
+.build/
+.swiftpm/
+DerivedData/
+xcuserdata/
+result
+result-*
+Apps/Info-*.plist

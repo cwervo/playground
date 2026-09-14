@@ -1,0 +1,112 @@
+# XcodeGen spec — `xcodegen generate` (or `nix run .#xcodeproj`) writes
+# SMFB.xcodeproj with one app target per platform, all built from the same
+# Apps/Shared/SMFBApp.swift and the SMFBKit package next door.
+name: SMFB
+options:
+  bundleIdPrefix: com.cwervo.smfb
+  deploymentTarget:
+    iOS: "16.0"
+    macOS: "13.0"
+    watchOS: "9.0"
+    tvOS: "16.0"
+  createIntermediateGroups: true
+  generateEmptyDirectories: true
+  xcodeVersion: "15.0"
+
+settings:
+  base:
+    SWIFT_VERSION: "5.9"
+    MARKETING_VERSION: "0.1.0"
+    CURRENT_PROJECT_VERSION: "1"
+    SWIFT_STRICT_CONCURRENCY: minimal
+    ENABLE_USER_SCRIPT_SANDBOXING: true
+
+packages:
+  SMFBKit:
+    path: SMFBKit
+
+targetTemplates:
+  App:
+    type: application
+    sources:
+      - path: Apps/Shared
+    dependencies:
+      - package: SMFBKit
+        product: SMFBKit
+
+targets:
+  SMFB-iOS:
+    templates: [App]
+    platform: iOS
+    settings:
+      base:
+        PRODUCT_NAME: Fly Mouse
+        PRODUCT_BUNDLE_IDENTIFIER: com.cwervo.smfb.ios
+        TARGETED_DEVICE_FAMILY: "1,2"
+    info:
+      path: Apps/Info-iOS.plist
+      properties:
+        CFBundleDisplayName: Fly Mouse
+        UILaunchScreen: {}
+        UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait, UIInterfaceOrientationLandscapeLeft, UIInterfaceOrientationLandscapeRight]
+        UISupportedInterfaceOrientations~ipad: [UIInterfaceOrientationPortrait, UIInterfaceOrientationPortraitUpsideDown, UIInterfaceOrientationLandscapeLeft, UIInterfaceOrientationLandscapeRight]
+        UIStatusBarHidden: true
+        UIViewControllerBasedStatusBarAppearance: false
+        UIRequiresFullScreen: false
+
+  SMFB-macOS:
+    templates: [App]
+    platform: macOS
+    settings:
+      base:
+        PRODUCT_NAME: Fly Mouse
+        PRODUCT_BUNDLE_IDENTIFIER: com.cwervo.smfb.macos
+    info:
+      path: Apps/Info-macOS.plist
+      properties:
+        CFBundleDisplayName: Fly Mouse
+        LSApplicationCategoryType: public.app-category.simulation-games
+        NSHumanReadableCopyright: ""
+
+  SMFB-watchOS:
+    templates: [App]
+    platform: watchOS
+    settings:
+      base:
+        PRODUCT_NAME: Fly Mouse
+        PRODUCT_BUNDLE_IDENTIFIER: com.cwervo.smfb.watchos
+        TARGETED_DEVICE_FAMILY: "4"
+    info:
+      path: Apps/Info-watchOS.plist
+      properties:
+        CFBundleDisplayName: Fly Mouse
+        WKApplication: true
+        WKWatchOnly: true
+
+  SMFB-tvOS:
+    templates: [App]
+    platform: tvOS
+    settings:
+      base:
+        PRODUCT_NAME: Fly Mouse
+        PRODUCT_BUNDLE_IDENTIFIER: com.cwervo.smfb.tvos
+        TARGETED_DEVICE_FAMILY: "3"
+    info:
+      path: Apps/Info-tvOS.plist
+      properties:
+        CFBundleDisplayName: Fly Mouse
+        UIUserInterfaceStyle: Automatic
+
+schemes:
+  SMFB-iOS:
+    build: { targets: { SMFB-iOS: all } }
+    run: { config: Debug }
+  SMFB-macOS:
+    build: { targets: { SMFB-macOS: all } }
+    run: { config: Debug }
+  SMFB-watchOS:
+    build: { targets: { SMFB-watchOS: all } }
+    run: { config: Debug }
+  SMFB-tvOS:
+    build: { targets: { SMFB-tvOS: all } }
+    run: { config: Debug }
