@@ -1,0 +1,11 @@
+{
+  "name": "retinal-vision",
+  "version": "0.1.0",
+  "description": "Camera light -> retina (rods, cones, bipolar, ganglion LIF) -> LGN -> V1 perceptrons -> V2, all in one linear memory, in the browser.",
+  "private": true,
+  "scripts": {
+    "test": "node --test tests/*.test.js",
+    "start": "python3 -m http.server 8080"
+  },
+  "license": "MIT"
+}

@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>Retinal Vision -- camera to retina to V1/V2 in linear memory</title>
+	<link rel="icon" href="data:,">
+	<link rel="stylesheet" href="css/main.css">
+</head>
+<body>
+	<div id="toolbar">
+		<div class="toolbar-left">
+			<span class="title">Retinal Vision</span>
+			<span id="status" class="status loading">starting...</span>
+		</div>
+		<div class="toolbar-right">
+			<span id="stats" class="stats"></span>
+		</div>
+	</div>
+
+	<div id="layout">
+		<div id="controls">
+			<div class="group">
+				<div class="group-title">Light</div>
+				<label>Camera <select id="camera"></select></label>
+				<button id="sourceBtn" class="btn">Source: none</button>
+				<label>Light level (log10) <input id="light" type="range" min="-4" max="2" step="0.1" value="0"><span id="lightLabel" class="val"></span></label>
+				<label>Photoreceptor noise <input id="noise" type="range" min="0" max="0.1" step="0.005" value="0.01"><span id="noiseLabel" class="val"></span></label>
+			</div>
+			<div class="group">
+				<div class="group-title">Two eyes</div>
+				<label>Stereo
+					<select id="stereo">
+						<option value="none">off</option>
+						<option value="synthetic">synthetic (shifted copy)</option>
+						<option value="camera">second camera</option>
+					</select>
+				</label>
+				<label>Right camera <select id="cameraR"></select></label>
+				<label id="disp-row">Synthetic shift <input id="shift" type="range" min="-6" max="6" step="1" value="3"><span id="shiftLabel" class="val"></span></label>
+			</div>
+			<div class="group">
+				<div class="group-title">Plasticity (V1 perceptrons)</div>
+				<label><input id="plasticity" type="checkbox"> Hebbian learning (Sanger / Oja)</label>
+				<label>Rate <input id="eta" type="range" min="0.0002" max="0.02" step="0.0002" value="0.002"><span id="etaLabel" class="val"></span></label>
+				<div class="row">
+					<button id="resetGabor" class="btn">Reset: Gabor (adult)</button>
+					<button id="resetRandom" class="btn">Reset: random (newborn) + learn</button>
+				</div>
+				<div class="hint">Templates of the V1 simple-cell perceptrons (SF 0; even, odd per orientation):</div>
+				<canvas id="p-templates" class="templates"></canvas>
+			</div>
+			<div class="group">
+				<div class="group-title">Field stimulus / response curves</div>
+				<label>Probe
+					<select id="probe">
+						<option value="orientation">V1 orientation tuning</option>
+						<option value="contrast">V1 contrast response</option>
+						<option value="sf">V1 spatial-frequency tuning</option>
+						<option value="direction">Direction tuning (V1 + retinal DSGC)</option>
+						<option value="intensity">Photoreceptor intensity-response (rods vs cones)</option>
+						<option value="area">Ganglion-cell area summation</option>
+						<option value="rfmap">Receptive-field map by spot flashing</option>
+						<option value="disparity">Binocular disparity tuning (RDS)</option>
+					</select>
+				</label>
+				<div class="row"><button id="runProbe" class="btn primary">Run probe</button><span id="probeProgress" class="val"></span></div>
+				<canvas id="plot" width="420" height="300" class="plot"></canvas>
+			</div>
+			<div class="group">
+				<div class="group-title">Linear memory <button id="memmapToggle" class="btn small">map</button></div>
+				<div id="scale" class="hint"></div>
+				<pre id="memmap" class="memmap" style="display:none"></pre>
+			</div>
+		</div>
+
+		<div id="panels">
+			<div class="stage">
+				<div class="stage-title">Light &rarr; retina</div>
+				<div class="panel"><canvas id="p-camera"></canvas><div class="label">camera (light)</div></div>
+				<div class="panel"><canvas id="p-cones"></canvas><div class="label">cones L,M,S hyperpolarisation (Naka-Rushton, Weber adapted)</div></div>
+				<div class="panel"><canvas id="p-rods"></canvas><div class="label">rods (saturate in bright light, absent at fovea, slow)</div></div>
+				<div class="panel"><canvas id="p-bipolar"></canvas><div class="label">bipolar cells: ON (green, mGluR6 sign-inverting) / OFF (magenta)</div></div>
+				<div class="panel"><canvas id="p-color"></canvas><div class="label">cone-opponent L-M (green = L, magenta = M)</div></div>
+			</div>
+			<div class="stage">
+				<div class="stage-title">Ganglion cells (leaky integrate-and-fire)</div>
+				<div class="panel"><canvas id="p-midget"></canvas><div class="label">midget / parvo spikes: ON-centre (green), OFF-centre (magenta)</div></div>
+				<div class="panel"><canvas id="p-parasol"></canvas><div class="label">parasol / magno spikes (transient)</div></div>
+				<div class="panel"><canvas id="p-ds"></canvas><div class="label">ON-OFF direction-selective cells (hue = direction: red right, green down, cyan left, purple up)</div></div>
+				<div class="panel"><canvas id="p-lgn"></canvas><div class="label">LGN contrast relay ON - OFF (after gain control)</div></div>
+			</div>
+			<div class="stage">
+				<div class="stage-title">V1 (perceptron hypercolumns)</div>
+				<div class="panel"><canvas id="p-v1-ori"></canvas><div class="label">complex cells, SF 0: hue = preferred orientation (red 0&deg;, yellow 45&deg;, cyan 90&deg;, purple 135&deg;)</div></div>
+				<div class="panel"><canvas id="p-v1-ori-sf1"></canvas><div class="label">complex cells, SF 1 (coarser)</div></div>
+				<div class="panel"><canvas id="p-v1-simple"></canvas><div class="label">simple cells, even phase: bright-bar (green) vs dark-bar (magenta) polarity</div></div>
+				<div class="panel"><canvas id="p-v1-dir"></canvas><div class="label">direction-selective cells (hue = motion direction)</div></div>
+				<div class="panel"><canvas id="p-v1-disp"></canvas><div class="label">disparity: near (red), zero (green), far (blue) -- needs stereo</div></div>
+			</div>
+			<div class="stage">
+				<div class="stage-title">V2</div>
+				<div class="panel"><canvas id="p-v2-corner"></canvas><div class="label">corner / angle cells (co-located orthogonal orientations)</div></div>
+				<div class="panel"><canvas id="p-v2-end"></canvas><div class="label">end-stopped cells (line terminations, hue = orientation)</div></div>
+				<div class="panel"><canvas id="p-v2-bo"></canvas><div class="label">border ownership (hue = orientation + which side owns the edge)</div></div>
+				<div class="panel"><canvas id="p-v2-tex"></canvas><div class="label">texture cells (pooled energy x orientation heterogeneity)</div></div>
+			</div>
+		</div>
+	</div>
+
+	<script src="js/constants.js"></script>
+	<script src="js/linear-memory.js"></script>
+	<script src="js/response-curves.js"></script>
+	<script src="js/stimuli.js"></script>
+	<script src="js/worker-bridge.js"></script>
+	<script src="js/neuro-renderer.js"></script>
+	<script src="js/main.js"></script>
+</body>
+</html>
