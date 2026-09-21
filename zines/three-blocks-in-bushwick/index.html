@@ -1,0 +1,468 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Three Blocks in Bushwick</title>
+<meta name="description" content="An A5 mini zine about one photograph: the 1931 taxpayer building at 56-14 to 56-30 Myrtle Avenue, its tenants, its painted wall, its bus shelter, and the three blocks that separate it from Brooklyn.">
+<link rel="stylesheet" href="fonts/Anton.css">
+<link rel="stylesheet" href="fonts/Source+Serif+4.css">
+<link rel="stylesheet" href="fonts/IBM+Plex+Mono.css">
+<style>
+  /* ---------- page geometry: A5, saddle-stitched ---------- */
+  @page { size: 148mm 210mm; margin: 0; }
+  :root {
+    --ink: #111;
+    --paper: #fff;
+    --red: #d8262a;     /* the MD in CityMD */
+    --blue: #2b3bd4;    /* Sunnyvale's neon */
+    --amber: #f0b429;   /* OPEN SUNDAY */
+    --grey: #6b6b6b;
+    --rule: #cfcfcf;
+    --margin-out: 11mm;
+    --margin-in: 14mm;
+    --margin-top: 12mm;
+    --margin-bot: 14mm;
+  }
+  html, body { margin: 0; padding: 0; background: var(--paper); color: var(--ink); }
+  body { font-family: 'Source Serif 4', Georgia, serif; font-size: 9.6pt; line-height: 1.42; font-optical-sizing: auto; }
+  @media screen {
+    body { background: #d9d9d9; padding: 10mm 0; }
+    .page { margin: 0 auto 8mm; box-shadow: 0 2px 12px rgba(0,0,0,.25); }
+  }
+  .page {
+    position: relative; width: 148mm; height: 210mm; box-sizing: border-box;
+    padding: var(--margin-top) var(--margin-out) var(--margin-bot) var(--margin-in);
+    overflow: hidden; page-break-after: always; break-after: page; background: var(--paper);
+  }
+  .page:last-child { page-break-after: auto; break-after: auto; }
+  .page.verso { padding-left: var(--margin-out); padding-right: var(--margin-in); }
+  .page.bleed { padding: 0; }
+
+  /* ---------- type ---------- */
+  h1, h2, h3, .display { font-family: 'Anton', 'Liberation Sans Narrow', Impact, sans-serif; font-weight: 400; letter-spacing: .005em; text-transform: uppercase; margin: 0; }
+  h2 { font-size: 26pt; line-height: .95; margin: 0 0 4mm; }
+  h2 .kick { display: block; font-family: 'IBM Plex Mono', monospace; font-size: 7.5pt; letter-spacing: .12em; color: var(--red); margin-bottom: 2mm; text-transform: uppercase; }
+  h3 { font-size: 12.5pt; line-height: 1.05; margin: 4mm 0 1.5mm; }
+  p { margin: 0 0 2.4mm; text-align: left; hyphens: auto; -webkit-hyphens: auto; }
+  p + p { text-indent: 0; }
+  .lede { font-size: 11pt; line-height: 1.38; }
+  .lede::first-letter { font-family: 'Anton'; font-size: 32pt; float: left; line-height: .8; padding: 1.5mm 1.5mm 0 0; color: var(--red); }
+  em { font-style: italic; }
+  .mono, .cap, .foot, table { font-family: 'IBM Plex Mono', 'DejaVu Sans Mono', monospace; }
+  .cap { font-size: 6.8pt; line-height: 1.35; color: var(--grey); margin: 1.2mm 0 3mm; }
+  .small { font-size: 8.2pt; line-height: 1.38; }
+  .tiny { font-size: 7pt; line-height: 1.35; }
+  .grey { color: var(--grey); }
+  .red { color: var(--red); }
+  .blue { color: var(--blue); }
+  hr { border: 0; border-top: .35mm solid var(--ink); margin: 3mm 0; }
+  .rule-thin { border-top: .2mm solid var(--rule); }
+
+  /* ---------- furniture ---------- */
+  .foot { position: absolute; bottom: 7mm; left: var(--margin-in); right: var(--margin-out); font-size: 6.6pt; letter-spacing: .08em; text-transform: uppercase; color: var(--grey); display: flex; justify-content: space-between; }
+  .verso .foot { left: var(--margin-out); right: var(--margin-in); flex-direction: row-reverse; }
+  .foot b { color: var(--ink); font-weight: 500; }
+
+  /* ---------- boxes, tables, figures ---------- */
+  .box { border: .35mm solid var(--ink); padding: 2.6mm 3mm 1mm; margin: 2.5mm 0 3mm; }
+  .box h4 { font-family: 'IBM Plex Mono', monospace; font-size: 7pt; letter-spacing: .12em; text-transform: uppercase; margin: 0 0 1.6mm; color: var(--red); font-weight: 500; }
+  .box p { font-size: 8.4pt; line-height: 1.38; margin-bottom: 1.8mm; }
+  table { border-collapse: collapse; width: 100%; font-size: 7.2pt; line-height: 1.3; margin: 2mm 0 3mm; }
+  th, td { text-align: left; vertical-align: top; padding: 1.2mm 1.5mm 1.2mm 0; border-bottom: .2mm solid var(--rule); }
+  th { font-weight: 500; text-transform: uppercase; letter-spacing: .08em; font-size: 6.4pt; color: var(--grey); border-bottom: .35mm solid var(--ink); }
+  td.n { white-space: nowrap; }
+  figure { margin: 2mm 0 3mm; }
+  figure img { width: 100%; display: block; }
+  figure.half { width: 48%; float: right; margin: 1mm 0 2mm 4mm; }
+  figure.halfl { width: 42%; float: left; margin: 1mm 4mm 2mm 0; }
+  .twocol { column-count: 2; column-gap: 5mm; column-fill: auto; }
+  .clear { clear: both; }
+  ul { margin: 0 0 2.5mm; padding-left: 4mm; }
+  li { margin-bottom: 1mm; }
+  .timeline { list-style: none; padding: 0; margin: 2mm 0 3mm; font-size: 8.2pt; line-height: 1.35; }
+  .timeline li { display: grid; grid-template-columns: 13mm 1fr; gap: 2mm; border-top: .2mm solid var(--rule); padding: 1.3mm 0; margin: 0; }
+  .timeline li b { font-family: 'IBM Plex Mono', monospace; font-weight: 500; font-size: 7.4pt; color: var(--red); }
+
+  /* ---------- cover ---------- */
+  .cover { background: #000; color: #fff; }
+  .cover img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: 62% 50%; }
+  .cover .title { position: absolute; left: 10mm; right: 10mm; bottom: 16mm; }
+  .cover h1 { font-size: 46pt; line-height: .9; color: #fff; text-shadow: 0 0 14px rgba(0,0,0,.9), 0 2px 4px rgba(0,0,0,.9); }
+  .cover h1 span { color: var(--amber); }
+  .cover .sub { font-family: 'IBM Plex Mono', monospace; font-size: 7.6pt; letter-spacing: .1em; text-transform: uppercase; color: #fff; text-shadow: 0 1px 3px #000; margin-top: 3mm; }
+  .cover .topline { position: absolute; top: 9mm; left: 10mm; right: 10mm; display: flex; justify-content: space-between; font-family: 'IBM Plex Mono', monospace; font-size: 7pt; letter-spacing: .12em; text-transform: uppercase; color: #fff; text-shadow: 0 1px 3px #000; }
+
+  /* ---------- back cover ---------- */
+  .back { background: var(--ink); color: #fff; }
+  .back .price { position: absolute; right: 11mm; bottom: 12mm; border: .4mm solid #fff; padding: 2mm 3mm; font-family: 'Anton'; font-size: 20pt; line-height: 1; }
+  .back p { color: #ddd; }
+  .back .blurb { font-size: 10.5pt; line-height: 1.4; }
+
+  /* ---------- storefront diagram ---------- */
+  .storefront { display: grid; grid-template-columns: 2fr 2.4fr 2fr 2.6fr 2.4fr; gap: .6mm; margin: 2mm 0 1mm; }
+  .storefront div { border: .3mm solid var(--ink); padding: 1.5mm 1.2mm; font-family: 'IBM Plex Mono', monospace; font-size: 5.9pt; line-height: 1.3; min-height: 17mm; overflow-wrap: anywhere; }
+  .storefront div b { display: block; font-weight: 700; font-size: 6.6pt; }
+  .storefront div i { display: block; font-style: normal; color: var(--grey); margin-top: .8mm; }
+  .storefront .med { background: #fde8e8; }
+  .storefront .food { background: #fff4d6; }
+  .storefront .vac { background: #f2f2f2; color: var(--grey); }
+  .curb { height: 1.4mm; background: var(--ink); margin: 0 0 1mm; }
+  .sidewalk { font-family: 'IBM Plex Mono', monospace; font-size: 6.2pt; letter-spacing: .1em; text-transform: uppercase; color: var(--grey); display: flex; justify-content: space-between; }
+
+  .pull { font-family: 'Anton'; font-size: 17pt; line-height: 1.02; text-transform: uppercase; color: var(--red); margin: 4mm 0 3mm; padding-top: 3mm; border-top: .35mm solid var(--ink); }
+  .pull.blue { color: var(--blue); }
+
+  /* map */
+  svg text { font-family: 'IBM Plex Mono', monospace; }
+</style>
+</head>
+<body>
+
+<!-- ===================== 1 COVER ===================== -->
+<section class="page bleed cover">
+  <img src="img/cover.jpg" alt="A rainy night on Myrtle Avenue: Sunnyvale Physical Therapy and CityMD Urgent Care in a one-story building, a painted King Arthur Discounts sign on the wall behind, a bus shelter with an accident-lawyer ad.">
+  <div class="topline"><span>A5 · 24 pp · Ridgewood, Queens 11385</span><span>Formerly Brooklyn 11227</span></div>
+  <div class="title">
+    <h1>Three<br>Blocks in<br><span>Bushwick</span></h1>
+    <div class="sub">The history of one photograph · 56-14 to 56-30 Myrtle Avenue</div>
+  </div>
+</section>
+
+<!-- ===================== 2 INSIDE FRONT / COLOPHON ===================== -->
+<section class="page verso">
+  <h3 style="margin-top:0">Colophon</h3>
+  <p class="small">Every picture in this book is a crop of one photograph, taken at 2x zoom on a phone, on a wet weeknight, from the south sidewalk of Myrtle Avenue. The camera app's focus bracket had locked onto the letters MD. The rule-of-thirds grid is still on. I left it. This is a book about lines somebody else drew.</p>
+  <p class="small">Set in Anton (display), Source Serif 4 (text) and IBM Plex Mono (data). Laid out at A5 and printed two-up on A4 sheets, duplex, flipped on the short edge, folded once, stapled twice, on an office inkjet that has never been asked to do this before.</p>
+  <p class="small">Facts were checked against public records, local newspapers, city agency reports and company press releases in September 2026. Where the record ran out, the text says so. Sources are listed on page 23. Corrections and memories, especially of King Arthur Discounts, are wanted.</p>
+  <hr>
+  <h3>A note on the title</h3>
+  <p class="small">The building in the photograph is in Ridgewood, Queens. It is three blocks from Brooklyn. Until 1982 the Post Office disagreed: this address was <span class="mono">Ridgewood, Brooklyn, N.Y. 11227</span>, and before ZIP codes, <span class="mono">Ridgewood, Bklyn 27</span>. Bushwick is where you came from to get here, and where the mail thought you still were. The title keeps the old mistake on purpose.</p>
+  <hr>
+  <p class="tiny grey">First edition, September 2026. Made for the shelves at Printed Matter and for whoever is waiting for the Q55. Text and photograph © the author. Company and brand names belong to their owners and appear here as history.</p>
+  <div class="foot"><span>Three Blocks in Bushwick</span><b>2</b></div>
+</section>
+
+<!-- ===================== 3 TITLE / CONTENTS / MAP ===================== -->
+<section class="page">
+  <h2 style="font-size:34pt">Three Blocks<br>in Bushwick</h2>
+  <p class="mono tiny grey" style="margin-bottom:5mm">A FIELD GUIDE TO ONE PHOTOGRAPH, ITS FOUR BUILDINGS AND ITS ONE BUS SHELTER, WITH THE TWO BLOCKS IT TAKES TO WALK THERE FROM THE BOROUGH LINE.</p>
+
+  <svg viewBox="0 0 300 118" width="100%" style="display:block;margin:0 0 4mm" aria-label="Schematic map of Myrtle Avenue from Wyckoff Avenue to Catalpa Avenue">
+    <defs><marker id="arr" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 z" fill="#111"/></marker></defs>
+    <!-- Myrtle -->
+    <line x1="8" y1="70" x2="292" y2="58" stroke="#111" stroke-width="5" />
+    <text x="150" y="86" font-size="7" text-anchor="middle" letter-spacing="1.5">MYRTLE AVENUE →</text>
+    <!-- borough line -->
+    <line x1="40" y1="8" x2="40" y2="112" stroke="#d8262a" stroke-width="1.2" stroke-dasharray="3 2"/>
+    <text x="36" y="14" font-size="6" fill="#d8262a" text-anchor="end">BROOKLYN</text>
+    <text x="44" y="14" font-size="6" fill="#d8262a">QUEENS</text>
+    <!-- cross streets -->
+    <g stroke="#111" stroke-width="1.6">
+      <line x1="40" y1="40" x2="40" y2="100"/>
+      <line x1="118" y1="34" x2="126" y2="98"/>
+      <line x1="200" y1="30" x2="206" y2="95"/>
+      <line x1="262" y1="20" x2="252" y2="62"/>
+    </g>
+    <g font-size="5.6" fill="#111">
+      <text x="42" y="106">WYCKOFF AV</text>
+      <text x="112" y="106">ST. NICHOLAS AV</text>
+      <text x="184" y="104">CYPRESS AV</text>
+      <text x="238" y="18">CATALPA AV</text>
+    </g>
+    <!-- blocks -->
+    <g font-size="6.4" fill="#111" font-weight="700">
+      <text x="79" y="52" text-anchor="middle">BLOCK ONE</text>
+      <text x="162" y="49" text-anchor="middle">BLOCK TWO</text>
+      <text x="234" y="45" text-anchor="middle">BLOCK THREE</text>
+    </g>
+    <g font-size="5" fill="#6b6b6b">
+      <text x="79" y="60" text-anchor="middle">54-xx</text>
+      <text x="162" y="57" text-anchor="middle">55-xx</text>
+      <text x="234" y="53" text-anchor="middle">56-xx</text>
+    </g>
+    <!-- the taxpayer -->
+    <rect x="212" y="30" width="40" height="9" fill="#d8262a"/>
+    <text x="232" y="27" font-size="5" fill="#d8262a" text-anchor="middle">THE PHOTO: 56-14 – 56-30</text>
+    <!-- clemens triangle -->
+    <polygon points="200,45 214,45 207,56" fill="#f0b429"/>
+    <text x="207" y="42" font-size="4.6" text-anchor="middle" fill="#6b6b6b">CLEMENS △</text>
+    <!-- camera -->
+    <circle cx="232" cy="78" r="3" fill="#111"/>
+    <line x1="232" y1="75" x2="232" y2="44" stroke="#111" stroke-width=".8" marker-end="url(#arr)"/>
+    <text x="238" y="80" font-size="5">YOU, 2× ZOOM</text>
+  </svg>
+
+  <table>
+    <tr><th style="width:8mm">p.</th><th></th></tr>
+    <tr><td class="n">4</td><td>The title is a lie the Post Office told</td></tr>
+    <tr><td class="n">6</td><td>The Avenue: plank road, el, trolley, bus</td></tr>
+    <tr><td class="n">8</td><td>Block One: Wyckoff to St. Nicholas</td></tr>
+    <tr><td class="n">10</td><td>Block Two: St. Nicholas to Cypress</td></tr>
+    <tr><td class="n">12</td><td>Block Three: the taxpayer, 1931</td></tr>
+    <tr><td class="n">14</td><td>56-26: Mandee, then CityMD</td></tr>
+    <tr><td class="n">16</td><td>56-30: Sunnyvale, and the accident economy</td></tr>
+    <tr><td class="n">18</td><td>56-16: Rainbow, then Wonder</td></tr>
+    <tr><td class="n">20</td><td>The wall: King Arthur Discounts</td></tr>
+    <tr><td class="n">22</td><td>The shelter</td></tr>
+    <tr><td class="n">23</td><td>Afterword, acknowledgements, sources</td></tr>
+  </table>
+  <div class="foot"><span>Contents</span><b>3</b></div>
+</section>
+
+<!-- ===================== 4-5 INTRO ===================== -->
+<section class="page verso">
+  <h2><span class="kick">Introduction</span>The title is a lie the Post Office told</h2>
+  <p class="lede">Stand on the south sidewalk of Myrtle Avenue just past Cypress Avenue and look north. You are in Queens. The building across the street, the low one with the blue physical-therapy sign and the red urgent-care sign, is in Queens. The wall behind it, with a king's name painted on it, is in Queens. For most of the twentieth century your mail would have said otherwise.</p>
+  <p>The border here was never obvious. The English settled Ridgewood and the Dutch settled Bushwick in the 1600s, and the two towns argued about the line between them for so long that, in the mid-1700s, a boulder was hauled into place to settle it. Arbitration Rock is still there, in the yard of the Onderdonk House on Flushing Avenue. It did not settle much. In the 1920s the city redrew the Brooklyn–Queens line as a zigzag that follows Wyckoff, St. Nicholas, Cypress and Gates Avenues and Menahan Street, which is why the borough boundary on a map of this neighborhood looks like a staircase.</p>
+  <p>The Post Office ignored the staircase. Ridgewood and Glendale were served out of the Bushwick station, so they carried a Brooklyn address: <span class="mono">Ridgewood, Bklyn 27</span>, later ZIP 11227, shared with Bushwick and Wyckoff Heights. At the turn of the century merchants liked it that way. Brooklyn was a city; Queens was farms.</p>
+  <p class="pull">The borough boundary on a map of this neighborhood looks like a staircase.</p>
+  <div class="foot"><span>Introduction</span><b>4</b></div>
+</section>
+
+<section class="page">
+  <p>Then came the night of July 13, 1977. The lights went out across the city and, along Broadway in Bushwick, under the el, thirty-five blocks of stores were looted: 134 shops broken open, 45 of them burned. By one account all of Bushwick had fourteen police officers on duty. Wire-service photographs of the looting ran in newspapers around the country, and Bushwick became, for a generation, a byword. Many of the burned lots stayed empty into the 1980s.</p>
+  <p>Ridgewood, two miles up Myrtle Avenue, decided it did not want to share a return address with that. In February 1979 the neighborhood's freshman congresswoman, Geraldine Ferraro, met Postmaster General William Bolger, who told her that if she could show that seventy percent of residents wanted a Queens ZIP code, he would give them one. Her office mailed ballots. Ninety-three percent of those returned said yes. In 1982 the Postal Service dissolved 11227, redrew 11237 to stop at the borough line, and created 11385 for Ridgewood and Glendale alone.</p>
+  <p>So the photograph on the cover was taken in 11385, in a place that spent its first eighty years, on paper, in Brooklyn. Three blocks in Bushwick is what the envelope would have said. It is also, if you count from the borough line at Wyckoff Avenue, exactly how far you have walked: Wyckoff to St. Nicholas, St. Nicholas to Cypress, Cypress to here.</p>
+  <div class="box">
+    <h4>What the photograph contains</h4>
+    <p><b>A one-story building</b>, 56-14 to 56-30 Myrtle Avenue, built 1931, five storefronts, two of them lit: Sunnyvale Physical Therapy (56-30) and CityMD Urgent Care (56-26).</p>
+    <p><b>A painted wall</b> on the walk-up behind it: OPEN SUNDAY · King Arthur DISCOUNTS · irons, blenders, toasters, Eureka, Timex, under two graffiti throw-ups.</p>
+    <p><b>A taller apartment house</b> further back, right, with a rooftop bulkhead and one lit window.</p>
+    <p><b>A bus shelter</b> for the Q55, carrying an advertisement that asks, in capital letters, ACCIDENT?</p>
+    <p><b>Two cars, a fire hydrant, three trash cans, a wet street</b>, and the reflection of all of the above.</p>
+  </div>
+  <div class="foot"><span>Introduction</span><b>5</b></div>
+</section>
+
+<!-- ===================== 6-7 THE AVENUE ===================== -->
+<section class="page verso">
+  <h2><span class="kick">The street</span>The Avenue</h2>
+  <p class="lede">Myrtle Avenue is older than the neighborhood it runs through. It left Brooklyn as a toll road and reached Ridgewood as a place farmers drove cattle and cabbages toward the ferries. Everything else in this book sits on top of that fact.</p>
+  <p>The Brooklyn City Railroad opened a horsecar line on Myrtle in 1854. The cars were electrified in 1893. Above them, from 1888, ran the elevated: the Myrtle Avenue El reached Broadway on April 27, 1889, and Wyckoff Avenue on July 20 of the same year. In 1906 it was pushed on to Lutheran Cemetery at Metropolitan Avenue, and this is the detail that explains the open sky in the photograph. East of Wyckoff the el did not follow Myrtle. It turned onto Palmetto Street, one block over, and ran on a private right-of-way from there. Myrtle Avenue in Ridgewood was never under the iron. That is why it could become a shopping street with sunlight, while the Brooklyn stretch spent eighty years in the dark and was finally freed of its el in October 1969.</p>
+  <p>The trolleys went next. The Board of Estimate voted on June 30, 1949 to motorize the Myrtle Avenue line. Buses replaced streetcars in Brooklyn on July 17, 1949 and on the Ridgewood stretch on April 26, 1950. The rails stayed in the asphalt until April 1955, when the avenue was repaved. On December 11, 1988 the eastern half of the route was relabeled the Q55; the Brooklyn half kept the name B54. The shelter in the photograph is a Q55 stop, Ridgewood to Richmond Hill via Myrtle Avenue, Local.</p>
+  <p class="pull">Myrtle Avenue in Ridgewood was never under the iron.</p>
+  <div class="foot"><span>The Avenue</span><b>6</b></div>
+</section>
+
+<section class="page">
+  <p>Retail followed the rails. The Woolworth's that opened at 57-37 Myrtle in the 1930s, one block east of the photograph, was such an event that when a second Woolworth's opened in the neighborhood in 1969 the <em>Ridgewood Times</em> put it on the front page of the July 24 issue, four days after the Moon landing. The two stores ran side by side for more than twenty-five years and closed in 1993 and 1997. The first one is now a Children's Place.</p>
+  <p>The street's current management arrived in July 1988. The Myrtle Avenue Business Improvement District, one of the city's early BIDs, runs from Wyckoff Avenue to Fresh Pond Road, covers more than 300 businesses, and spends about half a million dollars a year on sweeping, planters, holiday lights and a business directory. Its longtime executive director, Ted Renz, retired in June 2025, the same month a plaza on the avenue was co-named for the BID's late founder. Laura Seidel took over that autumn.</p>
+  <ul class="timeline">
+    <li><b>1854</b>Horsecars on Myrtle Avenue, Brooklyn City Railroad.</li>
+    <li><b>1889</b>Myrtle Avenue El reaches Broadway (Apr 27) and Wyckoff Avenue (Jul 20).</li>
+    <li><b>1893</b>Trolleys electrified.</li>
+    <li><b>1906</b>El extended to Lutheran Cemetery, via Palmetto Street, not Myrtle.</li>
+    <li><b>1928</b>The 14th Street–Canarsie line (today's L) reaches Myrtle–Wyckoff.</li>
+    <li><b>1950</b>Buses replace the Ridgewood trolley, April 26.</li>
+    <li><b>1955</b>Trolley rails pulled up, avenue repaved.</li>
+    <li><b>1969</b>El torn down west of Broadway; last Myrtle El train in October.</li>
+    <li><b>1988</b>Myrtle Avenue BID founded (July). Q55 gets its name (Dec 11).</li>
+    <li><b>2025</b>BID's founding director retires after 37 years.</li>
+  </ul>
+  <div class="foot"><span>The Avenue</span><b>7</b></div>
+</section>
+
+<!-- ===================== 8-9 BLOCK ONE ===================== -->
+<section class="page verso">
+  <h2><span class="kick">Block one · 54-xx · Wyckoff to St. Nicholas</span>The Hub and the Palace</h2>
+  <p class="lede">You cross into Queens at Wyckoff Avenue, under the M train, at a junction that has been the neighborhood's front door since the nineteenth century.</p>
+  <p>Myrtle, Wyckoff and Palmetto Street meet here in a six-way intersection that trolley lines used as a terminus until the 1940s. The el station above it opened with the extension in 1889. Underneath, since 1928, the Canarsie line has stopped at Myrtle–Wyckoff, and the transfer between the two is the reason the corner has had crowds on it for a hundred years. Today the plaza at the mouth of Myrtle is car-free and full of vendors. The B54 bus from downtown Brooklyn ends here; the Q55 begins.</p>
+  <p>Walk east. On the north side, at 54-30, is a construction fence, or by the time you read this a new building. This is where the RKO Madison stood. It opened on November 24, 1927, built by B.S. Moss for the Keith-Albee circuit, designed by Eugene De Rosa, and named for James Madison and for Madison Street. It had more than 3,000 seats, a foyer two stories high with crystal chandeliers, marble stairs and a vaulted ceiling, and an orchestra pit with three separate elevators, one each for the orchestra, the piano and the Wurlitzer organ. Neighborhood theaters did not get three elevators. This one did.</p>
+  <p class="pull">3,000 seats. Three elevators in the pit. One for the Wurlitzer.</p>
+  <div class="foot"><span>Block One</span><b>8</b></div>
+</section>
+
+<section class="page">
+  <p>Between Wyckoff and St. Nicholas Avenues, on this one stretch, there were once several theaters. The Madison was the grandest. Like most of the palaces it lost its audience to television and its building to time. It closed as a cinema decades ago, and the shell was finally demolished in early 2021. Nothing in the photograph on the cover will ever have a Wurlitzer.</p>
+  <p>The lesson of Block One is the lesson of the whole avenue. The transit came first, in 1889. The commerce came with it. The buildings that housed the commerce were designed to be temporary and turned out to last ninety years, or were designed to last forever and lasted ninety-four. What survives on Myrtle Avenue is the street itself, the right-of-way, the width between the curbs. Everything above the sidewalk is negotiable.</p>
+  <figure>
+    <img src="img/street.jpg" alt="The wet roadway of Myrtle Avenue reflecting blue and red light.">
+    <figcaption class="cap">The street, which is the oldest thing in the photograph. Toll road, horsecar line, trolley line, bus route. The red is CityMD's sign; the blue is Sunnyvale's.</figcaption>
+  </figure>
+  <div class="box">
+    <h4>What was under your feet</h4>
+    <p>The trolley rails stayed buried in Myrtle Avenue until April 1955, five years after the last car ran. On some blocks of Brooklyn, rails still surface when the asphalt is milled. On this stretch they were pulled. The cobbles that carried them are somewhere under the reflection.</p>
+  </div>
+  <div class="foot"><span>Block One</span><b>9</b></div>
+</section>
+
+<!-- ===================== 10-11 BLOCK TWO ===================== -->
+<section class="page verso">
+  <h2><span class="kick">Block two · 55-xx · St. Nicholas to Cypress</span>Furniture, Vaudeville, and a Living Man's Name</h2>
+  <p class="lede">The second block begins at a triangle and ends at a triangle. Myrtle Avenue cuts diagonally through the Bushwick street grid, so nearly every intersection here is a wedge, and wedges make good places to put a sign.</p>
+  <p>At the western corner, 55-05 Myrtle at St. Nicholas Avenue, Harry and Dora Greenstein opened Triangle Furniture in the late 1920s and named it for the shape of the lot. Greenstein hung a movie marquee over the door. His theory was that a marquee put people in the mood of a night out, and people in that mood buy sofas. In the early 1930s there were twenty-nine businesses in Queens called Triangle something. The store later became Selinger Furniture and stayed a furniture store long enough that the neighborhood forgot it had ever been called anything else.</p>
+  <p>Mid-block, at 55-27, is the reason the marquee was a good idea. The Ridgewood Theatre opened on December 23, 1916 with "6 Big Acts of Vaudeville and Feature Photo Plays," designed by Thomas Lamb, the architect who would go on to draw the Capitol and the Ziegfeld. It showed movies without interruption for ninety-one years. It closed in 2008, the longest continuously operating cinema in the country at the time, and the city landmarked its façade in January 2010.</p>
+  <p class="pull">Wedges make good places to put a sign.</p>
+  <div class="foot"><span>Block Two</span><b>10</b></div>
+</section>
+
+<section class="page">
+  <p>What happened next is the template for everything on the next block. The theater was not demolished. It was hollowed out and rebuilt in 2016 as five stories of apartments, fifty-four of them, over 13,000 square feet of ground-floor retail, with Lamb's terracotta front kept on like a mask. A listing site files the address under "Bushwick." The mail knows better now, but the brokers have gone back to 1979.</p>
+  <p>The block ends where Cypress Avenue and Cornelia Street run into Myrtle from opposite sides and leave a triangle of land between them. It has had four names. On Memorial Day 1923 the neighborhood dedicated a war memorial here, an eleven-foot bronze cylinder by the sculptor Anton Schaaf, topped with a globe, with reliefs of a soldier, a sailor and an airman for the Ridgewood men who did not come back from France. Residents called the plot Landlord Square, for reasons no one wrote down. In 1936 the Board of Aldermen tried to name it Times Triangle, after the <em>Ridgewood Times</em> building across the street. In 1985 Mayor Koch renamed it for Carl E. Clemens, the paper's owner and the neighborhood's fixer, which was unusual because Clemens was alive and standing there. The Parks commissioner shortened it to Clemens Triangle in 1987. Clemens died in 1989.</p>
+  <p>Cross Cypress Avenue and you are on the third block, and in the photograph.</p>
+  <ul class="timeline">
+    <li><b>1916</b>Ridgewood Theatre opens, Dec 23. Thomas Lamb.</li>
+    <li><b>1923</b>War memorial dedicated on the triangle, Memorial Day.</li>
+    <li><b>late 1920s</b>Triangle Furniture at 55-05, with a marquee.</li>
+    <li><b>1985</b>Koch names the triangle for a living Carl Clemens.</li>
+    <li><b>2008</b>Theatre closes after 91 years. Landmarked 2010.</li>
+    <li><b>2016</b>Theatre reopens as 54 apartments behind its own face.</li>
+  </ul>
+  <div class="foot"><span>Block Two</span><b>11</b></div>
+</section>
+
+<!-- ===================== 12-13 BLOCK THREE: THE TAXPAYER ===================== -->
+<section class="page verso">
+  <h2><span class="kick">Block three · 56-xx · Cypress to Catalpa</span>The Taxpayer</h2>
+  <p class="lede">The building in the photograph was built in 1931 to lose as little money as possible. It has done so for ninety-five years, which makes it a success.</p>
+  <p>New York has a name for a building like this: a <em>taxpayer</em>. A taxpayer is a one- or two-story commercial structure put up on a lot to generate just enough rent to cover the property tax while the owner waits for the land to be worth something taller. It is a placeholder. The point of a taxpayer is that it will be torn down. In 1929, seven percent of the building plans filed for Manhattan's Third, Lexington and Madison Avenues were for buildings of one to three stories. By 1933 every plan was. The Depression made the whole city a taxpayer, and then the taxpayers refused to leave.</p>
+  <p>This one runs from 56-14 to 56-30 Myrtle Avenue, on the north side of the block just east of Clemens Triangle, one story, brick, roughly 20,000 to 29,000 square feet depending on which database you believe, tax class K1 (one-story retail), zoned C4-3A. The city's assessor puts its market value at about $4.3 million, which is the land talking, not the building. It has a basement for storage, a flat roof that the wall behind it uses as a stage, and five storefronts, of which the photograph shows the two on the east end.</p>
+  <p class="pull">A placeholder. The point of a taxpayer is that it will be torn down. This one is ninety-five.</p>
+  <div class="foot"><span>Block Three</span><b>12</b></div>
+</section>
+
+<section class="page">
+  <p class="mono tiny grey" style="margin-bottom:1mm">THE FRONTAGE, WEST TO EAST, AS OF SEPTEMBER 2026</p>
+  <div class="storefront">
+    <div class="vac"><b>56-14</b>1,600 sq ft<i>vacant / for lease</i></div>
+    <div class="food"><b>56-16</b>Wonder<i>virtual food hall, 2025. Was Rainbow (clothing).</i></div>
+    <div class="med"><b>56-20</b>Prime Care Chemists<i>pharmacy</i></div>
+    <div class="med"><b>56-26</b>CityMD Urgent Care<i>Jan 2022. Was Mandee (clothing).</i></div>
+    <div class="med"><b>56-30</b>Sunnyvale Physical Therapy<i>clinic</i></div>
+  </div>
+  <div class="curb"></div>
+  <div class="sidewalk"><span>← Clemens Triangle</span><span>Myrtle Avenue · Q55 stop</span><span>Catalpa Av →</span></div>
+  <p class="cap">Pink: medical. Yellow: food, delivered. Grey: waiting. A building put up to sell dry goods in the year the Empire State Building opened now sells prescriptions, X-rays, range-of-motion and Bobby Flay.</p>
+  <p>Read the frontage left to right and you are reading the last forty years of the American Main Street in five doors. Two clothing chains that sold cheap dresses to women who took the bus are gone: one replaced by a ghost kitchen that exists mostly on a delivery app, the other by an urgent-care clinic owned, at the moment of writing, by a private-equity firm that is trying to sell it. Between them is a pharmacy. At the end is a physical-therapy practice whose patients are, in part, delivered to it by the lawyer on the bus shelter out front. The storefront that was designed to be a store is the one that is empty.</p>
+  <p>None of this is a complaint. A taxpayer does not have opinions about its tenants. It was built to hold whatever the street needed until the street needed a tower. Ninety-five years later the tower has still not come, the theaters on both sides of it have gone, and the cheapest building on three blocks has outlived the most expensive ones. The following pages take the tenants one door at a time.</p>
+  <div class="foot"><span>Block Three</span><b>13</b></div>
+</section>
+
+<!-- ===================== 14-15 CITYMD ===================== -->
+<section class="page verso">
+  <h2><span class="kick">56-26 Myrtle Avenue</span>Mandee, then CityMD</h2>
+  <figure><img src="img/citymd.jpg" alt="The CityMD Urgent Care sign at night, with the phone camera's yellow focus bracket around the letters."><figcaption class="cap">The camera chose. Of everything on the block, the autofocus locked onto a corporation.</figcaption></figure>
+  <p class="lede">Before the red letters, this door belonged to Mandee, a chain of junior women's clothing stores founded in 1948 by three brothers named Mandelbaum and run for sixty-five years out of Totowa, New Jersey.</p>
+  <p>Mandee was the kind of store that a shopping street like Myrtle Avenue was built for: moderately priced, mall-adjacent, aimed at teenagers with bus fare. Its parent, Big M Inc., had more than a hundred Mandee, Annie Sez and Afaze stores across New Jersey, Long Island and Brooklyn when Hurricane Sandy flooded enough of them in October 2012 to break the company. Big M filed for Chapter 11 in January 2013, blaming the storm, and was bought for $22.5 million by YM Inc. of Toronto, which said it would keep most stores open. It closed the Annie Sez banner in 2018 and kept thinning Mandee. By the time CityMD signed for this space, the Ridgewood Mandee was a "CLOSED" tag on a review site.</p>
+  <p class="pull">Five ultimate employers and one desk.</p>
+  <div class="foot"><span>56-26</span><b>14</b></div>
+</section>
+
+<section class="page">
+  <p>CityMD opened here on Monday, January 24, 2022, its eighteenth location in Queens. The company had been founded in 2010 by Richard Park, an emergency-room physician, on the observation that New Yorkers would rather pay a copay to be seen in twenty minutes than wait five hours in an ER for a sprained ankle. That was correct. By 2017, when Warburg Pincus bought a majority stake, there were 68 clinics. In 2019 CityMD merged with Summit Health, a New Jersey physician group, with Park as vice chairman.</p>
+  <p>Then it became a line item in someone else's strategy. On November 7, 2022, ten weeks before the Ridgewood clinic's first birthday, VillageMD, a primary-care company majority-owned by Walgreens, agreed to buy Summit Health-CityMD for $8.9 billion, with money from Walgreens and from Cigna's Evernorth. The deal closed January 3, 2023. Walgreens' theory was that a drugstore chain could own the doctor's office too. Within eighteen months Walgreens was reporting a nearly six-billion-dollar quarterly loss, most of it from the healthcare bet, and announcing the closure of more than 160 VillageMD clinics. In 2025 Walgreens itself was taken private by Sycamore Partners in a $23.7 billion deal, approved by shareholders on July 11 and closed in August, and split into five companies. VillageMD, which still includes Village Medical, Summit Health and more than 185 CityMD clinics, was one of them. Sycamore has said it intends to sell it. As this book went to press, no buyer had been announced.</p>
+  <p>So the red MD in the photograph belongs, in order, to a taxpayer, to a landlord, to a clinic, to a physician group, to a primary-care roll-up, to a private-equity fund, and to whoever buys it next. The nurse who takes your blood pressure has had, since she started, five ultimate employers and one desk.</p>
+  <ul class="timeline">
+    <li><b>1948</b>Mandee founded, Totowa NJ.</li>
+    <li><b>2010</b>CityMD founded by Dr. Richard Park.</li>
+    <li><b>2013</b>Big M (Mandee) files Chapter 11 after Sandy; sold to YM Inc.</li>
+    <li><b>2022</b>CityMD Ridgewood opens, Jan 24. VillageMD deal announced, Nov 7.</li>
+    <li><b>2023</b>VillageMD/Walgreens closes $8.9B purchase, Jan 3.</li>
+    <li><b>2025</b>Walgreens taken private by Sycamore; VillageMD put up for sale.</li>
+  </ul>
+  <div class="foot"><span>56-26</span><b>15</b></div>
+</section>
+
+<!-- ===================== 16-17 SUNNYVALE / ACCIDENT ECONOMY ===================== -->
+<section class="page verso">
+  <h2><span class="kick">56-30 Myrtle Avenue</span>Sunnyvale, and the Accident Economy</h2>
+  <figure class="half"><img src="img/sunnyvale.jpg" alt="Sunnyvale Physical Therapy's blue and green sign."><figcaption class="cap">The leaf on the V is green. Everything else on the sign is the blue of the reflection in the street.</figcaption></figure>
+  <p class="lede">The last door on the block is the quietest business in the photograph and the one whose economics are most visible, if you know where to look. Look at the bus shelter.</p>
+  <p>Sunnyvale Physical Therapy PLLC is a two-office practice, this one and another at 116-24 Queens Boulevard in Forest Hills, founded and led by Remonda Abdel-Shahid, a physical therapist with a master's degree from Cairo University and a doctorate from Dominican College. The staff speak English, Spanish, Russian and Arabic, which on this avenue is not a marketing line but a headcount. The practice advertises hands-on treatment, dry needling, and a list of insurance it accepts: Medicare, Medicaid, commercial plans, workers' compensation, and no-fault.</p>
+  <p class="clear">That last word is the hinge. New York's no-fault law, on the books since 1974, requires every car-insurance policy to pay the medical bills of anyone hurt in a crash, up to $50,000 in basic coverage, regardless of who caused it. Unlike almost every other kind of insurance in the state, no-fault will not pay for physical therapy on a patient's say-so; it requires a physician's prescription first.</p>
+  <p class="pull blue">The shelter faces the clinic. Nobody planned this.</p>
+  <div class="foot"><span>56-30</span><b>16</b></div>
+</section>
+
+<section class="page">
+  <figure class="halfl"><img src="img/shelter.jpg" alt="A bus shelter advertisement reading ACCIDENT? for Spektor & Associates, with the phone number 800-318-8888 and the web address crashinjury.com."><figcaption class="cap">ACCIDENT? Spektor &amp; Associates, 800-318-8888, crashinjury.com. The shelter faces the clinic.</figcaption></figure>
+  <p>So a crash produces a chain. The driver calls a lawyer, whose fee is a share of the eventual settlement. The lawyer needs a record of injury that will hold up, and refers the client to a physician, who writes the prescription. The physician refers the patient to physical therapy, where each visit is billed to the no-fault carrier and where the therapist's goniometer, which measures range of motion in degrees, produces the numbers the lawyer will put in the demand letter. Every link in that chain is legal and most of it is useful; people who are hurt need lawyers and therapy. But it is a supply chain, and its raw material is collisions on streets like this one.</p>
+  <p class="clear">The advertisement on the shelter is for Gregory Spektor &amp; Associates, a Queens-based personal-injury firm with more than seventy employees, which advertises on bus shelters like this one and answers a toll-free number. Its slogan is a question. The clinic behind it is one of the answers. Nobody planned this; the shelter's advertising panel is sold by a French street-furniture company, the clinic's lease was signed by a landlord who wanted rent, and the law was written in Albany fifty years ago to keep small claims out of court. The photograph simply catches all three in a row, in the rain, which is when most of the accidents happen.</p>
+  <div class="box">
+    <h4>Direct access, except</h4>
+    <p>Since 2006 New Yorkers can see a physical therapist without a referral for up to ten visits or thirty days. No-fault is the exception: no prescription, no payment. The exception is why the lawyer's phone number is a better business address than the clinic's door.</p>
+  </div>
+  <div class="foot"><span>56-30</span><b>17</b></div>
+</section>
+
+<!-- ===================== 18-19 WONDER ===================== -->
+<section class="page verso">
+  <h2><span class="kick">56-16 Myrtle Avenue, out of frame to the left</span>Rainbow, then Wonder</h2>
+  <p class="lede">Two doors west of the photograph's edge is the storefront that best explains the storefronts inside it. For decades it was a Rainbow. Since September 18, 2025, it has been a kitchen with no dining room and twenty restaurants in it.</p>
+  <p>Rainbow Shops was founded in 1935 by Irving Arthur Swarzman, Austrian-born, Brooklyn-raised, and is still privately held and still headquartered in East New York, one of the few large apparel chains run from the borough it sells to. It had about 1,300 stores in 2021, nearly all of them on streets like Myrtle Avenue, selling women's, plus-size and children's clothing at prices that assume the customer is paying cash. Rainbow at 56-16 was, with Mandee at 56-26 and a Torrid across the street at 56-27, part of a run of women's clothing stores that made this block a place to shop on a Saturday. Torrid is closed. Mandee is CityMD. Rainbow's own store locator still listed the Ridgewood store after it had shut.</p>
+  <p>Wonder, the tenant that replaced it, was founded in 2018 by Marc Lore, who had sold two companies to Amazon and Walmart and wanted to do to dinner what those companies did to everything else. A Wonder is a single kitchen that cooks the menus of a couple of dozen licensed restaurant brands, several of them attached to television chefs (Bobby Flay, Michael Symon, Marc Murphy), for delivery and pickup, with a few stools if you insist on eating there.</p>
+  <p class="pull">The storefront that is still a store is the one with a For Lease sign.</p>
+  <div class="foot"><span>56-16</span><b>18</b></div>
+</section>
+
+<section class="page">
+  <p>The Ridgewood Wonder was the company's third in Queens after Astoria and Jackson Heights. Its opening was announced with the usual ribbon and met, on the neighborhood's Reddit page, with dozens of comments arguing that a billionaire's delivery hub in a former Rainbow was the exact shape of what was happening to Ridgewood. They were not wrong about the shape. They were arguing on the block where the argument has been going on since Woolworth's.</p>
+  <p>Put the two doors together, 56-16 and 56-26, and the taxpayer has done a quiet conversion. In 2015 both storefronts sold clothing to people standing in them. In 2026 one sells medicine and the other sells food to people who are somewhere else. The building did not change. What it is for did. This is the trend the whole country's Main Streets are on, and this block is a clean sample: a bank of storefronts built for dry goods, now leased for services (a clinic, a pharmacy, a physical therapist) and logistics (a kitchen that is really a loading dock). The storefront that is still a store is the one with a For Lease sign.</p>
+  <p>There is a second, quieter trend under it. Ridgewood's registered rent-stabilized apartments fell from 6,228 in 2019 to 2,149 in 2021, a drop of two-thirds against about ten percent citywide, much of it through "substantial rehabilitation" claims that take buildings out of the system. The apartment house at the back of the photograph, with its one lit window, is the kind of building that number describes. As Bushwick's rents rose, renters crossed Wyckoff Avenue, and the neighborhood that had voted 93 percent to stop being Brooklyn became, in the real-estate papers, "Quooklyn." The taxpayer's tenants are who those renters call when they get sick, and who feeds them at 10 p.m.</p>
+  <ul class="timeline">
+    <li><b>1935</b>Rainbow Shops founded in Brooklyn.</li>
+    <li><b>1930s</b>First Woolworth's on the avenue, 57-37, one block east.</li>
+    <li><b>2018</b>Wonder founded by Marc Lore.</li>
+    <li><b>2019–21</b>Ridgewood's registered stabilized units fall by two-thirds.</li>
+    <li><b>2025</b>Wonder opens at 56-16, Sept 18, in the former Rainbow.</li>
+  </ul>
+  <div class="foot"><span>56-16</span><b>19</b></div>
+</section>
+
+<!-- ===================== 20-21 THE WALL ===================== -->
+<section class="page verso">
+  <h2><span class="kick">The wall behind the taxpayer</span>King Arthur Discounts</h2>
+  <figure><img src="img/ghost-sign.jpg" alt="Enlarged: a painted wall sign reading OPEN SUNDAY, King Arthur DISCOUNTS, with circular medallions for irons, blenders, toasters, Eureka and Timex, and two graffiti throw-ups reading FLASH and DINK."><figcaption class="cap">Enlarged from the cover, contrast pushed. Yellow panel: OPEN SUNDAY. Blackletter: King Arthur. Medallions, left to right: IRONS BLENDERS TOASTERS · EUREKA · TIMEX · TIMEX. Over it: FLASH, DINK.</figcaption></figure>
+  <p class="lede">This is the one building in the photograph that would not give up its history, and the one that says the most.</p>
+  <p>The sign is painted on the flank of the walk-up that stands behind the taxpayer, facing Myrtle Avenue across the taxpayer's flat roof. That geometry is the first fact: whoever paid for it knew the roof would stay low, so the sign was painted after 1931, into a view the one-story building guaranteed. The blackletter "King Arthur," the sans-serif DISCOUNTS, the brand medallions and the yellow OPEN SUNDAY panel are the vocabulary of the discount appliance house of the 1960s through the 1980s: a store that sold irons, blenders, toasters, Eureka vacuum cleaners and Timex watches at a markdown and shouted about it. No directory, newspaper archive, review site or nostalgia forum that could be reached for this book records a King Arthur Discounts on Myrtle Avenue. It is gone from everything except the brick.</p>
+  <p class="pull">Gone from everything except the brick.</p>
+  <div class="foot"><span>The Wall</span><b>20</b></div>
+</section>
+
+<section class="page">
+  <p>The sign still says three things. <b>OPEN SUNDAY</b> was a boast with legal weight. New York's Sunday-closing laws, descended from colonial Sabbath statutes, made most retail on Sunday a misdemeanor until the Court of Appeals threw the law out as hopelessly vague in 1976. A store that painted OPEN SUNDAY in a yellow box was advertising a freedom that was either brand new or, for years before that, a gamble. That dates the sign to the 1970s or after, at least in this coat of paint.</p>
+  <p><b>The medallions</b> are the descendants of the "privilege sign," the arrangement by which a national brand paid a sign painter to put its name on a merchant's wall in exchange for a line about the merchant. Here the relationship has flipped: the merchant is the headline and the brands are the supporting cast, but they are there because they sold. Timex and Eureka are the point. Nobody walks into King Arthur for King Arthur.</p>
+  <p><b>The graffiti</b> is the newest layer and the only one still being maintained. FLASH and DINK are throw-ups, two-color bubble letters done fast, and they are placed exactly where the sign painter left flat color. Every writer knows a good wall when one is offered. The wall has now carried at least four generations of lettering: the brick, the discount house, the writers, and the streetlight's yellow, which is the only one that gets refreshed nightly.</p>
+  <p>Wall-painted ads survive because the lead-based paints that the "wall dogs" used before the 1950s outlast the businesses by decades. This one is younger than that and is fading faster, which is why it is in this book. If you remember King Arthur Discounts, who ran it, what it smelled like, whether the king was on the bags, the author would like to know. The sign is a question. So far the only answer is on the bus shelter.</p>
+  <div class="foot"><span>The Wall</span><b>21</b></div>
+</section>
+
+<!-- ===================== 22 THE SHELTER ===================== -->
+<section class="page verso">
+  <h2><span class="kick">Street furniture</span>The Shelter</h2>
+  <p class="lede">The newest structure in the photograph is the bus shelter, and it is the only one owned by a company in Paris.</p>
+  <p>On May 19, 2006 the city's Department of Transportation signed a twenty-year, $1.397 billion franchise with Cemusa, a Spanish street-furniture company, to design, build and maintain at least 3,300 bus shelters and 330 newsstands, and to sell the advertising on them. The design, by Grimshaw Architects, was meant to be the same everywhere: a glass roof, a stainless frame, a lit panel. Mayor Bloomberg unveiled the first one on December 18, 2006. In exchange for the advertising monopoly, Cemusa promised the city about $1.3 billion in cash and in-kind over the term and, every year, up to 22.5 percent of its panels for the city's own tourism and public-service messages. JCDecaux, the French company that invented the ad-funded bus shelter in Lyon in 1964, took over Cemusa in 2015 and inherited the contract.</p>
+  <p>Count forward from 2006. The franchise runs out in 2026, the year this book was printed. The shelter in the photograph, the panel with the lawyer on it, the light that makes the panel glow at night, and the right to sell that light are all, at this moment, being renegotiated in an office you will never see. The Q55 will keep stopping here regardless. The Q55 is a public thing. The shelter is a franchise, the ad is a lease, the clinic behind it is an asset, the wall behind that is a ghost, and the building under all of them was built to be temporary in 1931. The street is the only one of them that is not for sale.</p>
+  <div class="box">
+    <h4>What the shelter cost you</h4>
+    <p>Nothing directly. The city put up no money for the shelters; it sold the sightline. Every person waiting for the Q55 is the product. The 22.5 percent of panels reserved for public messages is why, some months, the lawyer is replaced by a reminder to get a flu shot, which you can do at 56-26.</p>
+  </div>
+  <div class="foot"><span>The Shelter</span><b>22</b></div>
+</section>
+
+<!-- ===================== 23 AFTERWORD / CREDITS / SOURCES ===================== -->
+<section class="page">
+  <h2 style="font-size:20pt"><span class="kick">Afterword</span>Accretion</h2>
+  <p class="small">Walking around cities you begin to feel the bones of the people who used to walk the same streets. You see old "Grand Opening!" signs, covered up year after year by new signs, stickers, graffiti — in short, you see the accretion of the anthropocene happening in real time.</p>
+  <p class="small">When compiling this book I often admit Richard McGuire's seminal graphic novel <em>Here</em> (2014). After you read it you'll understand a little more why I couldn't get this idea out of my head for a decade.</p>
+  <h3 style="font-size:10.5pt">Acknowledgements</h3>
+  <p class="small">To Victoria Levchenko, my refuge, Carmen Marina Cuervo, my rock, and Yisenia B. Cuervo, the light of my life.</p>
+  <hr>
+  <h3 style="font-size:10.5pt;margin-top:2mm">Sources</h3>
+  <p class="tiny">Property: NYC Dept. of Finance assessment data as republished by PropertyShark and LoopNet (56-14–56-30 Myrtle Ave., built 1931, class K1, C4-3A). ZIP codes and the 1977 blackout: QNS "Our Neighborhood, The Way It Was" (Feb 2020); Bushwick Daily, "ZIP Codes and Politics"; Gothamist; NYC Dept. of Records, "Burning Bushwick." Transit: Wikipedia entries for the BMT Myrtle Avenue Line, Q55, B54 and Myrtle–Wyckoff Avenues station; Forgotten New York. Theaters: Cinema Treasures; After the Final Curtain (RKO Madison, Jan 2024); NYC LPC designation of the Ridgewood Theatre (2010); CityRealty. Triangle Furniture: Queens Chronicle, "I Have Often Walked." Clemens Triangle: NYC Parks. BID: Crain's (2003), QNS (June and Oct 2025). Woolworth's: QNS (Dec 2022). Taxpayers: Wikipedia, "Taxpayer (building)." Mandee/Big M: Bloomberg, Chain Store Age, Retail Dive (2013); WWD (2018). CityMD/VillageMD/Walgreens: Summit Health and VillageMD press releases (Nov 2022, Jan 2023); Forbes (Sept 2025); AHA (Mar 2025); QNS and Queens Gazette (Jan 2022). Sunnyvale: practice website, CMS provider records, Zocdoc. Spektor: firm website, PIX11 sponsored profile. No-fault: NY Insurance Law Art. 51; NY Education Law §6731 (direct access). Rainbow: Wikipedia; Wonder: QNS (Sept 2025). Rent stabilization: The City (Mar 2023). Street furniture: NYC Comptroller audits of Cemusa NY (2010s) and JCDecaux North America; NYC DOT press releases (2005, 2006). Sunday laws: <em>People v. Abrahams</em>, 40 N.Y.2d 277 (1976).</p>
+  <p class="tiny grey">Not found anywhere: King Arthur Discounts. If you know, write.</p>
+  <div class="foot"><span>Afterword</span><b>23</b></div>
+</section>
+
+<!-- ===================== 24 BACK COVER ===================== -->
+<section class="page verso back">
+  <p class="mono tiny" style="color:#aaa;letter-spacing:.12em;text-transform:uppercase;margin-bottom:8mm">Three Blocks in Bushwick · A5 · 24 pages</p>
+  <p class="blurb">One photograph, taken at 2× zoom on a rainy night on Myrtle Avenue, three blocks past the Brooklyn line. In it: a building put up in 1931 to be torn down, a physical-therapy clinic, an urgent-care chain that has changed hands five times, a bus shelter owned from Paris, a lawyer's phone number, and a painted wall advertising a discount store that no record on earth remembers.</p>
+  <p class="blurb">This book walks the three blocks from the borough line to the photograph and then takes the photograph apart: the street, the taxpayer, the tenants, the wall, the shelter, and the ZIP code that used to say Brooklyn.</p>
+  <p class="blurb" style="color:#f0b429">OPEN SUNDAY.</p>
+  <div class="price">$8</div>
+  <p class="mono tiny" style="position:absolute;bottom:12mm;left:11mm;color:#aaa;letter-spacing:.1em;text-transform:uppercase;line-height:1.5">Printed on an office inkjet<br>Ridgewood, Queens 11385<br>(formerly Brooklyn 11227)</p>
+</section>
+
+</body>
+</html>
