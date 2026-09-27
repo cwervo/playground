@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NYC Walk Reach</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/maplibre-gl@5/dist/maplibre-gl.css">
+<script src="https://cdn.jsdelivr.net/npm/maplibre-gl@5/dist/maplibre-gl.js"></script>
+<style>
+  :root { --crow: #1010ff; --walk: #ff4f1f; --ink: #111; --dim: #666; --panel: rgba(255,255,255,.94); }
+  html, body { margin: 0; height: 100%; background: #f4f4f0; color: var(--ink);
+    font: 13px/1.45 ui-monospace, "IBM Plex Mono", Menlo, monospace; }
+  #map { position: absolute; inset: 0; }
+  .panel { position: absolute; top: 12px; left: 12px; width: min(360px, calc(100vw - 48px));
+    background: var(--panel); padding: 12px 14px; border: 1px solid #ddd; border-radius: 6px;
+    box-shadow: 0 2px 10px rgba(0,0,0,.08); }
+  h1 { font-size: 14px; margin: 0 0 4px; }
+  h1 .c { color: var(--crow); } h1 .w { color: var(--walk); }
+  p { margin: 0 0 8px; }
+  label { display: grid; grid-template-columns: 9.5em 1fr 3.2em; align-items: center; gap: 6px; margin: 2px 0; }
+  label output { text-align: right; }
+  input[type=range] { width: 100%; }
+  .legend { display: flex; gap: 14px; margin: 8px 0; }
+  .sw { display: inline-block; width: 22px; height: 0; border-top: 2px solid; vertical-align: middle; margin-right: 4px; }
+  #stats > div { margin-top: 4px; }
+  #hover { margin-top: 8px; padding-top: 8px; border-top: 1px dashed #ccc; min-height: 2.9em; }
+  #status { margin-top: 6px; }
+  .dim { color: var(--dim); }
+</style>
+</head>
+<body>
+<div id="map"></div>
+<div class="panel">
+  <h1><span class="c">Crow flies</span> vs <span class="w">A* on foot</span> — NYC</h1>
+  <p class="dim">Click anywhere in the five boroughs to drop a pin.</p>
+  <label>Crow (min) <input id="crow-min" type="range" min="5" max="60" value="30"><output id="crow-min-out"></output></label>
+  <label>Walk (min) <input id="walk-min" type="range" min="5" max="60" value="29"><output id="walk-min-out"></output></label>
+  <label>Pace (km/h) <input id="speed" type="range" min="3" max="7" step="0.1" value="5"><output id="speed-out"></output></label>
+  <div class="legend">
+    <span><i class="sw" style="border-color:var(--crow)"></i>straight-line trails</span>
+    <span><i class="sw" style="border-color:var(--walk)"></i>A* walking trails</span>
+  </div>
+  <div id="stats"></div>
+  <div id="hover"></div>
+  <div id="status" class="dim"></div>
+</div>
+<script type="module" src="app.js"></script>
+</body>
+</html>
