@@ -1,3 +1,4 @@
+import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -6,18 +7,39 @@ import 'click_log.dart';
 import 'history_page.dart';
 import 'pop_dialog.dart';
 import 'pop_sound.dart';
+import 'pop_sync.dart';
 
-typedef LinkOpener = Future<void> Function(Uri uri);
+/// Opens [uri]; resolves to false (or throws) if it couldn't.
+typedef LinkOpener = Future<bool> Function(Uri uri);
+
+/// Where saved pops are uploaded, e.g.
+/// `flutter run --dart-define=POP_SYNC_URL=https://example.com/pops`.
+/// Left empty, pops stay on the device only.
+const _syncUrl = String.fromEnvironment('POP_SYNC_URL');
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   final log = ClickLog();
   await log.load();
+  if (_syncUrl.isNotEmpty) _startSync(log, Uri.parse(_syncUrl));
   runApp(LinkPopApp(
     log: log,
     sound: AssetPopSound(),
     openLink: (uri) => launchUrl(uri, mode: LaunchMode.externalApplication),
+    syncEnabled: _syncUrl.isNotEmpty,
   ));
+}
+
+/// Uploads pending pops whenever there's a chance: at launch, shortly after
+/// new clicks, when the network comes back, and when the app is resumed.
+/// These live for the whole app, so they're never disposed.
+void _startSync(ClickLog log, Uri endpoint) {
+  final sync = PopSync(log: log, uploader: HttpPopUploader(endpoint));
+  Connectivity().onConnectivityChanged.listen((results) {
+    if (!results.contains(ConnectivityResult.none)) sync.nudge();
+  });
+  AppLifecycleListener(onResume: sync.nudge);
+  sync.flush();
 }
 
 class LinkPopApp extends StatelessWidget {
@@ -26,11 +48,13 @@ class LinkPopApp extends StatelessWidget {
     required this.log,
     required this.sound,
     required this.openLink,
+    this.syncEnabled = false,
   });
 
   final ClickLog log;
   final PopSound sound;
   final LinkOpener openLink;
+  final bool syncEnabled;
 
   @override
   Widget build(BuildContext context) {
@@ -41,7 +65,8 @@ class LinkPopApp extends StatelessWidget {
           colorSchemeSeed: Colors.pink,
           brightness: Brightness.dark,
           useMaterial3: true),
-      home: HomePage(log: log, sound: sound, openLink: openLink),
+      home: HomePage(
+          log: log, sound: sound, openLink: openLink, syncEnabled: syncEnabled),
     );
   }
 }
@@ -52,11 +77,14 @@ class Link {
   final String url;
 }
 
+const _folk = Link('Folk Computer', 'https://folk.computer');
+const _bubbleWrap = Link('Bubble wrap', 'https://en.wikipedia.org/wiki/Bubble_wrap');
+
 const _starterLinks = [
-  Link('Folk Computer', 'https://folk.computer'),
+  _folk,
   Link('Flutter', 'https://flutter.dev'),
   Link('Wikipedia: Onomatopoeia', 'https://en.wikipedia.org/wiki/Onomatopoeia'),
-  Link('Bubble wrap', 'https://en.wikipedia.org/wiki/Bubble_wrap'),
+  _bubbleWrap,
 ];
 
 class HomePage extends StatefulWidget {
@@ -65,11 +93,13 @@ class HomePage extends StatefulWidget {
     required this.log,
     required this.sound,
     required this.openLink,
+    this.syncEnabled = false,
   });
 
   final ClickLog log;
   final PopSound sound;
   final LinkOpener openLink;
+  final bool syncEnabled;
 
   @override
   State<HomePage> createState() => _HomePageState();
@@ -79,9 +109,9 @@ class _HomePageState extends State<HomePage> {
   final List<Link> _links = [..._starterLinks];
   final _urlField = TextEditingController();
   late final TapGestureRecognizer _inlineFolk = TapGestureRecognizer()
-    ..onTap = () => _onLinkTap(_starterLinks[0]);
+    ..onTap = () => _onLinkTap(_folk);
   late final TapGestureRecognizer _inlineBubble = TapGestureRecognizer()
-    ..onTap = () => _onLinkTap(_starterLinks[3]);
+    ..onTap = () => _onLinkTap(_bubbleWrap);
 
   @override
   void dispose() {
@@ -99,7 +129,13 @@ class _HomePageState extends State<HomePage> {
     if (!mounted) return;
     final open =
         await showPopDialog(context, click, widget.log.countFor(link.url));
-    if (open) await widget.openLink(Uri.parse(link.url));
+    if (!open) return;
+    final opened =
+        await widget.openLink(Uri.parse(link.url)).catchError((Object _) => false);
+    if (!opened && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Couldn't open ${link.url}")));
+    }
   }
 
   void _addLink() {
@@ -138,7 +174,8 @@ class _HomePageState extends State<HomePage> {
                 child: const Icon(Icons.history),
               ),
               onPressed: () => Navigator.of(context).push(MaterialPageRoute(
-                  builder: (_) => HistoryPage(log: widget.log))),
+                  builder: (_) => HistoryPage(
+                      log: widget.log, syncEnabled: widget.syncEnabled))),
             ),
           ),
         ],

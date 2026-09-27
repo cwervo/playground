@@ -3,9 +3,12 @@ import 'package:flutter/material.dart';
 import 'click_log.dart';
 
 class HistoryPage extends StatelessWidget {
-  const HistoryPage({super.key, required this.log});
+  const HistoryPage({super.key, required this.log, this.syncEnabled = false});
 
   final ClickLog log;
+
+  /// Whether to show upload status (only meaningful when PopSync is running).
+  final bool syncEnabled;
 
   @override
   Widget build(BuildContext context) {
@@ -14,6 +17,15 @@ class HistoryPage extends StatelessWidget {
       builder: (context, _) => Scaffold(
         appBar: AppBar(
           title: Text('Saved pops (${log.total})'),
+          bottom: syncEnabled && log.pending.isNotEmpty
+              ? PreferredSize(
+                  preferredSize: const Size.fromHeight(24),
+                  child: Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: Text('${log.pending.length} waiting to upload'),
+                  ),
+                )
+              : null,
           actions: [
             IconButton(
               tooltip: 'Clear history',
@@ -33,7 +45,21 @@ class HistoryPage extends StatelessWidget {
                     leading: const Text('💥', style: TextStyle(fontSize: 24)),
                     title: Text(c.label),
                     subtitle: Text(c.url),
-                    trailing: Text(_stamp(c.at)),
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(_stamp(c.at)),
+                        if (syncEnabled) ...[
+                          const SizedBox(width: 8),
+                          Icon(
+                            c.synced ? Icons.cloud_done : Icons.cloud_upload,
+                            size: 18,
+                            semanticLabel:
+                                c.synced ? 'Uploaded' : 'Waiting to upload',
+                          ),
+                        ],
+                      ],
+                    ),
                   );
                 },
               ),

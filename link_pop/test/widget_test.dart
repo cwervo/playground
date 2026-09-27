@@ -15,11 +15,14 @@ void main() {
   late FakePopSound sound;
   late List<Uri> opened;
 
-  Future<void> pumpApp(WidgetTester tester) async {
+  Future<void> pumpApp(WidgetTester tester, {bool canOpen = true}) async {
     await tester.pumpWidget(LinkPopApp(
       log: log,
       sound: sound,
-      openLink: (uri) async => opened.add(uri),
+      openLink: (uri) async {
+        opened.add(uri);
+        return canOpen;
+      },
     ));
   }
 
@@ -87,5 +90,16 @@ void main() {
     expect(find.text('Saved pops (1)'), findsOneWidget);
     expect(find.text('https://en.wikipedia.org/wiki/Bubble_wrap'),
         findsOneWidget);
+  });
+
+  testWidgets('a link that fails to open shows a message', (tester) async {
+    await pumpApp(tester, canOpen: false);
+    await tester.tap(find.text('Flutter'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Open link'));
+    await tester.pumpAndSettle();
+
+    expect(find.text("Couldn't open https://flutter.dev"), findsOneWidget);
+    expect(log.total, 1);
   });
 }
