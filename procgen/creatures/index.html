@@ -1,0 +1,706 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#111111">
+<title>Blob Lizards</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #111; overflow: hidden; }
+  canvas {
+    position: fixed; inset: 0; width: 100%; height: 100%; display: block;
+    touch-action: none; cursor: crosshair;
+    -webkit-user-select: none; user-select: none; -webkit-touch-callout: none;
+  }
+  #hint, #badge {
+    position: fixed; pointer-events: none; user-select: none;
+    font: 12px/1.4 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    color: #8a8aff; letter-spacing: .08em; transition: opacity 1.2s ease;
+  }
+  #hint { left: 50%; bottom: calc(18px + env(safe-area-inset-bottom)); transform: translateX(-50%); white-space: nowrap; }
+  #badge { right: calc(12px + env(safe-area-inset-right)); top: calc(10px + env(safe-area-inset-top)); opacity: .55; }
+  .gone { opacity: 0 !important; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="hint">tap anywhere to spawn</div>
+<div id="badge"></div>
+<script>
+'use strict';
+
+// ============================================================================
+//  Blob Lizards: OKLab-coloured blobby creatures with IK lizard legs.
+//  WebGPU renderer with a WebGL2 / WebGL fallback. No dependencies.
+// ============================================================================
+
+const TAU = Math.PI * 2;
+const GRID_SPACING = 48;        // CSS px between grid lines
+const SPAWN_GRACE_MS = 3000;    // auto-spawn one creature if nobody taps within 3 s
+const MAX_CREATURES = 48;
+const SUBDIV = 8;               // spline samples per body point
+
+let canvas = document.getElementById('c');
+const hint = document.getElementById('hint');
+const badge = document.getElementById('badge');
+
+// ---------------------------------------------------------------- utilities
+const rand = (a = 0, b = 1) => a + Math.random() * (b - a);
+const randInt = (a, b) => Math.floor(rand(a, b + 1));
+const lerp = (a, b, t) => a + (b - a) * t;
+const clamp = (x, a, b) => (x < a ? a : x > b ? b : x);
+const smooth = t => t * t * (3 - 2 * t);
+const angNorm = a => { a = (a + Math.PI) % TAU; if (a < 0) a += TAU; return a - Math.PI; };
+
+// ---------------------------------------------------------------- OKLab
+function oklabToLinear(L, a, b) {
+  const l_ = L + 0.3963377774 * a + 0.2158037573 * b;
+  const m_ = L - 0.1055613458 * a - 0.0638541728 * b;
+  const s_ = L - 0.0894841775 * a - 1.2914855480 * b;
+  const l = l_ * l_ * l_, m = m_ * m_ * m_, s = s_ * s_ * s_;
+  return [
+     4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s,
+    -1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s,
+    -0.0041960863 * l - 0.7034186147 * m + 1.7076147010 * s,
+  ];
+}
+const lin2srgb = c => (c <= 0.0031308 ? 12.92 * c : 1.055 * Math.pow(c, 1 / 2.4) - 0.055);
+const inGamut = v => v >= -1e-4 && v <= 1.0001;
+// OKLCH -> sRGB-encoded [r,g,b,a]; chroma is reduced until the colour fits in gamut.
+function oklch(L, C, h, alpha = 1) {
+  L = clamp(L, 0, 1);
+  let rgb;
+  for (let i = 0; i < 30; i++) {
+    rgb = oklabToLinear(L, C * Math.cos(h), C * Math.sin(h));
+    if (inGamut(rgb[0]) && inGamut(rgb[1]) && inGamut(rgb[2])) break;
+    C *= 0.88;
+  }
+  return [lin2srgb(clamp(rgb[0], 0, 1)), lin2srgb(clamp(rgb[1], 0, 1)), lin2srgb(clamp(rgb[2], 0, 1)), alpha];
+}
+
+// ---------------------------------------------------------------- mesh builder
+// Interleaved triangle list: x, y, r, g, b, a (6 floats per vertex).
+class Mesh {
+  constructor() { this.data = new Float32Array(6 * 3 * 8192); this.n = 0; }
+  reset() { this.n = 0; }
+  ensure(f) {
+    if (this.n + f <= this.data.length) return;
+    let len = this.data.length * 2;
+    while (len < this.n + f) len *= 2;
+    const d = new Float32Array(len);
+    d.set(this.data.subarray(0, this.n));
+    this.data = d;
+  }
+  tri(x1, y1, x2, y2, x3, y3, c) {
+    this.ensure(18);
+    const d = this.data; let n = this.n;
+    d[n++] = x1; d[n++] = y1; d[n++] = c[0]; d[n++] = c[1]; d[n++] = c[2]; d[n++] = c[3];
+    d[n++] = x2; d[n++] = y2; d[n++] = c[0]; d[n++] = c[1]; d[n++] = c[2]; d[n++] = c[3];
+    d[n++] = x3; d[n++] = y3; d[n++] = c[0]; d[n++] = c[1]; d[n++] = c[2]; d[n++] = c[3];
+    this.n = n;
+  }
+  circle(cx, cy, r, c, seg) {
+    if (r <= 0) return;
+    seg = seg || clamp(Math.ceil(r * 1.4) + 8, 10, 48);
+    let px = cx + r, py = cy;
+    for (let i = 1; i <= seg; i++) {
+      const a = (i / seg) * TAU;
+      const x = cx + Math.cos(a) * r, y = cy + Math.sin(a) * r;
+      this.tri(cx, cy, px, py, x, y, c);
+      px = x; py = y;
+    }
+  }
+  // Closed polygon (flat [x,y,...]) as a fan around (cx, cy).
+  fan(cx, cy, pts, c, scale = 1) {
+    const m = pts.length >> 1;
+    for (let i = 0; i < m; i++) {
+      const j = (i + 1) % m;
+      this.tri(
+        cx, cy,
+        cx + (pts[2 * i] - cx) * scale, cy + (pts[2 * i + 1] - cy) * scale,
+        cx + (pts[2 * j] - cx) * scale, cy + (pts[2 * j + 1] - cy) * scale,
+        c);
+    }
+  }
+  // Tapered segment: width w1 at (x1,y1), w2 at (x2,y2).
+  seg(x1, y1, x2, y2, w1, w2, c) {
+    const dx = x2 - x1, dy = y2 - y1;
+    const len = Math.hypot(dx, dy) || 1e-6;
+    const nx = -dy / len, ny = dx / len;
+    const ax = x1 + nx * w1 * 0.5, ay = y1 + ny * w1 * 0.5;
+    const bx = x1 - nx * w1 * 0.5, by = y1 - ny * w1 * 0.5;
+    const cx = x2 - nx * w2 * 0.5, cy = y2 - ny * w2 * 0.5;
+    const ex = x2 + nx * w2 * 0.5, ey = y2 + ny * w2 * 0.5;
+    this.tri(ax, ay, bx, by, cx, cy, c);
+    this.tri(ax, ay, cx, cy, ex, ey, c);
+  }
+}
+
+// ---------------------------------------------------------------- IK
+// Two-bone analytic IK. Returns the knee position; (px,py) picks the bend side.
+function solveKnee(hx, hy, fx, fy, l1, l2, px, py) {
+  const dx = fx - hx, dy = fy - hy;
+  const D = Math.hypot(dx, dy) || 1e-6;
+  const Dc = clamp(D, Math.abs(l1 - l2) + 1e-3, (l1 + l2) * 0.999);
+  const ux = dx / D, uy = dy / D;
+  const a = (l1 * l1 - l2 * l2 + Dc * Dc) / (2 * Dc);
+  const h = Math.sqrt(Math.max(0, l1 * l1 - a * a));
+  const mx = hx + ux * a, my = hy + uy * a;
+  let nx = -uy, ny = ux;
+  if (nx * px + ny * py < 0) { nx = -nx; ny = -ny; }
+  return [mx + nx * h, my + ny * h];
+}
+
+// ---------------------------------------------------------------- creature
+class Creature {
+  constructor(x, y) {
+    this.x = x; this.y = y; this.vx = 0; this.vy = 0;
+    this.heading = rand(0, TAU);
+    this.visc = Math.random();               // stable 0..1 viscosity
+    this.R = rand(15, 30);                   // base body radius (CSS px)
+    this.age = 0; this.grow = 0;
+    this.target = null; this.targetAge = 0; this.idle = rand(0.2, 0.8);
+
+    // --- colour family, all derived in OKLCH so they hang together
+    const L = rand(0.56, 0.8), C = rand(0.1, 0.24), h = rand(0, TAU);
+    this.col = {
+      rim:  oklch(L - 0.15, C, h),
+      body: oklch(L, C, h),
+      core: oklch(L + 0.24, C * 0.55, h, 0.95),
+      leg:  oklch(L - 0.25, C * 0.9, h),
+      foot: oklch(L + 0.1, C, h),
+      eye:  oklch(0.17, C * 0.35, h),
+    };
+
+    // --- 5-7 outer body points (angle + rest radius in the heading frame)
+    const n = randInt(5, 7);
+    this.pts = [];
+    for (let i = 0; i < n; i++) {
+      const ang = angNorm((i / n) * TAU + rand(-0.3, 0.3) * (TAU / n));
+      const rr = this.R * rand(0.72, 1.32);
+      this.pts.push({ ang, rr, x, y, vx: 0, vy: 0, ph: rand(0, TAU), wf: rand(0.6, 1.5) });
+    }
+    this.pts.sort((a, b) => a.ang - b.ang);
+    for (let i = 0; i < n; i++) {
+      const p = this.pts[i], q = this.pts[(i + 1) % n];
+      p.restNext = Math.hypot(Math.cos(q.ang) * q.rr - Math.cos(p.ang) * p.rr,
+                              Math.sin(q.ang) * q.rr - Math.sin(p.ang) * p.rr);
+    }
+    this.outline = new Float32Array(n * SUBDIV * 2);
+    this.outAng = new Float32Array(n * SUBDIV);
+    this.cx = x; this.cy = y;
+
+    // --- 4-8 legs (always even): pairs mirrored across the heading axis
+    const pairs = randInt(2, 4);
+    const l1 = this.R * rand(0.6, 0.85), l2 = this.R * rand(0.7, 1.05);
+    this.legs = [];
+    for (let k = 0; k < pairs; k++) {
+      const t = pairs > 1 ? k / (pairs - 1) : 0.5;
+      const ang = lerp(0.68, 2.5, t) + rand(-0.1, 0.1);     // ~40 deg .. ~145 deg from the nose
+      const splay = rand(0.12, 0.3);
+      for (const side of [-1, 1]) {
+        this.legs.push({
+          side, ang, splay, l1, l2, reach: l1 + l2,
+          group: (k + (side > 0 ? 1 : 0)) % 2,              // alternating diagonal gait groups
+          fx: x, fy: y, hx: x, hy: y, kx: x, ky: y,
+          stepping: false, t: 0, dur: 0.2, sx: x, sy: y, tx: x, ty: y, lift: 0,
+        });
+      }
+    }
+  }
+
+  // Point on the outline at world polar angle `wa` (around the core).
+  outlineAt(wa) {
+    const m = this.outAng.length, o = this.outline, oa = this.outAng;
+    for (let i = 0; i < m; i++) {
+      const j = (i + 1) % m;
+      const a0 = angNorm(oa[i] - wa), a1 = angNorm(oa[j] - wa);
+      if (a0 <= 0 && a1 > 0 && a1 - a0 < Math.PI) {
+        const t = -a0 / (a1 - a0);
+        return [lerp(o[2 * i], o[2 * j], t), lerp(o[2 * i + 1], o[2 * j + 1], t)];
+      }
+    }
+    let best = 0, bd = Infinity;
+    for (let i = 0; i < m; i++) { const d = Math.abs(angNorm(oa[i] - wa)); if (d < bd) { bd = d; best = i; } }
+    return [o[2 * best], o[2 * best + 1]];
+  }
+
+  update(dt, W, H, time) {
+    this.age += dt;
+    const grow = this.grow = smooth(clamp(this.age / 0.8, 0, 1));
+    const v = this.visc, R = this.R;
+    const margin = Math.min(70, W * 0.2, H * 0.2);
+
+    // ---- wandering core (centre of gravity)
+    let dvx = 0, dvy = 0;
+    if (this.idle > 0) {
+      this.idle -= dt;
+    } else {
+      let d = this.target ? Math.hypot(this.target[0] - this.x, this.target[1] - this.y) : 0;
+      if (!this.target || d < 18 || this.targetAge > rand(5, 9)) {
+        if (this.target && Math.random() < 0.35) {
+          this.idle = rand(0.4, 2.2) * lerp(0.7, 1.5, v);
+          this.target = null;
+        } else {
+          const near = Math.random() < 0.5;
+          const reach = near ? rand(60, 180) : rand(180, 520);
+          const a = rand(0, TAU);
+          this.target = [
+            clamp(this.x + Math.cos(a) * reach, margin, Math.max(margin, W - margin)),
+            clamp(this.y + Math.sin(a) * reach, margin, Math.max(margin, H - margin)),
+          ];
+          this.targetAge = 0;
+        }
+        d = this.target ? Math.hypot(this.target[0] - this.x, this.target[1] - this.y) : 0;
+      }
+      if (this.target) {
+        this.targetAge += dt;
+        const maxSpeed = lerp(115, 38, v) * Math.pow(R / 22, 0.4) * grow;
+        const sp = maxSpeed * clamp(d / 90, 0.3, 1);
+        dvx = ((this.target[0] - this.x) / (d || 1)) * sp;
+        dvy = ((this.target[1] - this.y) / (d || 1)) * sp;
+      }
+    }
+    const accel = lerp(4, 1.3, v);
+    const k0 = Math.min(1, accel * dt);
+    this.vx += (dvx - this.vx) * k0;
+    this.vy += (dvy - this.vy) * k0;
+
+    // soft walls
+    if (this.x < margin) this.vx += (margin - this.x) * 6 * dt;
+    if (this.x > W - margin) this.vx -= (this.x - (W - margin)) * 6 * dt;
+    if (this.y < margin) this.vy += (margin - this.y) * 6 * dt;
+    if (this.y > H - margin) this.vy -= (this.y - (H - margin)) * 6 * dt;
+
+    this.x = clamp(this.x + this.vx * dt, R, Math.max(R, W - R));
+    this.y = clamp(this.y + this.vy * dt, R, Math.max(R, H - R));
+
+    // ---- heading follows velocity, turning slower for viscous creatures
+    const speed = Math.hypot(this.vx, this.vy);
+    if (speed > 4) {
+      const want = Math.atan2(this.vy, this.vx);
+      this.heading += angNorm(want - this.heading) * Math.min(1, lerp(7, 2.4, v) * dt);
+    }
+    const ch = Math.cos(this.heading), sh = Math.sin(this.heading);
+
+    // ---- outer body points: springs toward rest positions in the heading frame.
+    //      Low viscosity = stiff and underdamped (jiggly), high = soft and overdamped (goo).
+    const k = lerp(120, 26, v), c = lerp(8.5, 12.5, v), kn = k * 0.5;
+    const wobAmp = R * lerp(0.025, 0.07, v), wobF = lerp(3.2, 1.1, v);
+    const n = this.pts.length;
+    for (let i = 0; i < n; i++) {
+      const p = this.pts[i];
+      const rr = (p.rr + wobAmp * Math.sin(time * wobF * p.wf + p.ph)) * grow;
+      const a = this.heading + p.ang;
+      const tx = this.x + Math.cos(a) * rr, ty = this.y + Math.sin(a) * rr;
+      let ax = k * (tx - p.x) - c * p.vx;
+      let ay = k * (ty - p.y) - c * p.vy;
+      for (const q of [this.pts[(i + 1) % n], this.pts[(i + n - 1) % n]]) {
+        const rest = (q === this.pts[(i + 1) % n] ? p.restNext : q.restNext) * grow;
+        const dx = q.x - p.x, dy = q.y - p.y;
+        const d = Math.hypot(dx, dy) || 1e-6;
+        const f = kn * (d - rest) / d;
+        ax += f * dx; ay += f * dy;
+      }
+      p.vx += ax * dt; p.vy += ay * dt;
+      p.x += p.vx * dt; p.y += p.vy * dt;
+    }
+
+    // ---- outline: closed Catmull-Rom spline through the body points
+    const o = this.outline, oa = this.outAng;
+    let cx = 0, cy = 0, idx = 0;
+    for (let i = 0; i < n; i++) {
+      const p0 = this.pts[(i + n - 1) % n], p1 = this.pts[i], p2 = this.pts[(i + 1) % n], p3 = this.pts[(i + 2) % n];
+      for (let s = 0; s < SUBDIV; s++) {
+        const t = s / SUBDIV, t2 = t * t, t3 = t2 * t;
+        const x = 0.5 * ((2 * p1.x) + (-p0.x + p2.x) * t + (2 * p0.x - 5 * p1.x + 4 * p2.x - p3.x) * t2 + (-p0.x + 3 * p1.x - 3 * p2.x + p3.x) * t3);
+        const y = 0.5 * ((2 * p1.y) + (-p0.y + p2.y) * t + (2 * p0.y - 5 * p1.y + 4 * p2.y - p3.y) * t2 + (-p0.y + 3 * p1.y - 3 * p2.y + p3.y) * t3);
+        o[idx * 2] = x; o[idx * 2 + 1] = y;
+        oa[idx] = Math.atan2(y - this.y, x - this.x);
+        cx += x; cy += y; idx++;
+      }
+    }
+    this.cx = cx / idx; this.cy = cy / idx;
+
+    // ---- legs: planted feet, gait-gated stepping, two-bone IK with lizard elbows
+    const stepping = [false, false];
+    for (const leg of this.legs) if (leg.stepping) stepping[leg.group] = true;
+    const lead = lerp(0.12, 0.26, v);
+    const thresh = lerp(0.36, 0.48, v);
+    for (const leg of this.legs) {
+      const wa = this.heading + leg.side * leg.ang;
+      const hip = this.outlineAt(wa);
+      leg.hx = hip[0]; leg.hy = hip[1];
+
+      // rest position of the foot (where it "wants" to be), slightly ahead of the body's motion
+      const ra = this.heading + leg.side * (leg.ang + leg.splay);
+      const rd = (R * 1.05 + leg.reach * 0.55) * grow;
+      const rx = this.x + Math.cos(ra) * rd + this.vx * lead;
+      const ry = this.y + Math.sin(ra) * rd + this.vy * lead;
+
+      if (leg.stepping) {
+        leg.t += dt / leg.dur;
+        if (leg.t >= 1) {
+          leg.stepping = false; leg.lift = 0; leg.fx = leg.tx; leg.fy = leg.ty;
+        } else {
+          const e = smooth(leg.t);
+          leg.fx = lerp(leg.sx, leg.tx, e); leg.fy = lerp(leg.sy, leg.ty, e);
+          leg.lift = Math.sin(leg.t * Math.PI);
+        }
+      } else {
+        const d = Math.hypot(rx - leg.fx, ry - leg.fy);
+        const hd = Math.hypot(leg.fx - leg.hx, leg.fy - leg.hy);
+        const overstretched = hd > leg.reach * 0.97;
+        if ((d > leg.reach * thresh && !stepping[1 - leg.group]) || overstretched) {
+          leg.stepping = true; leg.t = 0;
+          leg.dur = lerp(0.1, 0.34, v);
+          leg.sx = leg.fx; leg.sy = leg.fy;
+          leg.tx = rx + this.vx * 0.08; leg.ty = ry + this.vy * 0.08;
+          stepping[leg.group] = true;
+        }
+      }
+
+      // elbows out and back for front legs, knees out and forward for hind legs
+      let ox = leg.hx - this.x, oy = leg.hy - this.y;
+      const ol = Math.hypot(ox, oy) || 1e-6; ox /= ol; oy /= ol;
+      const front = leg.ang < Math.PI / 2;
+      const px = ox + (front ? -ch : ch), py = oy + (front ? -sh : sh);
+      const knee = solveKnee(leg.hx, leg.hy, leg.fx, leg.fy, leg.l1 * grow + 1e-3, leg.l2 * grow + 1e-3, px, py);
+      leg.kx = knee[0]; leg.ky = knee[1];
+    }
+  }
+
+  draw(mesh) {
+    const R = this.R, g = this.grow, col = this.col;
+    const w1 = R * 0.24 * g, w2 = R * 0.14 * g;
+
+    for (const leg of this.legs) {
+      mesh.seg(leg.hx, leg.hy, leg.kx, leg.ky, w1, w1 * 0.8, col.leg);
+      mesh.seg(leg.kx, leg.ky, leg.fx, leg.fy, w1 * 0.8, w2, col.leg);
+      mesh.circle(leg.kx, leg.ky, w1 * 0.4, col.leg);
+      mesh.circle(leg.hx, leg.hy, w1 * 0.5, col.leg);
+    }
+    for (const leg of this.legs) {
+      mesh.circle(leg.fx, leg.fy, R * 0.13 * g * (1 + 0.7 * leg.lift), col.foot);
+    }
+
+    mesh.fan(this.cx, this.cy, this.outline, col.rim);
+    mesh.fan(this.cx, this.cy, this.outline, col.body, 0.84);
+
+    // core / centre of gravity
+    mesh.circle(this.x, this.y, R * 0.15 * g, col.core);
+
+    // eyes
+    const ch = Math.cos(this.heading), sh = Math.sin(this.heading);
+    const ex = R * 0.5 * g, ey = R * 0.3 * g, er = R * 0.085 * g;
+    mesh.circle(this.x + ch * ex - sh * ey, this.y + sh * ex + ch * ey, er, col.eye);
+    mesh.circle(this.x + ch * ex + sh * ey, this.y + sh * ex - ch * ey, er, col.eye);
+  }
+}
+
+// ---------------------------------------------------------------- shaders
+const WGSL = /* wgsl */`
+struct U { res: vec2f, dpr: f32, spacing: f32, time: f32, p0: f32, p1: f32, p2: f32 };
+@group(0) @binding(0) var<uniform> u: U;
+
+@vertex fn vsGrid(@builtin(vertex_index) i: u32) -> @builtin(position) vec4f {
+  var p = array<vec2f, 3>(vec2f(-1.0, -1.0), vec2f(3.0, -1.0), vec2f(-1.0, 3.0));
+  return vec4f(p[i], 0.0, 1.0);
+}
+@fragment fn fsGrid(@builtin(position) fc: vec4f) -> @location(0) vec4f {
+  let css = fc.xy / u.dpr;                 // CSS px, origin top-left
+  let px  = 1.0 / u.dpr;                   // one device pixel in CSS px
+  let g   = abs(fract(css / u.spacing + 0.5) - 0.5) * u.spacing;   // distance to nearest line
+  let cx  = clamp((1.0 - g.x) / px + 0.5, 0.0, 1.0);               // 2px lines => half width 1
+  let cy  = clamp((1.0 - g.y) / px + 0.5, 0.0, 1.0);
+  let cov = max(cx, cy);
+  let bg   = vec3f(0.06667);               // #111
+  let line = vec3f(0.06275, 0.06275, 1.0); // #1010FF
+  return vec4f(mix(bg, line, cov), 1.0);
+}
+
+struct VOut { @builtin(position) pos: vec4f, @location(0) col: vec4f };
+@vertex fn vsShape(@location(0) p: vec2f, @location(1) c: vec4f) -> VOut {
+  var o: VOut;
+  o.pos = vec4f(p.x / u.res.x * 2.0 - 1.0, 1.0 - p.y / u.res.y * 2.0, 0.0, 1.0);
+  o.col = c;
+  return o;
+}
+@fragment fn fsShape(i: VOut) -> @location(0) vec4f { return i.col; }
+`;
+
+const GLSL_GRID_VS = `
+attribute vec2 aPos;
+void main() { gl_Position = vec4(aPos, 0.0, 1.0); }`;
+const GLSL_GRID_FS = `
+precision highp float;
+uniform vec2 uRes; uniform float uDpr; uniform float uSpacing;
+void main() {
+  vec2 css = vec2(gl_FragCoord.x, uRes.y * uDpr - gl_FragCoord.y) / uDpr;
+  float px = 1.0 / uDpr;
+  vec2 g = abs(fract(css / uSpacing + 0.5) - 0.5) * uSpacing;
+  float cx = clamp((1.0 - g.x) / px + 0.5, 0.0, 1.0);
+  float cy = clamp((1.0 - g.y) / px + 0.5, 0.0, 1.0);
+  float cov = max(cx, cy);
+  vec3 bg = vec3(0.06667);
+  vec3 line = vec3(0.06275, 0.06275, 1.0);
+  gl_FragColor = vec4(mix(bg, line, cov), 1.0);
+}`;
+const GLSL_SHAPE_VS = `
+attribute vec2 aPos; attribute vec4 aCol;
+uniform vec2 uRes; varying vec4 vCol;
+void main() {
+  gl_Position = vec4(aPos.x / uRes.x * 2.0 - 1.0, 1.0 - aPos.y / uRes.y * 2.0, 0.0, 1.0);
+  vCol = aCol;
+}`;
+const GLSL_SHAPE_FS = `
+precision mediump float; varying vec4 vCol;
+void main() { gl_FragColor = vCol; }`;
+
+// ---------------------------------------------------------------- WebGPU renderer
+async function createWebGPU(cv, onLost) {
+  if (!navigator.gpu) throw new Error('navigator.gpu missing');
+  const adapter = await navigator.gpu.requestAdapter();
+  if (!adapter) throw new Error('no adapter');
+  const device = await adapter.requestDevice();
+  const format = navigator.gpu.getPreferredCanvasFormat();
+  const shader = device.createShaderModule({ code: WGSL });
+  const info = await shader.getCompilationInfo();
+  if (info.messages.some(m => m.type === 'error')) throw new Error('WGSL compile error');
+
+  const ubuf = device.createBuffer({ size: 32, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
+  const bgl = device.createBindGroupLayout({ entries: [{ binding: 0, visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT, buffer: { type: 'uniform' } }] });
+  const bindGroup = device.createBindGroup({ layout: bgl, entries: [{ binding: 0, resource: { buffer: ubuf } }] });
+  const layout = device.createPipelineLayout({ bindGroupLayouts: [bgl] });
+  const SAMPLES = 4;
+  const gridPipe = device.createRenderPipeline({
+    layout, multisample: { count: SAMPLES }, primitive: { topology: 'triangle-list' },
+    vertex: { module: shader, entryPoint: 'vsGrid' },
+    fragment: { module: shader, entryPoint: 'fsGrid', targets: [{ format }] },
+  });
+  const shapePipe = device.createRenderPipeline({
+    layout, multisample: { count: SAMPLES }, primitive: { topology: 'triangle-list' },
+    vertex: {
+      module: shader, entryPoint: 'vsShape',
+      buffers: [{ arrayStride: 24, attributes: [
+        { shaderLocation: 0, offset: 0, format: 'float32x2' },
+        { shaderLocation: 1, offset: 8, format: 'float32x4' },
+      ] }],
+    },
+    fragment: { module: shader, entryPoint: 'fsShape', targets: [{ format, blend: {
+      color: { srcFactor: 'src-alpha', dstFactor: 'one-minus-src-alpha', operation: 'add' },
+      alpha: { srcFactor: 'one', dstFactor: 'one-minus-src-alpha', operation: 'add' },
+    } }] },
+  });
+
+  // getContext is the last fallible step so the canvas can still fall back to WebGL otherwise.
+  const ctx = cv.getContext('webgpu');
+  if (!ctx) throw new Error('no webgpu context');
+  ctx.configure({ device, format, alphaMode: 'opaque' });
+  device.lost.then(info => { if (info.reason !== 'destroyed') onLost(info); });
+
+  let vbuf = null, vcap = 0, msaa = null, msaaW = 0, msaaH = 0;
+  const uarr = new Float32Array(8);
+  return {
+    kind: 'WebGPU',
+    resize(w, h) { cv.width = w; cv.height = h; },
+    frame(W, H, dpr, time, data, floats) {
+      const w = cv.width, h = cv.height;
+      if (!msaa || msaaW !== w || msaaH !== h) {
+        if (msaa) msaa.destroy();
+        msaa = device.createTexture({ size: [w, h], sampleCount: SAMPLES, format, usage: GPUTextureUsage.RENDER_ATTACHMENT });
+        msaaW = w; msaaH = h;
+      }
+      uarr[0] = W; uarr[1] = H; uarr[2] = dpr; uarr[3] = GRID_SPACING; uarr[4] = time;
+      device.queue.writeBuffer(ubuf, 0, uarr);
+      if (floats * 4 > vcap) {
+        if (vbuf) vbuf.destroy();
+        vcap = Math.max(floats * 8, 1 << 16);
+        vbuf = device.createBuffer({ size: vcap, usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST });
+      }
+      if (floats) device.queue.writeBuffer(vbuf, 0, data, 0, floats);
+      const enc = device.createCommandEncoder();
+      const pass = enc.beginRenderPass({ colorAttachments: [{
+        view: msaa.createView(), resolveTarget: ctx.getCurrentTexture().createView(),
+        loadOp: 'clear', clearValue: { r: 0.0667, g: 0.0667, b: 0.0667, a: 1 }, storeOp: 'discard',
+      }] });
+      pass.setBindGroup(0, bindGroup);
+      pass.setPipeline(gridPipe); pass.draw(3);
+      if (floats) { pass.setPipeline(shapePipe); pass.setVertexBuffer(0, vbuf); pass.draw(floats / 6); }
+      pass.end();
+      device.queue.submit([enc.finish()]);
+    },
+  };
+}
+
+// ---------------------------------------------------------------- WebGL renderer
+function createWebGL(cv) {
+  const opts = { antialias: true, alpha: false, depth: false, stencil: false, premultipliedAlpha: false, powerPreference: 'high-performance' };
+  let kind = 'WebGL2';
+  let gl = cv.getContext('webgl2', opts);
+  if (!gl) { kind = 'WebGL'; gl = cv.getContext('webgl', opts) || cv.getContext('experimental-webgl', opts); }
+  if (!gl) throw new Error('no WebGL context');
+
+  const compile = (type, src) => {
+    const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s);
+    if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s));
+    return s;
+  };
+  const program = (vs, fs) => {
+    const p = gl.createProgram();
+    gl.attachShader(p, compile(gl.VERTEX_SHADER, vs)); gl.attachShader(p, compile(gl.FRAGMENT_SHADER, fs));
+    gl.bindAttribLocation(p, 0, 'aPos'); gl.bindAttribLocation(p, 1, 'aCol');
+    gl.linkProgram(p);
+    if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(p));
+    return p;
+  };
+  const gridProg = program(GLSL_GRID_VS, GLSL_GRID_FS);
+  const shapeProg = program(GLSL_SHAPE_VS, GLSL_SHAPE_FS);
+  const gU = { res: gl.getUniformLocation(gridProg, 'uRes'), dpr: gl.getUniformLocation(gridProg, 'uDpr'), sp: gl.getUniformLocation(gridProg, 'uSpacing') };
+  const sU = { res: gl.getUniformLocation(shapeProg, 'uRes') };
+
+  const fsBuf = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, fsBuf);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
+  const vbuf = gl.createBuffer();
+  let vcap = 0;
+  gl.disable(gl.DEPTH_TEST);
+  gl.disable(gl.CULL_FACE);
+
+  return {
+    kind,
+    resize(w, h) { cv.width = w; cv.height = h; },
+    frame(W, H, dpr, time, data, floats) {
+      gl.viewport(0, 0, cv.width, cv.height);
+      gl.disable(gl.BLEND);
+      gl.useProgram(gridProg);
+      gl.uniform2f(gU.res, W, H); gl.uniform1f(gU.dpr, dpr); gl.uniform1f(gU.sp, GRID_SPACING);
+      gl.bindBuffer(gl.ARRAY_BUFFER, fsBuf);
+      gl.enableVertexAttribArray(0); gl.disableVertexAttribArray(1);
+      gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
+      gl.drawArrays(gl.TRIANGLES, 0, 3);
+      if (!floats) return;
+      gl.enable(gl.BLEND);
+      gl.blendFuncSeparate(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA, gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+      gl.useProgram(shapeProg);
+      gl.uniform2f(sU.res, W, H);
+      gl.bindBuffer(gl.ARRAY_BUFFER, vbuf);
+      if (floats * 4 > vcap) { vcap = Math.max(floats * 8, 1 << 16); gl.bufferData(gl.ARRAY_BUFFER, vcap, gl.DYNAMIC_DRAW); }
+      gl.bufferSubData(gl.ARRAY_BUFFER, 0, data.subarray(0, floats));
+      gl.enableVertexAttribArray(0); gl.enableVertexAttribArray(1);
+      gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 24, 0);
+      gl.vertexAttribPointer(1, 4, gl.FLOAT, false, 24, 8);
+      gl.drawArrays(gl.TRIANGLES, 0, floats / 6);
+    },
+  };
+}
+
+// ---------------------------------------------------------------- world
+const creatures = [];
+const mesh = new Mesh();
+let renderer = null;
+let W = 1, H = 1, dpr = 1;
+let interacted = false;
+
+function spawnAt(x, y) {
+  creatures.push(new Creature(x, y));
+  while (creatures.length > MAX_CREATURES) creatures.shift();
+}
+
+function freshCanvas() {
+  const fresh = document.createElement('canvas');
+  fresh.id = 'c';
+  canvas.replaceWith(fresh);
+  canvas = fresh;
+  bindPointer(canvas);
+}
+
+function bindPointer(cv) {
+  cv.addEventListener('pointerdown', e => {
+    interacted = true;
+    hint.classList.add('gone');
+    spawnAt(e.clientX, e.clientY);
+  });
+  cv.addEventListener('contextmenu', e => e.preventDefault());
+}
+
+function resize() {
+  dpr = Math.min(window.devicePixelRatio || 1, 3);
+  W = Math.max(1, window.innerWidth); H = Math.max(1, window.innerHeight);
+  const w = Math.max(1, Math.round(W * dpr)), h = Math.max(1, Math.round(H * dpr));
+  if (canvas.width !== w || canvas.height !== h) renderer.resize(w, h);
+}
+
+function step(dt, time) {
+  // gentle repulsion so creatures do not pile up
+  for (let i = 0; i < creatures.length; i++) {
+    const a = creatures[i];
+    for (let j = i + 1; j < creatures.length; j++) {
+      const b = creatures[j];
+      const dx = b.x - a.x, dy = b.y - a.y;
+      const d = Math.hypot(dx, dy);
+      const minD = (a.R + b.R) * 1.7;
+      if (d > 0 && d < minD) {
+        const f = ((minD - d) / minD) * 140 * dt;
+        const nx = dx / d, ny = dy / d;
+        a.vx -= nx * f; a.vy -= ny * f;
+        b.vx += nx * f; b.vy += ny * f;
+      }
+    }
+  }
+  for (const c of creatures) c.update(dt, W, H, time);
+}
+
+async function fallbackToWebGL(reason) {
+  console.warn('Falling back to WebGL:', reason);
+  freshCanvas();
+  try {
+    renderer = createWebGL(canvas);
+    badge.textContent = renderer.kind;
+  } catch (e) {
+    renderer = null;
+    badge.textContent = 'no WebGPU or WebGL available';
+    console.error(e);
+  }
+}
+
+async function init() {
+  bindPointer(canvas);
+  const t0 = performance.now();
+  try {
+    renderer = await createWebGPU(canvas, info => fallbackToWebGL(info.message || 'device lost'));
+    badge.textContent = renderer.kind;
+  } catch (e) {
+    await fallbackToWebGL(e && e.message ? e.message : e);
+  }
+  if (!renderer) return;
+
+  // auto-spawn one creature if nothing has happened within the first 3 s of load
+  setTimeout(() => {
+    if (!interacted && creatures.length === 0) {
+      const m = Math.min(80, W * 0.25, H * 0.25);
+      spawnAt(rand(m, Math.max(m, W - m)), rand(m, Math.max(m, H - m)));
+    }
+  }, Math.max(0, SPAWN_GRACE_MS - (performance.now() - t0)));
+
+  let last = performance.now(), simTime = 0;
+  const tick = now => {
+    const dt = Math.min(0.05, Math.max(0, (now - last) / 1000));
+    last = now; simTime += dt;
+    if (renderer) {
+      resize();
+      step(dt, simTime);
+      mesh.reset();
+      for (const c of creatures) c.draw(mesh);
+      try { renderer.frame(W, H, dpr, simTime, mesh.data, mesh.n); }
+      catch (e) { if (renderer.kind === 'WebGPU') fallbackToWebGL(e); else throw e; }
+    }
+    requestAnimationFrame(tick);
+  };
+  requestAnimationFrame(tick);
+}
+
+init();
+</script>
+</body>
+</html>
