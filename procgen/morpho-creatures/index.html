@@ -43,6 +43,7 @@
   button:active { filter: brightness(1.25); }
   .sliders { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 14px; }
   .sliders label { display: flex; flex-direction: column; gap: 1px; color: var(--dim); font-size: 12px; }
+  .sliders.over { opacity: .45; }
   .sliders label b { color: var(--ink); font-weight: 600; float: right; }
   input[type=range] { width: 100%; accent-color: var(--teal); height: 26px; margin: 0; }
   #genome { margin: 0; font: 11px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--dim);
@@ -50,11 +51,13 @@
     white-space: pre; overflow-x: auto; }
   #genome i { color: var(--teal); font-style: normal; } #genome u { color: var(--hot); text-decoration: none; }
   #gl { flex: 1; min-height: 0; }
-  #hud { position: absolute; top: 10px; left: 12px; pointer-events: none; font: 12px/1.5 ui-monospace, Menlo, monospace;
+  #hud { position: absolute; top: 52px; left: 12px; pointer-events: none; font: 12px/1.5 ui-monospace, Menlo, monospace;
     color: var(--ink); text-shadow: 0 1px 3px #000; }
   #hud b { font-size: 20px; color: var(--teal); font-weight: 600; }
   #courses { position: absolute; top: 10px; right: 12px; }
-  #courses button { padding: 6px 12px; min-height: 34px; font-size: 13px; }
+  #courses button { padding: 6px 10px; min-height: 34px; font-size: 13px; }
+  button.evo { flex: 1; border-color: var(--hot); color: var(--hot); }
+  button.evo.busy { background: var(--hot); color: #2a1200; }
   #banner { position: absolute; left: 0; right: 0; top: 34%; text-align: center; font-size: 26px; font-weight: 700;
     color: var(--gold); text-shadow: 0 2px 12px #000; pointer-events: none; opacity: 0; transition: opacity .4s; }
   #banner.on { opacity: 1; }
@@ -96,6 +99,9 @@
           <button class="btn" id="undo">Undo</button>
           <button class="btn" id="clear">Clear</button>
           <button class="chip" id="mirror">Mirror</button>
+          <button class="btn evo" id="evolve">⚙ Evolve minimal</button>
+        </div>
+        <div class="row">
           <button class="go" id="grow">Grow &amp; run ▶</button>
         </div>
       </div>
@@ -104,12 +110,13 @@
       <canvas id="gl"></canvas>
       <div id="hud"></div>
       <div class="seg" id="courses">
+        <button data-course="track">Track</button>
         <button data-course="maze" class="on">Maze</button>
         <button data-course="mountain">Mountain</button>
       </div>
       <div id="banner"></div>
-      <button class="steer" id="sl" aria-label="Steer left">◀</button>
-      <button class="steer" id="sr" aria-label="Steer right">▶</button>
+      <button class="steer" id="sl" aria-label="Left / reverse">◀</button>
+      <button class="steer" id="sr" aria-label="Right / forward">▶</button>
       <div class="panel simbar">
         <div class="row">
           <label for="pFreq">Gait</label><input id="pFreq" type="range" min="0.4" max="1.8" step="0.1" value="1.1">
@@ -125,7 +132,7 @@
   </main>
 </div>
 
-<script>
+<script id="core">
 "use strict";
 //<core> ------------------------------------------------------------------
 // Everything between the core markers is DOM-free so it can be run headless.
@@ -171,7 +178,10 @@ function nearestOn(p, q) {
 // not a single wire. "Cell divisions" doubles the cells along every tube, and
 // "branch recursion" re-applies the limb rule to its own output at 0.55 scale.
 const BODY_LEN = 2.6, MAX_SPAN = 3.6, MAX_PARTICLES = 1100;
-function buildPlan(strokes, P, divOverride) {
+// G (optional) is an evolved genome: it overrides resolution, can switch candidate limbs off,
+// and carries the single-signal actuation genes (see Sim.servo and the GA below).
+function buildPlan(strokes, P0, divOverride, G) {
+  const P = G ? { div: G.div, bus: G.bus, thick: G.thick, branch: 0, mirror: P0.mirror } : P0;
   const S = strokes.filter(s => s.length > 1 && plen(s) > 0.03);
   if (!S.length) return null;
   const sp = S[0], head = sp[0], tail = sp[sp.length - 1];
@@ -185,10 +195,19 @@ function buildPlan(strokes, P, divOverride) {
   const toPad = (X, Z) => { const x = X * dz + Z * dx, z = -X * dx + Z * dz; return [x / sc + ox, -z / sc + oy]; };
 
   const tubes = [{ kind: 'spine', gen: 0, parent: -1, u: 0, pts: S[0].map(toLocal) }];
-  const drawn = [];
+  // candidate limbs: every drawn stroke (plus its mirror image), or four pairs of prolegs if nothing sticks out sideways
+  const cands = [];
   for (let i = 1; i < S.length; i++) {
-    const p = S[i].map(toLocal); drawn.push(p);
-    if (P.mirror) { const off = p.reduce((a, q) => a + Math.abs(q[0]), 0) / p.length; if (off > 0.12) drawn.push(p.map(q => [-q[0], q[1]])); }
+    const p = S[i].map(toLocal), c = { pts: [p] }; cands.push(c);
+    if (P.mirror) { const off = p.reduce((a, q) => a + Math.abs(q[0]), 0) / p.length; if (off > 0.12) c.pts.push(p.map(q => [-q[0], q[1]])); }
+  }
+  // Prolegs are always on offer to the GA (switched off unless they earn their keep); a plain build only grows
+  // them when the drawing has nothing to walk on.
+  const needPro = !cands.some(c => { const p = c.pts[0]; let w = 0; for (const q of p) w = Math.max(w, Math.abs(q[0] - p[0][0]), Math.abs(q[0] - p[p.length - 1][0])); return w > 0.25; });
+  if (G || needPro) {
+    const rs = resample(tubes[0].pts, 20);
+    for (const i of [3, 8, 12, 17]) { const a = rs[i - 1], b = rs[i + 1], l = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1, nx = (b[1] - a[1]) / l, nz = -(b[0] - a[0]) / l;
+      cands.push({ auto: true, pts: [1, -1].map(sg => [rs[i], [rs[i][0] + sg * nx * 0.55 - nz * 0.08, rs[i][1] + sg * nz * 0.55 + nx * 0.08]]) }); }
   }
   const attach = p => {
     let best = null;
@@ -212,13 +231,11 @@ function buildPlan(strokes, P, divOverride) {
       const ch = { kind: 'twig', gen: t.gen + 1, parent: me, u: 0.6, pts }; tubes.push(ch); sprout(ch);
     }
   };
-  const roots = drawn.map(attach);
-  if (!roots.some(t => t.kind === 'limb' && Math.abs(t.pts[t.pts.length - 1][0] - t.pts[0][0]) > 0.25)) {
-    // nothing to walk on: grow stubby caterpillar prolegs along the spine
-    const rs = resample(tubes[0].pts, 20);
-    for (const i of [3, 8, 12, 17]) { const a = rs[i - 1], b = rs[i + 1], l = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1, nx = (b[1] - a[1]) / l, nz = -(b[0] - a[0]) / l;
-      for (const sg of [-1, 1]) { const t = attach([rs[i], [rs[i][0] + sg * nx * 0.55 - nz * 0.08, rs[i][1] + sg * nz * 0.55 + nx * 0.08]]); t.auto = true; } }
-  }
+  const roots = [];
+  cands.forEach((c, ci) => {
+    const gene = G ? G.limbs[ci] : null; if (gene && !gene.on) return;
+    c.pts.forEach((p, m) => { const t = attach(p); t.cand = ci; t.mir = m > 0; t.gene = gene; t.auto = !!c.auto; roots.push(t); });
+  });
   roots.forEach(sprout);
 
   // ---- lift into 3D ----
@@ -251,22 +268,22 @@ function buildPlan(strokes, P, divOverride) {
       ux /= ul; uy /= ul; uz /= ul;
       t.n1.push([ux, uy, uz]); t.n2.push([ty * uz - tz * uy, tz * ux - tx * uz, tx * uy - ty * ux]);
     }
-    if (t.kind === 'limb') {
+    if (par) {
       const a = t.c[0], e = t.c[n]; let mx = 0; for (const q of t.c) mx += q[0]; mx /= n + 1;
       t.side = mx - a[0] >= 0 ? 1 : -1;
-      t.axial = Math.abs(e[0] - a[0]) < 0.45 * Math.hypot(e[0] - a[0], e[2] - a[2]);
+      t.axial = t.kind !== 'limb' || Math.abs(e[0] - a[0]) < 0.45 * Math.hypot(e[0] - a[0], e[2] - a[2]);
       t.sign = t.n2[1][2] >= 0 ? 1 : -1;
     }
     t.gain = (t.rs[0] + t.rs[n]) / 2 / (L / n);
     particles += (n + 1) * (K + 1);
   }
-  if (particles > MAX_PARTICLES && div > 0) { const p = buildPlan(strokes, P, div - 1); p.clamped = true; return p; }
+  if (particles > MAX_PARTICLES && div > 0) { const p = buildPlan(strokes, P0, div - 1, G); p.clamped = true; return p; }
   for (const side of [-1, 1]) {               // alternating gait phases down each side
     limbs.filter(t => !t.axial && t.side === side).sort((a, b) => a.u - b.u)
       .forEach((t, i) => { t.phase = (i % 2 ? Math.PI : 0) + (side > 0 ? 0 : Math.PI); });
   }
   const legs = limbs.filter(t => !t.axial).length;
-  return { tubes, K, div, R, Hc, legs, particles, toPad, toLocal, scale: sc };
+  return { tubes, K, div, R, Hc, legs, particles, toPad, toLocal, scale: sc, nDrawn: S.length - 1, needPro };
 }
 
 // ---- Instantiate a plan as particles + distance constraints ----
@@ -316,7 +333,8 @@ function instantiate(plan, start, groundY) {
       for (let k = 0; k < Math.min(3, near.length); k++) add(a, near[k][1], -1, 0, 0, 0);
     }
   }
-  return { n, K, per, tubes, X, ang, nSec, secTube, secF, nc: ca.length,
+  let material = 0; for (let k = 0; k < r0.length; k++) material += w2[k] >= 0 ? Math.sqrt(r0[k] * r0[k] + w2[k]) : r0[k];
+  return { n, K, per, tubes, X, ang, nSec, secTube, secF, nc: ca.length, material,
     ca: Int32Array.from(ca), cb: Int32Array.from(cb), r0: Float64Array.from(r0), csec: Int32Array.from(cs_),
     w2: Float64Array.from(w2), cd: Float32Array.from(cd), cl: Float32Array.from(cl), cc: Float32Array.from(cc),
     bd: new Float32Array(nSec), bl: new Float32Array(nSec), bc: new Float32Array(nSec) };
@@ -386,12 +404,128 @@ function makeMountain(seed) {
   return finishWorld(w, hfun);
 }
 
+function makeTrack(seed) {
+  const hfun = (x, z) => 0.035 * fbm(x * .8, z * .8, seed, 3) * sstep(2, 5, Math.abs(z - 1)) + 0.5 * Math.pow(Math.max(0, Math.abs(x) - 3.2), 2);
+  const rnd = rng(seed * 5 + 2), pebbles = [];
+  for (let i = 0; i < 60; i++) pebbles.push({ x: (rnd() * 2 - 1) * 2.6, z: 14 + rnd() * 5, r: 0.05 + rnd() * 0.06, s: rnd() });
+  const wps = []; for (let z = 4; z <= 28; z += 4) wps.push({ x: 0, z });
+  const w = { kind: 'track', flat: false, boxes: [], pebbles, wps, start: { x: 0, z: 0, yaw: 0 },
+    grid: { x0: -8, z0: -12, cs: 0.25, nx: 65, nz: 177 }, reach: 1.2, pass: 9, pebbleBox: { x0: -6, x1: 6, z0: 11, z1: 22 } };
+  return finishWorld(w, hfun);
+}
+
+// ---- Genetic algorithm: smallest body that walks both ways on one signal ----
+// Genome: { div 0..2, bus 3..6, thick, sa (spine wave gain), sw (spine wave lag),
+//           limbs[candidate] = { on, swing, lift, ph, off, anti } }
+const GA_POP = 16, GA_ELITE = 2, GA_RUN = 180, GA_TARGET = 0.5;   // target: half a body length each way in 3 s
+let GA_FLAT = null;
+const gaKey = G => JSON.stringify(G);
+function gaClean(G) {                                         // snap tiny gains to exactly zero: that actuator is not built
+  const z = v => Math.abs(v) < 0.1 ? 0 : +v.toFixed(3), a = v => +(((v % TAU) + TAU) % TAU).toFixed(3);
+  return { div: G.div, bus: G.bus, thick: +G.thick.toFixed(2), sa: z(G.sa), sw: +G.sw.toFixed(2),
+    limbs: G.limbs.map(e => ({ on: e.on, swing: z(e.swing), lift: z(e.lift), ph: a(e.ph), off: a(e.off), anti: e.anti })) };
+}
+function gaParts(G, plan) {                                   // parts = bodies + actuator take-offs from the one shaft
+  let tubes = plan.tubes.length, act = G.sa ? 1 : 0;
+  for (const t of plan.tubes) if (t.gene) act += (t.gene.swing ? 1 : 0) + (t.gene.lift ? 1 : 0);
+  return { tubes, act, parts: tubes + act };
+}
+function gaEval(strokes, P, G) {
+  if (!GA_FLAT) GA_FLAT = finishWorld({ kind: 'lab', flat: true, boxes: [], pebbles: [], wps: [], start: { x: 0, z: 0, yaw: 0 }, grid: { x0: -1, z0: -1, cs: 1, nx: 3, nz: 3 } }, () => 0);
+  const plan = buildPlan(strokes, P, null, G), s = new Sim(GA_FLAT, plan, G), pc = gaParts(G, plan);
+  const r = { G, nodes: s.c.n, springs: s.c.nc, material: s.c.material, tubes: pc.tubes, act: pc.act, parts: pc.parts, fwd: 0, back: 0, valid: true };
+  s.freq = 1; s.drive = 0; let tilt = 0, drift = 0;
+  const run = n => { for (let i = 0; i < n; i++) { s.step(1 / 60); if (!s.upright) tilt++; if (!(s.cy < 3) || !(s.cy > -1)) { r.valid = false; return; } } };
+  run(24); let z0 = s.cz, x0 = s.cx;
+  s.drive = 1; run(GA_RUN); r.fwd = s.cz - z0; drift += Math.abs(s.cx - x0) + Math.abs(Math.atan2(s.fx, s.fz));
+  z0 = s.cz; x0 = s.cx; const h0 = Math.atan2(s.fx, s.fz);
+  s.drive = -1; run(GA_RUN); r.back = z0 - s.cz; drift += Math.abs(s.cx - x0) + Math.abs(Math.atan2(s.fx, s.fz) - h0);
+  if (tilt > 20 || !isFinite(r.fwd + r.back)) r.valid = false;
+  r.travel = r.valid ? Math.max(0, Math.min(r.fwd, r.back) - 0.35 * drift) / BODY_LEN : 0;   // must go BOTH ways, and straight
+  return r;
+}
+function gaScore(r, ref) {
+  const reach = Math.min(r.travel / GA_TARGET, 1), cost = 0.5 * r.material / ref.material + 0.5 * r.parts / ref.parts;
+  r.cost = cost; r.score = reach * (2 - cost) + 0.1 * Math.min(Math.max(r.travel / GA_TARGET - 1, 0), 1); return r;
+}
+function gaInit(strokes, P, seed) {
+  const base = buildPlan(strokes, P), rnd = rng(seed || 1), nd = base.nDrawn, n = nd + 4, prior = [];
+  for (let c = 0; c < n; c++) {                               // start from a plain trot on whatever the drawing offers
+    const t = base.tubes.find(t => t.cand === c && !t.mir), pro = c >= nd, walk = pro || (t && t.kind === 'limb' && !t.axial);
+    prior.push({ on: pro ? base.needPro : true, swing: walk ? 0.55 : 0, lift: walk ? 0.5 : 0, ph: Math.PI / 2, off: pro ? ((c - nd) % 2) * Math.PI : walk ? t.phase : 0, anti: true });
+  }
+  const full = gaClean({ div: 2, bus: 5, thick: P.thick, sa: 0.3, sw: 1, limbs: prior });
+  const st = { strokes, P, rnd, n, gen: 0, evals: 0, cache: new Map(), pop: [], next: 0, best: null, history: [] };
+  st.ref = gaEval(strokes, P, full); st.cache.set(gaKey(full), st.ref); st.evals++;
+  gaScore(st.ref, st.ref);
+  st.pop.push(full);
+  for (const [div, bus] of [[1, 4], [1, 3], [0, 4], [0, 3]]) st.pop.push(gaClean(Object.assign({}, full, { div, bus, sa: 0 })));
+  if (!base.needPro) for (const div of [1, 0]) {              // and a couple that borrow prolegs, in case the drawn limbs cannot walk
+    const g = JSON.parse(JSON.stringify(full)); g.div = div; g.bus = 3; g.sa = 0; g.limbs[nd].on = g.limbs[nd + 3].on = true; st.pop.push(gaClean(g)); }
+  while (st.pop.length < GA_POP) st.pop.push(gaMutate(st, full, 3));
+  return st;
+}
+function gaMutate(st, G0, rate) {
+  const r = st.rnd, g = JSON.parse(JSON.stringify(G0)), m = p => r() < p * (rate || 1), nrm = () => (r() + r() + r() - 1.5) * 1.15;
+  if (m(.2)) g.div = clamp(g.div + (r() < .7 ? -1 : 1), 0, 2);
+  if (m(.2)) g.bus = clamp(g.bus + (r() < .7 ? -1 : 1), 3, 6);
+  if (m(.15)) g.thick = clamp(g.thick + nrm() * .25, 0, 1);
+  if (m(.2)) g.sa = r() < .4 ? 0 : clamp(g.sa + nrm() * .3, 0, 1);
+  if (m(.15)) g.sw = clamp(g.sw + nrm() * .4, 0, 1.5);
+  for (const e of g.limbs) {
+    if (m(.1)) e.on = !e.on;
+    if (m(.2)) e.swing = r() < .2 ? 0 : clamp(e.swing + nrm() * .3, 0, 1);
+    if (m(.2)) e.lift = r() < .2 ? 0 : clamp(e.lift + nrm() * .3, 0, 1);
+    if (m(.2)) e.ph += nrm() * 1.2;
+    if (m(.2)) e.off += r() < .3 ? Math.PI : nrm() * 1.2;
+    if (m(.08)) e.anti = !e.anti;
+  }
+  return gaClean(g);
+}
+function gaSimplify(G) {                                      // every one-step way of building less
+  const out = [], v = f => { const g = JSON.parse(JSON.stringify(G)); f(g); out.push(gaClean(g)); };
+  if (G.div > 0) v(g => g.div--); if (G.bus > 3) v(g => g.bus--); if (G.thick > 0.05) v(g => g.thick = Math.max(0, g.thick - 0.2)); if (G.sa) v(g => g.sa = 0);
+  G.limbs.forEach((e, i) => { if (!e.on) return; v(g => g.limbs[i].on = false); if (e.swing) v(g => g.limbs[i].swing = 0); if (e.lift) v(g => g.limbs[i].lift = 0); });
+  return out;
+}
+function gaCross(st, A, B) {
+  const r = st.rnd, pick = (a, b) => r() < .5 ? a : b;
+  return { div: pick(A.div, B.div), bus: pick(A.bus, B.bus), thick: pick(A.thick, B.thick), sa: pick(A.sa, B.sa), sw: pick(A.sw, B.sw),
+    limbs: A.limbs.map((e, i) => Object.assign({}, pick(e, B.limbs[i]))) };
+}
+// Evaluate one individual per call; when the whole population is scored, breed the next generation.
+function gaStep(st) {
+  if (st.next < st.pop.length) {
+    const G = st.pop[st.next++], k = gaKey(G); let r = st.cache.get(k);
+    if (!r) { r = gaScore(gaEval(st.strokes, st.P, G), st.ref); st.cache.set(k, r); st.evals++; }
+    if (!st.best || r.score > st.best.score) { st.best = r; st.improved = true; }
+    return;
+  }
+  const scored = st.pop.map(G => st.cache.get(gaKey(G))).sort((a, b) => b.score - a.score);
+  st.history.push(scored[0].score); st.gen++;
+  const pick = () => { let b = scored[st.rnd() * scored.length | 0]; for (let i = 0; i < 2; i++) { const c = scored[st.rnd() * scored.length | 0]; if (c.score > b.score) b = c; } return b.G; };
+  const nextPop = scored.slice(0, GA_ELITE).map(r => r.G), seen = new Set(nextPop.map(gaKey));
+  const trims = gaSimplify(scored[0].G).filter(g => !st.cache.has(gaKey(g)));      // try trimming the champion directly
+  while (trims.length && nextPop.length < GA_ELITE + 6) { const g = trims.splice(st.rnd() * trims.length | 0, 1)[0]; seen.add(gaKey(g)); nextPop.push(g); }
+  let guard = 0;
+  while (nextPop.length < GA_POP) {
+    const child = gaMutate(st, st.rnd() < .6 ? gaCross(st, pick(), pick()) : pick(), 1 + (guard > 20 ? 2 : 0)), k = gaKey(child);
+    if (!seen.has(k) || ++guard > 60) { seen.add(k); nextPop.push(child); }
+  }
+  st.pop = nextPop; st.next = 0;
+}
+function gaReport(st) {
+  const b = st.best, f = r => ({ nodes: r.nodes, springs: r.springs, material: r.material, tubes: r.tubes, act: r.act, parts: r.parts, fwd: r.fwd, back: r.back, travel: r.travel, score: r.score, valid: r.valid });
+  return { gen: st.gen, evals: st.evals, G: b && b.G, best: b && f(b), ref: f(st.ref), history: st.history };
+}
+
 // ---- Simulation: small-step position-based dynamics ----
 const KEEL = [0.35, 2.5];   // inverse mass at belly / back
 const SUB = 10, GRAV = 9.8, R_CELL = 0.035, R_HIT = 0.11;
 const MU_FWD = 0.2, MU_SIDE = 0.9, MU_BACK = 1.6;        // bristle-like directional friction
 class Sim {
-  constructor(world, plan) {
+  constructor(world, plan, G) {
+    this.G = G || null; this.drive = 1;
     const w = this.w = world, s = w.start; w.sample(s.x, s.z);
     const c = this.c = instantiate(plan, s, w.sy + 0.04), pb = this.pb = w.pebbles.length, n = this.n = c.n + pb;
     this.plan = plan; this.X = new Float64Array(n * 3); this.X.set(c.X); this.P = new Float64Array(n * 3); this.V = new Float64Array(n * 3);
@@ -418,6 +552,7 @@ class Sim {
       if (dd < this.w.reach || (n && dd < this.w.pass && dx * (n.x - g.x) + dz * (n.z - g.z) > 0)) this.wp++; else break;
     }
     if (this.wp >= wps.length) { if (!this.done) { this.done = true; this.finish = this.t; } }
+    if (this.G) return this.servo(dt);
     let steer = 0;
     if (this.manual) steer = this.manual;
     else if (this.auto && !this.done) { const g = wps[this.wp], dx = g.x - X[hi], dz = g.z - X[hi + 2];
@@ -444,6 +579,21 @@ class Sim {
         d = go * g * this.lift / ns * lift - 0.02;
       } else l = go * g * 0.5 / ns * Math.sin(phi * (t.kind === 'twig' ? 2 : 1) + f * 3 + c.secTube[s]);
       bd[s] = clamp(d, -0.24, 0.24); bl[s] = clamp(l, -0.24, 0.24);
+    }
+  }
+  // One input signal: the phase of a single motor. Every muscle group is slaved to it through a fixed gain and
+  // phase offset (a cam on the shaft), so there is nothing to steer with: +drive walks forward, -drive runs the
+  // same cycle backwards.
+  servo(dt) {
+    const c = this.c, G = this.G, amp = Math.min(1, 1 / this.freq);
+    this.phi += TAU * this.freq * this.drive * dt; const phi = this.phi;
+    for (let s = 0; s < c.nSec; s++) {
+      const t = c.tubes[c.secTube[s]], f = c.secF[s], g = t.gain * amp, ns = t.nsec, e = t.gene; let d = 0, l = 0;
+      if (t.kind === 'spine') l = g * G.sa * 1.2 / ns * Math.sin(phi - TAU * G.sw * f);
+      else if (e) { const p = phi + e.off + (t.mir && e.anti ? Math.PI : 0), nh = Math.ceil(ns * 0.6);
+        if (f < 0.6) l = g * t.sign * e.swing * 0.8 / nh * Math.sin(p);
+        d = g * e.lift * 0.7 / ns * Math.sin(p + e.ph); }
+      c.bd[s] = clamp(d, -0.24, 0.24); c.bl[s] = clamp(l, -0.24, 0.24);
     }
   }
   step(dt) {
@@ -496,6 +646,7 @@ class Sim {
             if (dl > 1e-12) {                                    // Coulomb friction; creature cells slip forward, grip sideways and backward
               let mu = 0.7;
               if (SOFT[i]) mu = 0.1;
+              else if (this.G) mu = 1;                          // single-signal creatures get plain, symmetric friction
               else if (i < nc) { const al = (dx * FX[i] + dz * FZ[i]) / dl; mu = al > 0 ? lerp(MU_SIDE, MU_FWD, al * al) : lerp(MU_SIDE, MU_BACK, al * al); }
               const g = Math.min(1, mu * PEN[i] / dl); X[k] -= dx * g; X[k + 1] -= dy * g; X[k + 2] -= dz * g;
             }
@@ -551,6 +702,7 @@ let saved = store.get();
 let strokes = saved && saved.strokes && saved.strokes.length ? saved.strokes : PRESETS.Lizard.strokes.map(s => s.map(p => p.slice()));
 let P = Object.assign({}, PRESETS.Lizard.P, saved && saved.P);
 let plan = null, growDiv = null, tab = 'draw', course = 'maze', seed = 3, sim = null, paused = false;
+let evolved = saved && saved.evolved || null, evo = null;          // evolved: { G, best, ref }; evo: a search in progress
 
 // ===================== draw mode =====================
 const pad = $('pad'), pc = pad.getContext('2d');
@@ -563,23 +715,69 @@ function padSize() {
 }
 const toPx = p => [padBox.cx + (p[0] - .5) * padBox.S, padBox.cy + (p[1] - .5) * padBox.S];
 const toNorm = (x, y) => [(x - padBox.cx) / padBox.S + .5, (y - padBox.cy) / padBox.S + .5];
-function rebuild() {
-  plan = buildPlan(strokes, P); store.set({ strokes, P });
+const HINT = $('padHint').textContent;
+const pct = (a, b) => (a <= b ? '−' : '+') + Math.abs(Math.round((1 - a / b) * 100)) + '%';
+const bps = d => (d / BODY_LEN / (GA_RUN / 60)).toFixed(2);          // body lengths per second
+function evoLines(e) {
+  const b = e.best, r = e.ref;
+  return `nodes ${r.nodes} → <u>${b.nodes}</u> · material ${pct(b.material, r.material)}\n` +
+    `parts ${r.parts} → <u>${b.parts}</u>  (${b.tubes} bodies + ${b.act} take-offs)\n` +
+    `walks fwd ${bps(b.fwd)} · back ${bps(b.back)} body/s`;
+}
+// edit = true when the drawing or sliders changed, which invalidates an evolved design
+function rebuild(edit) {
+  if (edit) { evolved = null; if (evo) stopEvolve(false); $('padHint').textContent = HINT; }
+  const G = evo ? evo.G : evolved && evolved.G;
+  plan = buildPlan(strokes, P, null, G || undefined); store.set({ strokes, P, evolved });
   $('vDiv').textContent = '×' + (1 << P.div); $('vBus').textContent = P.bus + ' wires';
   $('vBranch').textContent = P.branch ? 'depth ' + P.branch : 'off'; $('vThick').textContent = Math.round(P.thick * 100) + '%';
   $('pDiv').value = P.div; $('pBus').value = P.bus; $('pBranch').value = P.branch; $('pThick').value = P.thick;
-  $('mirror').classList.toggle('on', P.mirror);
+  $('mirror').classList.toggle('on', P.mirror); document.querySelector('.sliders').classList.toggle('over', !!(evo || evolved));
+  $('evolve').textContent = evo ? '■ Stop, keep best' : evolved ? '⚙ Evolve again' : '⚙ Evolve minimal'; $('evolve').classList.toggle('busy', !!evo);
+  $('grow').textContent = evolved && !evo ? 'Run on one signal ▶' : 'Grow & run ▶';
   const g = $('genome');
   if (!plan) { g.textContent = 'draw a spine to seed the first cell'; drawPad(); return; }
   const cnt = k => plan.tubes.filter(t => t.kind === k).length, nl = cnt('limb'), nt = cnt('twig'), sp = plan.tubes[0];
-  const cons = plan.tubes.reduce((a, t) => a + t.nsec * (3 * plan.K + 1) + (t.nsec + 1) * 2 * plan.K, 0);
-  g.innerHTML =
-    `<i>creature</i> ≔ spine${nl ? ` ⊕ ${nl}·limb` : ''}${nt ? ` ⊕ ${nt}·twig` : ''}\n` +
-    `<i>tube</i>(n)  ≔ cell ━⟨<u>${plan.K}</u>⟩━ tube(n−1)\n` +
-    `<i>cell</i>     → cell · cell  ×<u>${plan.div}</u>  (spine: ${sp.nsec})\n` +
-    (P.branch ? `<i>limb</i>(k)  → tube ⊕ 2·limb(k−1)·½  k=<u>${P.branch}</u>\n` : '') +
-    `${plan.particles} nodes · ${cons} springs${plan.clamped ? ' · divisions capped' : ''}`;
+  const head = `<i>creature</i> ≔ spine${nl ? ` ⊕ ${nl}·limb` : ''}${nt ? ` ⊕ ${nt}·twig` : ''}`;
+  if (evo) g.innerHTML = `<i>evolving</i> gen ${evo.gen}/${evo.gens} · ${evo.evals} trials\n` + (evo.best ? head + '\n' + evoLines(evo) : 'testing the full-size body…');
+  else if (evolved) g.innerHTML = head + `   <i>1 signal</i> φ\n<i>muscle</i>   ≔ gain · sin(φ + offset)   bus ⟨<u>${plan.K}</u>⟩\n` + evoLines(evolved);
+  else {
+    const cons = plan.tubes.reduce((a, t) => a + t.nsec * (3 * plan.K + 1) + (t.nsec + 1) * 2 * plan.K, 0);
+    g.innerHTML = head + '\n' +
+      `<i>tube</i>(n)  ≔ cell ━⟨<u>${plan.K}</u>⟩━ tube(n−1)\n` +
+      `<i>cell</i>     → cell · cell  ×<u>${plan.div}</u>  (spine: ${sp.nsec})\n` +
+      (P.branch ? `<i>limb</i>(k)  → tube ⊕ 2·limb(k−1)·½  k=<u>${P.branch}</u>\n` : '') +
+      `${plan.particles} nodes · ${cons} springs${plan.clamped ? ' · divisions capped' : ''}`;
+  }
   drawPad();
+}
+// ---- evolution runs in a worker built from the core script, so the page stays responsive ----
+function startEvolve() {
+  if (!buildPlan(strokes, P)) return;
+  evo = { gen: 0, gens: 30, evals: 0, G: null, best: null, ref: null }; evolved = null;
+  const job = { strokes, P, seed: 1 + (Math.random() * 1e6 | 0), gens: evo.gens };
+  const onMsg = m => { if (!evo) return; Object.assign(evo, { gen: m.gen, evals: m.evals, G: m.G, best: m.best, ref: m.ref }); if (m.done) stopEvolve(true); else rebuild(); };
+  try {
+    const src = $('core').textContent + `\nonmessage = e => { const j = e.data, st = gaInit(j.strokes, j.P, j.seed); let last = 0;
+      while (st.gen < j.gens) { gaStep(st); const now = Date.now(); if (st.improved || now - last > 250) { st.improved = false; last = now; postMessage(gaReport(st)); } }
+      postMessage(Object.assign(gaReport(st), { done: true })); };`;
+    evo.worker = new Worker(URL.createObjectURL(new Blob([src], { type: 'text/javascript' })));
+    evo.worker.onmessage = e => onMsg(e.data); evo.worker.onerror = () => { evo.worker.terminate(); evo.worker = null; inline(); };
+    evo.worker.postMessage(job);
+  } catch (e) { inline(); }
+  function inline() {                                              // no workers (some file:// setups): search in slices on this thread
+    const st = gaInit(job.strokes, job.P, job.seed), mine = evo;
+    const tick = () => { if (evo !== mine) return; const t0 = performance.now(); while (st.gen < job.gens && performance.now() - t0 < 40) gaStep(st);
+      onMsg(Object.assign(gaReport(st), { done: st.gen >= job.gens })); if (evo === mine) setTimeout(tick, 0); };
+    setTimeout(tick, 0);
+  }
+  rebuild();
+}
+function stopEvolve(keep) {
+  if (!evo) return; if (evo.worker) evo.worker.terminate();
+  const e = evo; evo = null;
+  if (keep && e.G && e.best.travel >= 0.06) evolved = { G: e.G, best: e.best, ref: e.ref };
+  if (keep) { if (!evolved) $('padHint').textContent = 'No body that walks both ways was found. Try adding or lengthening limbs.'; rebuild(); }
 }
 function drawPad() {
   padSize(); const d = dprOf(), w = pad.clientWidth, h = pad.clientHeight; pc.setTransform(d, 0, 0, d, 0, 0);
@@ -587,7 +785,7 @@ function drawPad() {
   pc.strokeStyle = '#111b2e'; pc.lineWidth = 1; pc.beginPath();
   const st = padBox.S / 10; for (let x = padBox.cx % st; x < w; x += st) { pc.moveTo(x, 0); pc.lineTo(x, h); }
   for (let y = padBox.cy % st; y < h; y += st) { pc.moveTo(0, y); pc.lineTo(w, y); } pc.stroke();
-  const show = growDiv == null ? plan : buildPlan(strokes, P, growDiv);
+  const show = growDiv == null || evolved ? plan : buildPlan(strokes, P, growDiv);
   if (show) {
     const tp = (x, z) => toPx(show.toPad(x, z));
     if (P.mirror) { const a = tp(0, -9), b = tp(0, 9); pc.strokeStyle = '#1e2c44'; pc.setLineDash([4, 6]); pc.beginPath(); pc.moveTo(a[0], a[1]); pc.lineTo(b[0], b[1]); pc.stroke(); pc.setLineDash([]); }
@@ -612,7 +810,7 @@ function drawPad() {
   }
   if (live && live.length > 1) { pc.strokeStyle = '#fde047'; pc.lineWidth = 3; pc.lineJoin = pc.lineCap = 'round'; pc.beginPath();
     live.forEach((p, i) => { const q = toPx(p); i ? pc.lineTo(q[0], q[1]) : pc.moveTo(q[0], q[1]); }); pc.stroke(); }
-  $('padHint').style.opacity = strokes.length > 1 || live ? 0 : 1;
+  $('padHint').style.opacity = $('padHint').textContent !== HINT ? 1 : strokes.length || live ? 0 : 1;
 }
 function simplify(pts) {                                          // drop jitter, then one Chaikin pass
   const out = [pts[0]]; for (const p of pts) { const q = out[out.length - 1]; if (Math.hypot(p[0] - q[0], p[1] - q[1]) > 0.025) out.push(p); }
@@ -624,20 +822,22 @@ function simplify(pts) {                                          // drop jitter
 const padPt = e => { const r = pad.getBoundingClientRect(); return toNorm(e.clientX - r.left, e.clientY - r.top); };
 pad.addEventListener('pointerdown', e => { pad.setPointerCapture(e.pointerId); live = [padPt(e)]; drawPad(); });
 pad.addEventListener('pointermove', e => { if (!live) return; live.push(padPt(e)); drawPad(); });
-const endStroke = () => { if (!live) return; const s = simplify(live); live = null; if (s.length > 1 && plen(s) > 0.04) strokes.push(s); setPreset(null); rebuild(); };
+const endStroke = () => { if (!live) return; const s = simplify(live); live = null; if (s.length > 1 && plen(s) > 0.04) strokes.push(s); setPreset(null); rebuild(true); };
 pad.addEventListener('pointerup', endStroke); pad.addEventListener('pointercancel', endStroke);
-$('undo').onclick = () => { strokes.pop(); rebuild(); };
-$('clear').onclick = () => { strokes = []; setPreset(null); rebuild(); };
-$('mirror').onclick = () => { P.mirror = !P.mirror; rebuild(); };
-for (const [id, key] of [['pDiv', 'div'], ['pBus', 'bus'], ['pBranch', 'branch'], ['pThick', 'thick']]) $(id).oninput = e => { P[key] = +e.target.value; rebuild(); };
+$('undo').onclick = () => { strokes.pop(); rebuild(true); };
+$('clear').onclick = () => { strokes = []; setPreset(null); rebuild(true); };
+$('mirror').onclick = () => { P.mirror = !P.mirror; rebuild(true); };
+$('evolve').onclick = () => evo ? stopEvolve(true) : startEvolve();
+for (const [id, key] of [['pDiv', 'div'], ['pBus', 'bus'], ['pBranch', 'branch'], ['pThick', 'thick']]) $(id).oninput = e => { P[key] = +e.target.value; rebuild(true); };
 function setPreset(name) { for (const b of $('presets').children) b.classList.toggle('on', b.textContent === name); }
 for (const name of Object.keys(PRESETS)) {
   const b = document.createElement('button'); b.className = 'chip'; b.textContent = name;
-  b.onclick = () => { strokes = PRESETS[name].strokes.map(s => s.map(p => p.slice())); P = Object.assign({}, PRESETS[name].P); rebuild(); setPreset(name); };
+  b.onclick = () => { strokes = PRESETS[name].strokes.map(s => s.map(p => p.slice())); P = Object.assign({}, PRESETS[name].P); rebuild(true); setPreset(name); };
   $('presets').appendChild(b);
 }
 $('grow').onclick = () => {                                       // replay the cell divisions, then drop it in the course
-  if (!plan) return; let d = 0; growDiv = 0; drawPad();
+  if (!plan) return; if (evo) stopEvolve(true); if (evolved) { setCourse('track'); setTab('sim'); return; }
+  let d = 0; growDiv = 0; drawPad();
   const tick = () => { d++; if (d > plan.div) { growDiv = null; setTab('sim'); return; } growDiv = d; drawPad(); setTimeout(tick, 240); };
   setTimeout(tick, 240);
 };
@@ -682,7 +882,7 @@ function buildWorldMesh(w) {
   for (let j = 0; j < g.nz; j++) for (let i = 0; i < g.nx; i++) {
     const x = g.x0 + i * g.cs, z = g.z0 + j * g.cs, y = w.sample(x, z); let col;
     if (w.flat) col = [.07, .11, .18];
-    else { const gr = sstep(14, 16, z) * (1 - sstep(23, 25, z)) * (1 - sstep(2.6, 3.4, Math.abs(x)));
+    else { const gr = w.kind === 'track' ? sstep(13, 14, z) * (1 - sstep(19, 20, z)) * (1 - sstep(2.4, 3, Math.abs(x))) : sstep(14, 16, z) * (1 - sstep(23, 25, z)) * (1 - sstep(2.6, 3.4, Math.abs(x)));
       col = mix3([.07, .17, .2], [.2, .25, .33], sstep(.5, .85, 1 - w.sny) + sstep(.8, 2, y) * .5);
       col = mix3(col, [.7, .78, .88], sstep(1.0, 1.4, y) * (w.sny > .8 ? 1 : .3));
       col = mix3(col, [.25, .22, .2], gr * (.75 + .25 * hash2(i, j, 5))); }
@@ -790,10 +990,12 @@ function render() {
 let world = null, worldKey = '';
 function startSim() {
   if (!R || !plan) return;
-  const key = course + seed; if (key !== worldKey) { world = course === 'maze' ? makeMaze(seed) : makeMountain(seed); buildWorldMesh(world); worldKey = key; }
-  sim = new Sim(world, buildPlan(strokes, P)); sim.freq = +$('pFreq').value; sim.auto = $('auto').classList.contains('on');
+  const key = course + seed; if (key !== worldKey) { world = course === 'maze' ? makeMaze(seed) : course === 'track' ? makeTrack(seed) : makeMountain(seed); buildWorldMesh(world); worldKey = key; }
+  const G = evolved && evolved.G;
+  sim = new Sim(world, buildPlan(strokes, P, null, G || undefined), G); sim.freq = +$('pFreq').value; sim.auto = $('auto').classList.contains('on');
+  $('auto').style.display = G ? 'none' : ''; drive = 1; applySteer();
   buildSkinIndex(sim.c);
-  cam.yaw = world.start.yaw + Math.PI + .5; cam.pitch = course === 'maze' ? 1.0 : .5; cam.dist = course === 'maze' ? 9.5 : 7;
+  cam.yaw = world.start.yaw + Math.PI + .5; cam.pitch = course === 'maze' ? 1.0 : .5; cam.dist = course === 'maze' ? 9.5 : 7; cam.ty = world.sample(world.start.x, world.start.z);
   cam.tx = sim.cx; cam.tz = sim.cz; cam.ty = 0; $('banner').classList.remove('on'); setPaused(false);
 }
 function setPaused(p) { paused = p; $('pause').textContent = p ? '▶ Play' : '❚❚ Pause'; }
@@ -803,17 +1005,25 @@ function setTab(t) {
   if (t === 'sim') { if (!plan) { setTab('draw'); return; } startSim(); } else drawPad();
 }
 for (const b of $('tabs').children) b.onclick = () => setTab(b.dataset.tab);
-for (const b of $('courses').children) b.onclick = () => { course = b.dataset.course; for (const o of $('courses').children) o.classList.toggle('on', o === b); startSim(); };
+function setCourse(c) { course = c; for (const o of $('courses').children) o.classList.toggle('on', o.dataset.course === c); }
+for (const b of $('courses').children) b.onclick = () => { setCourse(b.dataset.course); startSim(); };
 $('reset').onclick = startSim; $('newc').onclick = () => { seed = 1 + (Math.random() * 9999 | 0); startSim(); };
 $('pause').onclick = () => setPaused(!paused);
 $('auto').onclick = e => { e.target.classList.toggle('on'); if (sim) sim.auto = e.target.classList.contains('on'); };
 $('pFreq').oninput = e => { if (sim) sim.freq = +e.target.value; };
-let steerL = false, steerR = false;                                // creature's own left is +x when it faces +z
-const applySteer = () => { if (sim) sim.manual = (steerL ? -1 : 0) + (steerR ? 1 : 0); $('sl').classList.toggle('on', steerL); $('sr').classList.toggle('on', steerR); };
-for (const [id, left] of [['sl', true], ['sr', false]]) { const b = $(id), set = v => e => { e.preventDefault(); left ? steerL = v : steerR = v; applySteer(); };
+// Steered creatures: hold ◀ ▶ to turn (the creature's own left is +x when it faces +z).
+// Evolved creatures have one signal and nothing to steer with: ◀ runs it in reverse, ▶ forward, tap again to stop.
+let steerL = false, steerR = false, drive = 1;
+function applySteer() {
+  if (!sim) return;
+  if (sim.G) { sim.drive = drive; $('sl').classList.toggle('on', drive < 0); $('sr').classList.toggle('on', drive > 0); return; }
+  sim.manual = (steerL ? -1 : 0) + (steerR ? 1 : 0); $('sl').classList.toggle('on', steerL); $('sr').classList.toggle('on', steerR);
+}
+const press = (left, v) => { if (sim && sim.G) { if (v) drive = left ? (drive < 0 ? 0 : -1) : (drive > 0 ? 0 : 1); } else if (left) steerL = v; else steerR = v; applySteer(); };
+for (const [id, left] of [['sl', true], ['sr', false]]) { const b = $(id), set = v => e => { e.preventDefault(); press(left, v); };
   b.addEventListener('pointerdown', set(true)); b.addEventListener('pointerup', set(false)); b.addEventListener('pointercancel', set(false)); b.addEventListener('pointerleave', set(false)); }
-addEventListener('keydown', e => { if (e.key === 'ArrowLeft') steerL = true; else if (e.key === 'ArrowRight') steerR = true; else return; applySteer(); });
-addEventListener('keyup', e => { if (e.key === 'ArrowLeft') steerL = false; else if (e.key === 'ArrowRight') steerR = false; else return; applySteer(); });
+addEventListener('keydown', e => { if (e.repeat || (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight')) return; press(e.key === 'ArrowLeft', true); });
+addEventListener('keyup', e => { if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return; press(e.key === 'ArrowLeft', false); });
 const ptrs = new Map(); let pinch = 0;                             // one finger orbits, two fingers zoom
 glc.addEventListener('pointerdown', e => { glc.setPointerCapture(e.pointerId); ptrs.set(e.pointerId, [e.clientX, e.clientY]); pinch = 0; });
 glc.addEventListener('pointermove', e => { const p = ptrs.get(e.pointerId); if (!p) return;
@@ -831,13 +1041,14 @@ function frame(now) {
   if (sim.cy < -20) { startSim(); return; }
   render();
   const n = sim.w.wps.length, t = sim.done ? sim.finish : sim.t;
-  $('hud').innerHTML = `<b>${t.toFixed(1)}s</b><br>gate ${Math.min(sim.wp, n)}/${n}<br>${sim.c.n} nodes · ${sim.c.nc} springs`;
+  const mode = sim.G ? `1 signal · ${sim.drive > 0 ? 'forward ▶' : sim.drive < 0 ? '◀ reverse' : 'stopped'}<br>${(sim.cz - sim.w.start.z).toFixed(1)} units along` : `gate ${Math.min(sim.wp, n)}/${n}`;
+  $('hud').innerHTML = `<b>${t.toFixed(1)}s</b><br>${mode}<br>${sim.c.n} nodes · ${sim.c.nc} springs`;
   if (sim.done && !$('banner').classList.contains('on')) { $('banner').textContent = `🏁 ${sim.finish.toFixed(1)}s`; $('banner').classList.add('on'); }
 }
 addEventListener('resize', () => { if (tab === 'draw') drawPad(); });
 try { initGL(); } catch (e) { R = null; $('hud').textContent = 'Renderer failed: ' + e.message; }
 rebuild(); requestAnimationFrame(frame);
-window.__morph = { get sim() { return sim; }, setTab, cam };
+window.__morph = { get sim() { return sim; }, get evolved() { return evolved; }, get evo() { return evo; }, setTab, cam };
 })();
 </script>
 </body>
