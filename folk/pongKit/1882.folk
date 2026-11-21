@@ -1,0 +1,28 @@
+
+
+
+
+
+
+
+
+
+
+
+
+
+Claim the pong ball has x position 55%
+
+
+When the pong ball has x position /x/ & \
+     the pong ball has y position /y/ {
+     Wish $this draws a circle with position \
+      [list $x $y] \
+        color green \
+        filled true \
+        radius 1cm
+}
+
+Wish $this is outlined white
+
+

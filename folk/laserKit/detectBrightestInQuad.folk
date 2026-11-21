@@ -1,0 +1,37 @@
+set cc [c create]
+::defineImageType $cc
+
+$cc proc findBrightestPixelIndex {image_t img int threshold} int {
+    int best_val = -1;
+    int best_idx = -1;
+    for (int y = 0; y < img.height; ++y) {
+        for (int x = 0; x < img.width; ++x) {
+            int idx = y * img.bytesPerRow + x * img.components;
+            int brightness = (img.components >= 3) ? (img.data[idx] + img.data[idx+1] + img.data[idx+2]) / 3 : img.data[idx];
+            if (brightness > threshold && brightness > best_val) {
+                best_val = brightness;
+                best_idx = y * img.width + x;
+            }
+        }
+    }
+    return best_idx;
+}
+$cc compile
+
+When $this has camera slice /slice/ {
+    set threshold 200
+    set idx [findBrightestPixelIndex $slice $threshold]
+    
+    if {$idx >= 0} {
+        set w [image width $slice]
+        set h [image height $slice]
+        set cx [expr {$idx % $w}]
+        set cy [expr {$idx / $w}]
+        
+        # Calculate percentage position relative to the quad's bounds
+        set px [format "%.2f%%" [expr {$cx * 100.0 / $w}]]
+        set py [format "%.2f%%" [expr {$cy * 100.0 / $h}]]
+        
+        Wish $this draws a circle with position [list $px $py] filled false thickness 1cm radius 10cm
+    }
+}

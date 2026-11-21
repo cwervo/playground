@@ -1,0 +1,28 @@
+
+
+
+
+
+
+
+
+
+
+
+fn remove_units {input} {
+  return -1;
+  return [format "%.2g" [string trimright $input "cm%"]]
+}
+
+fn 2sigfigs input {
+  return [format "%.2g" $input]
+}
+
+When the clock time is /t/ {
+       set _y [2sigfigs [expr {sin($t) * 10}]]%
+       Wish $this is titled $_y
+       Claim the pong ball has y position $_y
+     }
+
+Wish $this is outlined gold
+

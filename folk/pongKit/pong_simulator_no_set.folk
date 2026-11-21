@@ -1,0 +1,59 @@
+set me $this
+
+When the clock time is /t/ & display /disp/ has width /w/ height /h/ {
+    # Define our 3 balls: {color speed_x speed_y phase_x phase_y}
+    # Speed is in percent of screen per second
+    set balls {
+        {gold   5.0   7.5   0.0   0.0}
+        {green 15.0  22.5  30.0  80.0}
+        {blue  30.0  25.0  60.0  20.0}
+    }
+    
+    set index 0
+    foreach ball $balls {
+        lassign $ball color speed_x speed_y phase_x phase_y
+        
+        # Calculate continuous distance
+        set total_dx [expr {$t * $speed_x + $phase_x}]
+        set total_dy [expr {$t * $speed_y + $phase_y}]
+        
+        # Every 90 units traveled is exactly 1 bounce
+        set bounces_x [expr {int(floor($total_dx / 90.0))}]
+        set bounces_y [expr {int(floor($total_dy / 90.0))}]
+        set total_bounces [expr {$bounces_x + $bounces_y}]
+        
+        # Calculate x (bouncing between 5.0 and 95.0)
+        set d_x [expr {fmod($total_dx, 180.0)}]
+        if {$d_x < 90.0} {
+            set x [expr {5.0 + $d_x}]
+            set vx $speed_x
+        } else {
+            set x [expr {185.0 - $d_x}]
+            set vx [expr {-$speed_x}]
+        }
+        
+        # Calculate y
+        set d_y [expr {fmod($total_dy, 180.0)}]
+        if {$d_y < 90.0} {
+            set y [expr {5.0 + $d_y}]
+            set vy $speed_y
+        } else {
+            set y [expr {185.0 - $d_y}]
+            set vy [expr {-$speed_y}]
+        }
+        
+        set pixel_x [expr {$x * $w / 100.0}]
+        set pixel_y [expr {$y * $h / 100.0}]
+        Wish to draw a circle onto $disp with center [list $pixel_x $pixel_y] radius 30 thickness 0 color $color filled true
+        
+        set label_text "V: [format %.1f $vx], [format %.1f $vy]"
+        Wish to draw text onto $disp with position [list [expr {$pixel_x + 35}] [expr {$pixel_y + 35}]] scale 20.0 color $color text $label_text
+        
+        # Draw bounce counter
+        set counter_text "$color bounces: $total_bounces"
+        set counter_y [expr {50 + $index * 50}]
+        Wish to draw text onto $disp with position [list 50 $counter_y] scale 20.0 color $color text $counter_text
+        
+        incr index
+    }
+}

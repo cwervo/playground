@@ -1,0 +1,73 @@
+set cc [c create]
+::defineImageType $cc
+$cc include <stdio.h>
+
+$cc code {
+    static __thread char result_buf[8192];
+}
+
+$cc proc findBrightSpots {image_t img int threshold} char* {
+    result_buf[0] = '\0';
+    int blob_count = 0;
+    int blob_x[200];
+    int blob_y[200];
+    int blob_size[200];
+    
+    int step = 4; // Subsample for performance
+    for (int y = 0; y < img.height; y += step) {
+        for (int x = 0; x < img.width; x += step) {
+            int idx = y * img.bytesPerRow + x * img.components;
+            int brightness = 0;
+            if (img.components >= 3) {
+                brightness = (img.data[idx] + img.data[idx+1] + img.data[idx+2]) / 3;
+            } else {
+                brightness = img.data[idx];
+            }
+            
+            if (brightness > threshold) {
+                int found = 0;
+                // Simple clustering: if within distance squared of 400 (20 pixels), merge
+                for (int i = 0; i < blob_count; ++i) {
+                    int dx = blob_x[i] - x;
+                    int dy = blob_y[i] - y;
+                    if (dx*dx + dy*dy < 400) {
+                        found = 1;
+                        blob_x[i] = (blob_x[i] + x) / 2;
+                        blob_y[i] = (blob_y[i] + y) / 2;
+                        blob_size[i] += 1;
+                        break;
+                    }
+                }
+                if (!found && blob_count < 200) {
+                    blob_x[blob_count] = x;
+                    blob_y[blob_count] = y;
+                    blob_size[blob_count] = 1;
+                    blob_count++;
+                }
+            }
+        }
+    }
+    
+    int pos = 0;
+    for (int i = 0; i < blob_count; ++i) {
+        // Only keep blobs that are relatively small (approx smaller than 11cm threshold)
+        // 50 samples with step=4 corresponds roughly to a small-ish spot.
+        if (blob_size[i] < 50) {
+            pos += snprintf(result_buf + pos, 8192 - pos, "%d %d ", blob_x[i], blob_y[i]);
+        }
+    }
+    return result_buf;
+}
+
+$cc compile
+
+When the camera frame is /f/ {
+    # Brightness threshold
+    set threshold 200
+    set spots [findBrightSpots $f $threshold]
+    
+    foreach {cx cy} $spots {
+        lassign [::cameraToProjector [list $cx $cy]] px py
+        Wish to draw a circle with center [list $px $py] radius 5.5cm thickness 0.5cm color magenta filled false layer 10
+    }
+}

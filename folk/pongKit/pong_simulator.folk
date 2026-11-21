@@ -1,0 +1,43 @@
+return
+set me $this
+
+# Option A: Mutable State using Global Tcl Variables
+if {![info exists ::pong_x]} {
+    set ::pong_x 50.0
+    set ::pong_y 50.0
+    set ::pong_vx 1.0
+    set ::pong_vy -2.0
+}
+
+When the clock time is /t/ {
+    if {![info exists ::pong_x]} {
+        puts "Option A: ::pong_x DOES NOT EXIST in tick!"
+        return
+    }
+    
+    set next_x [expr {$::pong_x + $::pong_vx}]
+    set next_y [expr {$::pong_y + $::pong_vy}]
+    
+    if {$next_x <= 5 || $next_x >= 95} {
+        set ::pong_vx [expr {-$::pong_vx}]
+        set next_x [expr {$::pong_x + $::pong_vx}]
+    }
+    if {$next_y <= 5 || $next_y >= 95} {
+        set ::pong_vy [expr {-$::pong_vy}]
+        set next_y [expr {$::pong_y + $::pong_vy}]
+    }
+    
+    set ::pong_x $next_x
+    set ::pong_y $next_y
+}
+
+When display /disp/ has width /w/ height /h/ {
+    if {[info exists ::pong_x]} {
+        set pixel_x [expr {$::pong_x * $w / 100.0}]
+        set pixel_y [expr {$::pong_y * $h / 100.0}]
+        Wish to draw a circle onto $disp with center [list $pixel_x $pixel_y] radius 30 thickness 0 color red filled true
+        Wish to draw text onto $disp with text "Pong Simulator (Option A: Global Set)" x 100 y 100 scale 1 color red
+    } else {
+        Wish to draw a circle onto $disp with center [list 100 100] radius 50 thickness 0 color red filled true
+    }
+}

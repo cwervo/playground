@@ -1,0 +1,26 @@
+When $this has quad /q/ {
+    set points [lindex $q 1]
+    lassign $points topLeft topRight bottomRight bottomLeft
+
+    lassign $topLeft x1 y1 z1
+    lassign $topRight x2 y2 z2
+
+    set dx [expr {$x2 - $x1}]
+    set dy [expr {$y2 - $y1}]
+
+    set radians [expr {atan2($dy, $dx)}]
+    set degrees [expr {$radians * (180.0 / 3.14159265)}]
+
+    if {$degrees > -45 && $degrees <= 45} {
+        set color "blue"
+    } elseif {$degrees > 45 && $degrees <= 135} {
+        set color "green"
+    } elseif {$degrees > -135 && $degrees <= -45} {
+        set color "red"
+    } else {
+        set color "gold"
+    }
+
+    Wish $this is filled with color $color
+    Wish $this is labelled $color
+}

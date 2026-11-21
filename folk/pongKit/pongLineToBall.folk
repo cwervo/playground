@@ -1,0 +1,45 @@
+# Now let's make a ball follow the line ...
+Wish $this is outlined blue
+
+
+When /p/ claims /p/ is a paddle {
+  Wish $p is outlined magenta
+  Wish $p is labelled "paddle"
+}
+
+When the clock time is /t/ &\
+     the quad library is /quadLib/ &\
+     the quad changer is /quadChange/ &\
+     the pose library is /poseLib/ &\
+     display /d/ has width /w/ height /h/ &\
+     display /d/ has intrinsics /intrs/ &\
+     1841 has quad /q1/ &\
+     1839 has quad /q2/ {
+
+  fn quadChange
+  set q1 [quadChange $q1 "display $d"]
+  set q2 [quadChange $q2 "display $d"]
+  set p1 [lindex [$quadLib vertices $q1] 0]
+  set p1 [$poseLib project $intrs $w $h $p1]
+  set p2 [lindex [$quadLib vertices $q2] 0]
+  set p2 [$poseLib project $intrs $w $h $p2]
+  Wish to draw a line onto $d with \
+    points [list $p1 $p2] \
+    color green width 30
+  
+  # Calculate position along the line using time $t
+  set s [expr {(sin($t * 2.0) + 1.0) / 2.0}]
+  set x1 [lindex $p1 0]
+  set y1 [lindex $p1 1]
+  set x2 [lindex $p2 0]
+  set y2 [lindex $p2 1]
+  
+  set px [expr {$x1 + $s * ($x2 - $x1)}]
+  set py [expr {$y1 + $s * ($y2 - $y1)}]
+
+  Wish to draw a circle onto $d with \
+    center [list $px $py] \
+    radius 10cm \
+    filled true \
+    color magenta
+}

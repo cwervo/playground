@@ -1,0 +1,70 @@
+Expect! the image library is /imageLib/
+
+fn probeM {slice geom x y} {
+  set xP $(int($x / $geom(width) * $slice(width)))
+  set yP $(int($y / $geom(height) * $slice(height)))
+
+  return [$imageLib get $slice $xP $yP]
+}
+
+
+# these are in cm
+set ballX 2
+set ballY 0
+
+set ballR 1
+
+Wish $this has camera slice
+
+Wish $this is outlined blue
+
+Expect! $this has resolved geometry /geom/
+
+while true {
+
+  Hold! -key drawCirc \
+    Wish $this draws a circle with \
+    center [list ${ballX}cm ${ballY}cm] \
+    radius ${ballR}cm\
+    filled true
+
+
+  ForEach! $this has camera slice /slice/ {
+  
+  set probeX $ballX
+  set probeY [+ $ballY $ballR]
+  lassign [probeM $slice $geom \
+           [/ $probeX 100.0] [/ $probeY 100.0]] r g b
+  
+  # Hold! -key debug \
+  #   Wish $this is labelled [list $r $g $b]  
+
+  set luma [+ $r $g $b]
+  
+  if { $luma > 1 } {
+    set ballY [+ $ballY 0.3]
+  } else {
+    lassign [probeM $slice $geom \
+      [/ [- $probeX 1.0] 100.0] [/ $probeY 100.0]] rL gL bL
+    lassign [probeM $slice $geom \
+      [/ [+ $probeX 1.0] 100.0] [/ $probeY 100.0]] rR gR bR
+
+    if { $rL > $rR } {
+      set ballX [- $ballX 0.3]
+    } else {
+      set ballX [+ $ballX 0.3]
+    }
+
+  }
+  
+  if { $ballY > 30 } {
+    set ballX 2
+    set ballY 0
+  }
+  
+  break
+  
+  }
+      
+  sleep 0.01
+}

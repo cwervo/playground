@@ -1,0 +1,43 @@
+set me $this
+Wish $me is titled "Pong Simulator (Tcl Array)"
+
+if {![info exists ::pong_x]} {
+    array set ::pong_x {}
+    array set ::pong_y {}
+    array set ::pong_vx {}
+    array set ::pong_vy {}
+}
+
+if {![info exists ::pong_x($me)]} {
+    set ::pong_x($me) 50.0
+    set ::pong_y($me) 50.0
+    set ::pong_vx($me) 1.0
+    set ::pong_vy($me) -2.0
+}
+
+When the clock time is /t/ {
+    set x $::pong_x($me)
+    set y $::pong_y($me)
+    set vx $::pong_vx($me)
+    set vy $::pong_vy($me)
+    
+    set next_x [expr {$x + $vx}]
+    set next_y [expr {$y + $vy}]
+    
+    if {$next_x <= 5 || $next_x >= 95} {
+        set vx [expr {-$vx}]
+        set next_x [expr {$x + $vx}]
+    }
+    if {$next_y <= 5 || $next_y >= 95} {
+        set vy [expr {-$vy}]
+        set next_y [expr {$y + $vy}]
+    }
+    
+    set ::pong_x($me) $next_x
+    set ::pong_y($me) $next_y
+    set ::pong_vx($me) $vx
+    set ::pong_vy($me) $vy
+    
+    Wish $me draws a circle with position [list $x% $y%] color red filled true radius 1cm
+}
+Wish $me is outlined gold

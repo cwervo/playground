@@ -1,0 +1,79 @@
+set antState [dict create \
+    x 0 \
+    y 0 \
+    dir 0 \
+    grid [dict create] \
+]
+
+When the clock ticks $t {
+    global antState
+    
+    set x [dict get $antState x]
+    set y [dict get $antState y]
+    set dir [dict get $antState dir]
+    set grid [dict get $antState grid]
+    
+    set pos "$x,$y"
+    set isBlack 0
+    if {[dict exists $grid $pos]} {
+        set isBlack [dict get $grid $pos]
+    }
+    
+    if {$isBlack} {
+        set dir [expr {($dir - 1) % 4}]
+        if {$dir < 0} { incr dir 4 }
+        dict set grid $pos 0
+    } else {
+        set dir [expr {($dir + 1) % 4}]
+        dict set grid $pos 1
+    }
+    
+    if {$dir == 0} { incr y -1 }
+    elseif {$dir == 1} { incr x 1 }
+    elseif {$dir == 2} { incr y 1 }
+    elseif {$dir == 3} { incr x -1 }
+    
+    # We'll set a temporary bounds for bouncing, e.g. a 5x5 grid around origin
+    # Once we know the quad size, we can update these bounds!
+    set xBound 5
+    set yBound 7
+    if {$x < -$xBound} { set x -$xBound; set dir 1 }
+    if {$x > $xBound} { set x $xBound; set dir 3 }
+    if {$y < -$yBound} { set y -$yBound; set dir 2 }
+    if {$y > $yBound} { set y $yBound; set dir 0 }
+    
+    set antState [dict create x $x y $y dir $dir grid $grid]
+    Claim ant state is $antState
+}
+
+When $this draws a Langton's ant {
+    When $this has region /r/ {
+        set w [region width $r]
+        set h [region height $r]
+        
+        # Display the width and height so we can investigate the quad size!
+        Wish $this draws text "Quad size: ${w}px x ${h}px"
+    }
+
+    When ant state is /state/ {
+        set grid [dict get $state grid]
+        set antX [dict get $state x]
+        set antY [dict get $state y]
+        
+        dict for {pos isBlack} $grid {
+            if {$isBlack} {
+                lassign [split $pos ","] cx cy
+                # For now, let's try mapping the grid coordinates to a percentage to see if it works.
+                # Assuming 0,0 is at 50%, 50% and each step is ~5%.
+                set px [expr {50 + $cx * 5}]
+                set py [expr {50 + $cy * 5}]
+                Wish $this draws a rectangle with size 2cm filled true color black x ${px}% y ${py}%
+            }
+        }
+        
+        # Draw the ant itself (red)
+        set ax [expr {50 + $antX * 5}]
+        set ay [expr {50 + $antY * 5}]
+        Wish $this draws a rectangle with size 2cm filled true color red x ${ax}% y ${ay}%
+    }
+}

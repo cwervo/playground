@@ -1,0 +1,30 @@
+# Now let's make a ball follow the line ...
+Wish $this is outlined blue
+
+
+When /p/ claims /p/ is a paddle {
+  Wish $p is outlined magenta
+  Wish $p is labelled "paddle"
+}
+
+When the quad library is /quadLib/ &\
+     the quad changer is /quadChange/ &\
+     the pose library is /poseLib/ &\
+     display /d/ has width /w/ height /h/ &\
+     display /d/ has intrinsics /intrs/ &\
+     1841 has quad /q1/ &\
+     1839 has quad /q2/ {
+
+  fn quadChange
+  set q1 [quadChange $q1 "display $d"]
+  set q2 [quadChange $q2 "display $d"]
+  set p1 [lindex [$quadLib vertices $q1] 0]
+  set p1 [$poseLib project $intrs $w $h $p1]
+  set p2 [lindex [$quadLib vertices $q2] 0]
+  set p2 [$poseLib project $intrs $w $h $p2]
+  Wish to draw a line onto $d with \
+    points [list $p1 $p2] \
+    color green width 30
+}
+
+

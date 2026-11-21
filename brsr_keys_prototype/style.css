@@ -343,7 +343,25 @@ body {
 }
 .tab-favicon.custom-fav {
   background-color: var(--indigo-500);
-  color: #white;
+  color: white;
+}
+
+.tab .tab-index-badge {
+  background-color: var(--chrome-btn-hover);
+  color: var(--chrome-text-dim);
+  font-size: 0.65rem;
+  font-weight: bold;
+  padding: 0px 4.5px;
+  border-radius: 4px;
+  line-height: 1.2;
+}
+.tab.active .tab-index-badge {
+  background-color: var(--indigo-100);
+  color: var(--indigo-700);
+}
+.browser-theme-dark .tab.active .tab-index-badge {
+  background-color: var(--indigo-950);
+  color: var(--indigo-300);
 }
 
 .tab .tab-title {
@@ -369,7 +387,7 @@ body {
 }
 .tab .tab-close-btn:hover {
   background-color: var(--red-500);
-  color: #white;
+  color: white;
 }
 
 .btn-new-tab {
@@ -542,6 +560,59 @@ body {
   color: var(--page-text);
   background-color: var(--page-bg);
   transition: background-color var(--transition-smooth), color var(--transition-smooth);
+}
+
+.page-content-wrapper.iframe-mode {
+  overflow: hidden;
+}
+
+.page-viewport.iframe-mode {
+  padding: 0;
+  display: flex;
+}
+
+.iframe-container {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  width: 100%;
+  height: 100%;
+}
+
+.iframe-focus-hint {
+  background-color: var(--chrome-bg);
+  border-bottom: 1px solid var(--chrome-border);
+  color: var(--chrome-text-dim);
+  font-size: 0.65rem;
+  padding: 6px 14px;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-weight: 500;
+  user-select: none;
+}
+
+.iframe-focus-hint .hint-divider {
+  opacity: 0.4;
+  margin: 0 4px;
+}
+
+.iframe-focus-hint .hint-warning {
+  color: var(--amber-400);
+}
+
+.viewport-iframe {
+  flex: 1;
+  width: 100%;
+  height: 100%;
+  border: none;
+  background-color: #ffffff;
+  transition: filter var(--transition-smooth);
+}
+
+.browser-theme-dark .viewport-iframe {
+  filter: invert(1) hue-rotate(180deg);
 }
 
 /* Selection Highlight Style Override to show c copy action visual */
@@ -1461,6 +1532,20 @@ body {
   gap: 8px;
   color: #ffffff;
 }
+.tab-card-index-badge {
+  background-color: rgba(255, 255, 255, 0.15);
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 0.65rem;
+  font-weight: bold;
+  padding: 0px 4.5px;
+  border-radius: 4px;
+  line-height: 1.2;
+}
+.tab-card.active .tab-card-index-badge {
+  background-color: var(--indigo-500);
+  color: #ffffff;
+}
+
 .tab-card-fav {
   width: 18px;
   height: 18px;
