@@ -1,0 +1,657 @@
+# -------------------------------------------------------------------------
+# Edge Slider Utility for Folk
+#
+# Enables the syntax:
+#   Wish $this has (bottom|top|left|right) slider named apple
+#   Wish $this has bottom slider named binary with steps 1
+#   Wish $this has bottom slider named manySteps with steps 16
+#
+# Emits:
+#   Claim $page has slider $name value $value
+#   Claim $page has slider $name active box $activeBox
+#   Claim $page has slider $name state $stateDict
+# -------------------------------------------------------------------------
+
+When the image library is /imageLib/ {
+    set cc [C]
+    $cc extend $imageLib
+    $cc include <math.h>
+    $cc include <stdlib.h>
+    $cc include <string.h>
+
+    $cc code {
+        #define SLIDER_SAMPLES_L 160
+        #define SLIDER_SAMPLES_T 5
+
+        static int sliderFloatCmp(const void *a, const void *b) {
+            float fa = *(const float *)a;
+            float fb = *(const float *)b;
+            return (fa > fb) - (fa < fb);
+        }
+
+        static float sliderMedian(float *arr, int n) {
+            if (n <= 0) return 0.0f;
+            qsort(arr, (size_t)n, sizeof(float), sliderFloatCmp);
+            if (n % 2 == 1) {
+                return arr[n / 2];
+            }
+            return 0.5f * (arr[n / 2 - 1] + arr[n / 2]);
+        }
+
+        static void sliderAppendDictEntry(Jim_Obj *dict, const char *key, Jim_Obj *value) {
+            Jim_ListAppendElement(interp, dict, Jim_NewStringObj(interp, key, -1));
+            Jim_ListAppendElement(interp, dict, value);
+        }
+
+        // Core 1D profile differencing against median background color.
+        static Jim_Obj *sliderEvaluateProfile(
+            const float *colR, const float *colG, const float *colB,
+            int L, int steps, int isVertical, int invertVertical, double threshold
+        ) {
+            int numBoxes = (steps <= 1) ? 2 : steps;
+            float scratch[SLIDER_SAMPLES_L];
+            float diff[SLIDER_SAMPLES_L];
+            float smoothDiff[SLIDER_SAMPLES_L];
+
+            memcpy(scratch, colR, sizeof(float) * (size_t)L);
+            float bgR = sliderMedian(scratch, L);
+            memcpy(scratch, colG, sizeof(float) * (size_t)L);
+            float bgG = sliderMedian(scratch, L);
+            memcpy(scratch, colB, sizeof(float) * (size_t)L);
+            float bgB = sliderMedian(scratch, L);
+
+            for (int u = 0; u < L; u++) {
+                float dr = fabsf(colR[u] - bgR);
+                float dg = fabsf(colG[u] - bgG);
+                float db = fabsf(colB[u] - bgB);
+                float euclid = sqrtf((dr * dr + dg * dg + db * db) / 3.0f);
+                float maxCh = fmaxf(dr, fmaxf(dg, db));
+                diff[u] = 0.6f * euclid + 0.4f * maxCh;
+            }
+
+            // Use a fixed physical smoothing window (~4% of strip length)
+            // so object detection and peak localization are invariant to `steps`.
+            int winRadius = L / 50;
+            if (winRadius < 1) winRadius = 1;
+            if (winRadius > 4) winRadius = 4;
+
+            float maxDiff = 0.0f;
+            int bestU = 0;
+            for (int u = 0; u < L; u++) {
+                int w0 = u - winRadius;
+                int w1 = u + winRadius;
+                if (w0 < 0) w0 = 0;
+                if (w1 >= L) w1 = L - 1;
+                float sum = 0.0f;
+                for (int k = w0; k <= w1; k++) {
+                    sum += diff[k];
+                }
+                smoothDiff[u] = sum / (float)(w1 - w0 + 1);
+                if (smoothDiff[u] > maxDiff) {
+                    maxDiff = smoothDiff[u];
+                    bestU = u;
+                }
+            }
+
+            memcpy(scratch, smoothDiff, sizeof(float) * (size_t)L);
+            float medDiff = sliderMedian(scratch, L);
+
+            // Exposure-adaptive normalization: scale raw 0..255 difference by
+            // the strip's background brightness (reference 200.0) so low-exposure
+            // projector-table cameras (where white paper is RGB ~20) and bright
+            // webcams (where white paper is RGB ~200) use the same threshold scale.
+            float bgPeak = fmaxf(bgR, fmaxf(bgG, bgB));
+            float bgScale = fmaxf(16.0f, bgPeak);
+            float exposureGain = 200.0f / bgScale;
+            if (exposureGain < 1.0f) exposureGain = 1.0f;
+            if (exposureGain > 12.0f) exposureGain = 12.0f;
+
+            float normMaxDiff = maxDiff * exposureGain;
+            float normMedDiff = medDiff * exposureGain;
+            float normContrast = normMaxDiff - normMedDiff;
+            float rawContrast = maxDiff - medDiff;
+            float snr = maxDiff / fmaxf(0.75f, medDiff);
+
+            // Set to 0 if strip is mostly of a similar color.
+            // Requires both sufficient normalized contrast above threshold and
+            // a minimum raw contrast (2.6 LSB) + SNR (2.8x) above sensor floor.
+            int detected = (rawContrast >= 2.6f &&
+                            maxDiff >= 3.6f &&
+                            snr >= 2.8f &&
+                            normMaxDiff >= (float)threshold &&
+                            normContrast >= (float)(threshold * 0.65));
+
+            int activeBox = -1;
+            double value = 0.0;
+
+            if (detected) {
+                float cutoff = medDiff + 0.6f * rawContrast;
+                int span = L / 12;
+                if (span < 6) span = 6;
+                int c0 = bestU - span;
+                int c1 = bestU + span;
+                if (c0 < 0) c0 = 0;
+                if (c1 >= L) c1 = L - 1;
+
+                double weightedU = 0.0;
+                double weightSum = 0.0;
+                for (int u = c0; u <= c1; u++) {
+                    if (smoothDiff[u] >= cutoff) {
+                        double w = (double)(smoothDiff[u] - medDiff);
+                        weightedU += w * (double)(u + 0.5);
+                        weightSum += w;
+                    }
+                }
+                double centerU = (weightSum > 0.0) ? (weightedU / weightSum) : ((double)bestU + 0.5);
+                double normPos = centerU / (double)L;
+                if (normPos < 0.0) normPos = 0.0;
+                if (normPos >= 1.0) normPos = 0.999999;
+
+                if (isVertical && invertVertical) {
+                    normPos = 1.0 - normPos;
+                    if (normPos < 0.0) normPos = 0.0;
+                    if (normPos >= 1.0) normPos = 0.999999;
+                }
+
+                activeBox = (int)(normPos * (double)numBoxes);
+                if (activeBox < 0) activeBox = 0;
+                if (activeBox >= numBoxes) activeBox = numBoxes - 1;
+
+                if (steps <= 1) {
+                    value = (activeBox == 0) ? 0.0 : 1.0;
+                } else {
+                    value = (double)(activeBox + 1) / (double)steps;
+                }
+            }
+
+            Jim_Obj *result = Jim_NewListObj(interp, NULL, 0);
+            sliderAppendDictEntry(result, "detected", Jim_NewIntObj(interp, detected));
+            sliderAppendDictEntry(result, "activeBox", Jim_NewIntObj(interp, activeBox));
+            sliderAppendDictEntry(result, "numBoxes", Jim_NewIntObj(interp, numBoxes));
+            sliderAppendDictEntry(result, "value", Jim_NewDoubleObj(interp, value));
+            sliderAppendDictEntry(result, "maxDiff", Jim_NewDoubleObj(interp, (double)normMaxDiff));
+            sliderAppendDictEntry(result, "medDiff", Jim_NewDoubleObj(interp, (double)normMedDiff));
+            sliderAppendDictEntry(result, "rawMaxDiff", Jim_NewDoubleObj(interp, (double)maxDiff));
+            sliderAppendDictEntry(result, "rawMedDiff", Jim_NewDoubleObj(interp, (double)medDiff));
+            return result;
+        }
+    }
+
+    # Zero-allocation direct camera-frame sampler for the 5mm edge strip quad.
+    # Corners are [TL, TR, BR, BL] projected into camera pixel coordinates.
+    $cc proc analyzeQuadStrip {Image frame double[4][2] corners int steps int isVertical int invertVertical double threshold} Jim_Obj* {
+        int numBoxes = (steps <= 1) ? 2 : steps;
+        if (frame.data == NULL || frame.width <= 0 || frame.height <= 0 ||
+            (frame.components != 1 && frame.components != 3 && frame.components != 4)) {
+            Jim_Obj *result = Jim_NewListObj(interp, NULL, 0);
+            sliderAppendDictEntry(result, "detected", Jim_NewIntObj(interp, 0));
+            sliderAppendDictEntry(result, "activeBox", Jim_NewIntObj(interp, -1));
+            sliderAppendDictEntry(result, "numBoxes", Jim_NewIntObj(interp, numBoxes));
+            sliderAppendDictEntry(result, "value", Jim_NewDoubleObj(interp, 0.0));
+            sliderAppendDictEntry(result, "maxDiff", Jim_NewDoubleObj(interp, 0.0));
+            sliderAppendDictEntry(result, "medDiff", Jim_NewDoubleObj(interp, 0.0));
+            return result;
+        }
+
+        float colR[SLIDER_SAMPLES_L];
+        float colG[SLIDER_SAMPLES_L];
+        float colB[SLIDER_SAMPLES_L];
+
+        double tlX = corners[0][0], tlY = corners[0][1];
+        double trX = corners[1][0], trY = corners[1][1];
+        double brX = corners[2][0], brY = corners[2][1];
+        double blX = corners[3][0], blY = corners[3][1];
+
+        int validSamples = 0;
+        for (int i = 0; i < SLIDER_SAMPLES_L; i++) {
+            double uFrac = ((double)i + 0.5) / (double)SLIDER_SAMPLES_L;
+            float sumR = 0.0f, sumG = 0.0f, sumB = 0.0f;
+            int count = 0;
+
+            for (int j = 0; j < SLIDER_SAMPLES_T; j++) {
+                // Sample interior 60% of strip thickness (0.20 .. 0.80)
+                double tFrac = 0.20 + 0.60 * (((double)j + 0.5) / (double)SLIDER_SAMPLES_T);
+                double sX = isVertical ? tFrac : uFrac;
+                double sY = isVertical ? uFrac : tFrac;
+
+                double px = (1.0 - sX) * (1.0 - sY) * tlX +
+                            sX * (1.0 - sY) * trX +
+                            sX * sY * brX +
+                            (1.0 - sX) * sY * blX;
+                double py = (1.0 - sX) * (1.0 - sY) * tlY +
+                            sX * (1.0 - sY) * trY +
+                            sX * sY * brY +
+                            (1.0 - sX) * sY * blY;
+
+                int ix = (int) (px + 0.5);
+                int iy = (int) (py + 0.5);
+                if (ix < 0 || ix >= (int)frame.width || iy < 0 || iy >= (int)frame.height) {
+                    continue;
+                }
+
+                uint8_t *p = frame.data + (size_t)iy * frame.bytesPerRow + (size_t)ix * frame.components;
+                if (frame.components == 1) {
+                    float v = (float)p[0];
+                    sumR += v; sumG += v; sumB += v;
+                } else {
+                    sumR += (float)p[0];
+                    sumG += (float)p[1];
+                    sumB += (float)p[2];
+                }
+                count++;
+            }
+
+            if (count > 0) {
+                colR[i] = sumR / (float)count;
+                colG[i] = sumG / (float)count;
+                colB[i] = sumB / (float)count;
+                validSamples++;
+            } else {
+                colR[i] = 0.0f; colG[i] = 0.0f; colB[i] = 0.0f;
+            }
+        }
+
+        if (validSamples < SLIDER_SAMPLES_L / 2) {
+            Jim_Obj *result = Jim_NewListObj(interp, NULL, 0);
+            sliderAppendDictEntry(result, "detected", Jim_NewIntObj(interp, 0));
+            sliderAppendDictEntry(result, "activeBox", Jim_NewIntObj(interp, -1));
+            sliderAppendDictEntry(result, "numBoxes", Jim_NewIntObj(interp, numBoxes));
+            sliderAppendDictEntry(result, "value", Jim_NewDoubleObj(interp, 0.0));
+            sliderAppendDictEntry(result, "maxDiff", Jim_NewDoubleObj(interp, 0.0));
+            sliderAppendDictEntry(result, "medDiff", Jim_NewDoubleObj(interp, 0.0));
+            return result;
+        }
+
+        return sliderEvaluateProfile(colR, colG, colB, SLIDER_SAMPLES_L,
+                                     steps, isVertical, invertVertical, threshold);
+    }
+
+    set sliderLib [$cc compile]
+    Claim the edge slider library is $sliderLib
+}
+
+fn sliderVecAdd {a b} {
+    list [expr {[lindex $a 0] + [lindex $b 0]}] \
+         [expr {[lindex $a 1] + [lindex $b 1]}] \
+         [expr {[lindex $a 2] + [lindex $b 2]}]
+}
+
+fn sliderVecSub {a b} {
+    list [expr {[lindex $a 0] - [lindex $b 0]}] \
+         [expr {[lindex $a 1] - [lindex $b 1]}] \
+         [expr {[lindex $a 2] - [lindex $b 2]}]
+}
+
+fn sliderVecScale {s v} {
+    list [expr {$s * [lindex $v 0]}] \
+         [expr {$s * [lindex $v 1]}] \
+         [expr {$s * [lindex $v 2]}]
+}
+
+fn sliderVecNorm {v} {
+    expr {sqrt([lindex $v 0] * [lindex $v 0] +
+               [lindex $v 1] * [lindex $v 1] +
+               [lindex $v 2] * [lindex $v 2])}
+}
+
+fn sliderVecUnit {v} {
+    fn sliderVecNorm
+    fn sliderVecScale
+    set n [sliderVecNorm $v]
+    if {$n == 0.0} { return {0 0 0} }
+    sliderVecScale [expr {1.0 / $n}] $v
+}
+
+fn sliderParseMeters {raw defaultMeters} {
+    if {$raw eq ""} { return $defaultMeters }
+    if {[string is double -strict $raw]} { return [expr {double($raw)}] }
+    if {[regexp {^\s*([+-]?(?:\d+\.?\d*|\.\d+))\s*(mm|cm|m)\s*$} $raw -> num unit]} {
+        switch -- $unit {
+            mm { return [expr {double($num) * 0.001}] }
+            cm { return [expr {double($num) * 0.01}] }
+            m  { return [expr {double($num)}] }
+        }
+    }
+    error "slider: unsupported distance '$raw' (expected meters or mm/cm/m)"
+}
+
+fn sliderFormatValue {val} {
+    set rounded [expr {round($val * 10000.0) / 10000.0}]
+    if {abs($rounded - round($rounded)) < 1e-6} {
+        return [expr {int(round($rounded))}]
+    }
+    return [string trimright [string trimright [format "%.4f" $rounded] "0"] "."]
+}
+
+fn sliderQuantizeVertex {v} {
+    # Quantize 3D coordinates to 0.5mm (0.0005m) so sub-millimeter AprilTag
+    # pose jitter is deduplicated by Folk's statement DB when a page is still.
+    list [expr {round([lindex $v 0] * 2000.0) / 2000.0}] \
+         [expr {round([lindex $v 1] * 2000.0) / 2000.0}] \
+         [expr {round([lindex $v 2] * 2000.0) / 2000.0}]
+}
+
+# Builds the 5mm outer strip quad along (bottom|top|left|right) of pageQuad.
+fn sliderEdgeGeometry {quadLib pageQuad edge stripDepth offset} {
+    fn sliderVecAdd
+    fn sliderVecSub
+    fn sliderVecScale
+    fn sliderVecNorm
+    fn sliderVecUnit
+    fn sliderQuantizeVertex
+
+    lassign [$quadLib vertices $pageQuad] tl tr br bl
+
+    set topVec [sliderVecSub $tr $tl]
+    set bottomVec [sliderVecSub $br $bl]
+    set leftVec [sliderVecSub $bl $tl]
+    set rightVec [sliderVecSub $br $tr]
+
+    set rightDir [sliderVecUnit [sliderVecScale 0.5 [sliderVecAdd $topVec $bottomVec]]]
+    set downDir  [sliderVecUnit [sliderVecScale 0.5 [sliderVecAdd $leftVec $rightVec]]]
+    set leftDir  [sliderVecScale -1.0 $rightDir]
+    set upDir    [sliderVecScale -1.0 $downDir]
+
+    set d0 $offset
+    set d1 [expr {$offset + $stripDepth}]
+
+    switch -- $edge {
+        bottom {
+            set sTL [sliderVecAdd $bl [sliderVecScale $d0 $downDir]]
+            set sTR [sliderVecAdd $br [sliderVecScale $d0 $downDir]]
+            set sBR [sliderVecAdd $br [sliderVecScale $d1 $downDir]]
+            set sBL [sliderVecAdd $bl [sliderVecScale $d1 $downDir]]
+            set width [sliderVecNorm $bottomVec]
+            set height $stripDepth
+            set isVertical 0
+        }
+        top {
+            set sTL [sliderVecAdd $tl [sliderVecScale $d1 $upDir]]
+            set sTR [sliderVecAdd $tr [sliderVecScale $d1 $upDir]]
+            set sBR [sliderVecAdd $tr [sliderVecScale $d0 $upDir]]
+            set sBL [sliderVecAdd $tl [sliderVecScale $d0 $upDir]]
+            set width [sliderVecNorm $topVec]
+            set height $stripDepth
+            set isVertical 0
+        }
+        left {
+            set sTL [sliderVecAdd $tl [sliderVecScale $d1 $leftDir]]
+            set sTR [sliderVecAdd $tl [sliderVecScale $d0 $leftDir]]
+            set sBR [sliderVecAdd $bl [sliderVecScale $d0 $leftDir]]
+            set sBL [sliderVecAdd $bl [sliderVecScale $d1 $leftDir]]
+            set width $stripDepth
+            set height [sliderVecNorm $leftVec]
+            set isVertical 1
+        }
+        right {
+            set sTL [sliderVecAdd $tr [sliderVecScale $d0 $rightDir]]
+            set sTR [sliderVecAdd $tr [sliderVecScale $d1 $rightDir]]
+            set sBR [sliderVecAdd $br [sliderVecScale $d1 $rightDir]]
+            set sBL [sliderVecAdd $br [sliderVecScale $d0 $rightDir]]
+            set width $stripDepth
+            set height [sliderVecNorm $rightVec]
+            set isVertical 1
+        }
+        default {
+            error "slider: edge must be one of bottom, top, left, right (got '$edge')"
+        }
+    }
+
+    set qVerts [list \
+        [sliderQuantizeVertex $sTL] \
+        [sliderQuantizeVertex $sTR] \
+        [sliderQuantizeVertex $sBR] \
+        [sliderQuantizeVertex $sBL]]
+    set stripQuad [$quadLib create [$quadLib space $pageQuad] $qVerts]
+    dict create \
+        quad $stripQuad \
+        width $width \
+        height $height \
+        isVertical $isVertical
+}
+
+# Form 1: without options (defaults to 0..1 in 0.1 increments -> 10 steps)
+When /someone/ wishes /page/ has /edge/ slider named /name/ {
+    Wish $page has $edge slider named $name with steps 10
+}
+
+# Form 2a (Dynamic 3D Quad): updates the 5mm strip quad as $page moves.
+When /someone/ wishes /page/ has /edge/ slider named /name/ with /...options/ &\
+     the quad library is /quadLib/ &\
+     /page/ has quad /pageQuad/ {
+    if {![info exists options]} { set options {} }
+
+    set edge [string tolower $edge]
+    if {$edge ni {bottom top left right}} {
+        return
+    }
+
+    fn sliderParseMeters
+    fn sliderEdgeGeometry
+
+    set stripDepth [sliderParseMeters [dict getdef $options stripWidth 5mm] 0.005]
+    set offset     [sliderParseMeters [dict getdef $options offset 0mm] 0.0]
+
+    set geom [sliderEdgeGeometry $quadLib $pageQuad $edge $stripDepth $offset]
+    set stripQuad  [dict get $geom quad]
+    set isVertical [dict get $geom isVertical]
+
+    set pageGeoms [Query! $page has resolved geometry /g/]
+    if {[llength $pageGeoms] > 0} {
+        set pg [dict get [lindex $pageGeoms 0] g]
+        if {$isVertical} {
+            set stripW $stripDepth
+            set stripH [dict get $pg height]
+        } else {
+            set stripW [dict get $pg width]
+            set stripH $stripDepth
+        }
+    } else {
+        set stripW [expr {round([dict get $geom width] * 1000.0) / 1000.0}]
+        set stripH [expr {round([dict get $geom height] * 1000.0) / 1000.0}]
+    }
+
+    set strip [list $page slider $edge $name]
+    Claim $strip has quad $stripQuad
+    Claim $strip has drawing quad $stripQuad
+    # -keep 250ms on the static dimensions claim allows tryReuseStatement to
+    # reuse it across 30-60fps camera pose updates without tearing down the canvas.
+    Claim -keep 250ms slider $name on $page along $edge has strip $strip dimensions [dict create \
+        width $stripW height $stripH isVertical $isVertical \
+        stripDepth $stripDepth offset $offset]
+}
+
+# Form 2b (Static Config & Canvas Setup): only runs when slider options or
+# static page dimensions change, not on every camera pose frame.
+When /someone/ wishes /page/ has /edge/ slider named /name/ with /...options/ &\
+     slider /name/ on /page/ along /edge/ has strip /strip/ dimensions /dims/ {
+    if {![info exists options]} { set options {} }
+
+    set edge [string tolower $edge]
+    if {$edge ni {bottom top left right}} {
+        return
+    }
+
+    set steps [dict getdef $options steps 10]
+    if {![string is integer -strict $steps] || $steps < 1} {
+        set steps 10
+    }
+    set numBoxes [expr {$steps == 1 ? 2 : $steps}]
+    set threshold [dict getdef $options threshold 42.0]
+    set invertVertical [expr {[dict getdef $options invertVertical true] ? 1 : 0}]
+
+    set stripW     [dict get $dims width]
+    set stripH     [dict get $dims height]
+    set isVertical [dict get $dims isVertical]
+    set stripDepth [dict get $dims stripDepth]
+    set offset     [dict get $dims offset]
+
+    Claim $strip has resolved geometry [dict create width $stripW height $stripH]
+    Claim $strip is slider $name on $page with config [dict create \
+        page $page \
+        name $name \
+        edge $edge \
+        steps $steps \
+        numBoxes $numBoxes \
+        stripDepth $stripDepth \
+        offset $offset \
+        threshold $threshold \
+        isVertical $isVertical \
+        invertVertical $invertVertical \
+        width $stripW \
+        height $stripH]
+
+    set canvasW [expr {$isVertical ? 80 : 800}]
+    set canvasH [expr {$isVertical ? 800 : 80}]
+    Wish $strip has a canvas with width $canvasW height $canvasH settle 0ms
+
+    # Ensure default value (0) and active box (-1) exist before the first camera frame is analyzed
+    When /nobody/ claims $page has slider $name active box /anyBox/ {
+        Claim $page has slider $name value 0
+        Claim $page has slider $name active box -1
+    }
+}
+
+# Sample the 5mm strip directly from the camera frame without allocating
+# intermediate warped slice Images.
+When /strip/ is slider /name/ on /page/ with config /cfg/ &\
+     the edge slider library is /sliderLib/ &\
+     the image library is /imageLib/ &\
+     the quad library is /quadLib/ &\
+     the pose library is /poseLib/ &\
+     the quad changer is /quadChange/ &\
+     camera /cam/ has intrinsics /cameraIntrinsics/ &\
+     -serially camera /cam/ has frame /frame/ at timestamp /timestamp/ {
+    fn quadChange
+
+    set stripQuads [Query! $strip has quad /q/]
+    if {[llength $stripQuads] == 0} { return }
+
+    set fWidth  [$imageLib Image_width $frame]
+    set fHeight [$imageLib Image_height $frame]
+    set corners {}
+    foreach sqRow $stripQuads {
+        set candidateQuad [dict get $sqRow q]
+        if {[catch {quadChange $candidateQuad $cam} camQuad]} {
+            continue
+        }
+        set candCorners [lmap v [$quadLib vertices $camQuad] {
+            $poseLib project $cameraIntrinsics $fWidth $fHeight $v
+        }]
+        lassign $candCorners c0 c1 c2 c3
+        set midX [expr {([lindex $c0 0] + [lindex $c1 0] + [lindex $c2 0] + [lindex $c3 0]) * 0.25}]
+        set midY [expr {([lindex $c0 1] + [lindex $c1 1] + [lindex $c2 1] + [lindex $c3 1]) * 0.25}]
+        if {$midX >= 0 && $midX < $fWidth && $midY >= 0 && $midY < $fHeight} {
+            set corners $candCorners
+            break
+        }
+    }
+    if {[llength $corners] == 0} { return }
+
+    set steps          [dict get $cfg steps]
+    set isVertical     [dict get $cfg isVertical]
+    set invertVertical [dict get $cfg invertVertical]
+    set threshold      [dict get $cfg threshold]
+
+    set analysis [$sliderLib analyzeQuadStrip $frame $corners $steps $isVertical $invertVertical $threshold]
+
+    fn sliderFormatValue
+    set rawValue  [dict get $analysis value]
+    set formatted [sliderFormatValue $rawValue]
+    set activeBox [dict get $analysis activeBox]
+    dict set analysis formattedValue $formatted
+
+    Hold! -key [list edge-slider-value $page $name] \
+        Claim $page has slider $name value $formatted
+    Hold! -key [list edge-slider-active-box $page $name] \
+        Claim $page has slider $name active box $activeBox
+    Hold! -key [list edge-slider-state $page $name] \
+        Claim $page has slider $name state $analysis
+}
+
+# Render the step boxes and active highlight along the 5mm edge strip
+When /strip/ is slider /name/ on /page/ with config /cfg/ &\
+     /page/ has slider /name/ active box /activeBox/ {
+    set numBoxes   [dict get $cfg numBoxes]
+    set isVertical [dict get $cfg isVertical]
+    set invertVert [dict get $cfg invertVertical]
+    set stripW     [dict get $cfg width]
+    set stripH     [dict get $cfg height]
+
+    set mainLen [expr {$isVertical ? $stripH : $stripW}]
+    set boxSpan [expr {$mainLen / double($numBoxes)}]
+    set gapCand [expr {$boxSpan * 0.08}]
+    set gap     [expr {0.0005 < $gapCand ? 0.0005 : $gapCand}]
+    set inset   0.00025
+
+    for {set i 0} {$i < $numBoxes} {incr i} {
+        if {$isVertical} {
+            set slot [expr {$invertVert ? ($numBoxes - 1 - $i) : $i}]
+            set x0 $inset
+            set x1 [expr {$stripW - $inset}]
+            set y0 [expr {$slot * $boxSpan + $gap}]
+            set y1 [expr {($slot + 1) * $boxSpan - $gap}]
+        } else {
+            set x0 [expr {$i * $boxSpan + $gap}]
+            set x1 [expr {($i + 1) * $boxSpan - $gap}]
+            set y0 $inset
+            set y1 [expr {$stripH - $inset}]
+        }
+
+        if {$x1 <= $x0 || $y1 <= $y0} { continue }
+
+        set boxCorners [list \
+            [list $x0 $y0] \
+            [list $x1 $y0] \
+            [list $x1 $y1] \
+            [list $x0 $y1]]
+        set outlinePts [list \
+            [list $x0 $y0] \
+            [list $x1 $y0] \
+            [list $x1 $y1] \
+            [list $x0 $y1] \
+            [list $x0 $y0]]
+
+        if {$i == $activeBox} {
+            Wish to draw a polygon onto $strip with \
+                points $boxCorners \
+                color {0.20 0.95 0.55 0.85} \
+                layer 10
+            Wish to draw a line onto $strip with \
+                points $outlinePts \
+                width 0.00045 \
+                color {1.0 1.0 1.0 1.0} \
+                layer 12
+        } else {
+            Wish to draw a polygon onto $strip with \
+                points $boxCorners \
+                color {0.10 0.14 0.20 0.45} \
+                layer 5
+            Wish to draw a line onto $strip with \
+                points $outlinePts \
+                width 0.0003 \
+                color {0.78 0.88 1.0 0.80} \
+                layer 6
+        }
+    }
+}
+
+# -------------------------------------------------------------------------
+# Example Usage (active on $this when run directly in a /new program):
+# -------------------------------------------------------------------------
+
+# Defaults 0 - 1, .1 increments; uses webcam to difference a 5mm strip
+# along that edge of program to detect a non-background colored thing.
+# Set to 0 if strip is mostly of a similar color.
+Wish $this has bottom slider named apple
+
+# Or, with options:
+# Wish $this has bottom slider named binary with steps 1
+# ^ only has two steps, appearing as two "boxes" highlighted left / right
+#
+# Wish $this has bottom slider named manySteps with steps 16
+# ^ has 16 individual steps
+
+When $this has slider /name/ value /v/ {
+    Wish $this is labelled "$name: $v"
+}

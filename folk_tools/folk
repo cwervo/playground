@@ -1,0 +1,342 @@
+#!/usr/bin/env node
+// folk: drive a Folk system from the shell.
+//
+//   folk eval '<tcl>'                evaluate Tcl in a When body (Query! works) and print the result
+//   folk run '<tcl>'                 evaluate Tcl raw in the web server thread (no result)
+//   folk keys TOKEN...               send keystrokes to the editor's keyboard
+//       TOKEN is a key name (Down, Tab, Return, Escape, Control_r, ...),
+//       Key:N to repeat, text:<string> to type a string, or +MS to pause.
+//       e.g. folk keys Control_e Return 'text:Wish $this draws a ' +1500 Down:3
+//   folk editor                      summarize each editor (program, cursor, line) and
+//                                    what autocomplete shows (ghost text, menu)
+//   folk sim start [CODE] | stop     a virtual keyboard + editor on a program, for a
+//                                    Folk with no table (e.g. folk-cwe)
+//   folk state REGEX                 print live statements matching REGEX
+//   folk frame [OUT.jpg]             save one camera frame
+//   folk record DIR SECONDS          save camera frames to DIR/<epoch-ms>.jpg
+//
+// Options: --host H (default $FOLK_HOST or folk-convivial.local), --port P
+// (default 4273), --kb PATH (keyboard device; default: the one typing into an
+// editor), --gap MS (pause between keys, default 120).
+
+const dns = require('node:dns').promises;
+const fs = require('node:fs');
+const http = require('node:http');
+const path = require('node:path');
+const os = require('node:os');
+
+const args = process.argv.slice(2);
+const opts = { host: process.env.FOLK_HOST || 'folk-convivial.local', port: 4273, gap: 120, kb: null };
+const rest = [];
+for (let i = 0; i < args.length; i++) {
+  const m = args[i].match(/^--(host|port|kb|gap)$/);
+  if (m) { opts[m[1]] = args[++i]; } else { rest.push(args[i]); }
+}
+const [cmd, ...cmdArgs] = rest;
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+// .local names can take ~5s per lookup on macOS, so cache the IPv4 address.
+async function hostAddr() {
+  if (/^\d+\.\d+\.\d+\.\d+$/.test(opts.host)) return opts.host;
+  const cacheFile = path.join(os.tmpdir(), `folk-tools-host-${opts.host}`);
+  try {
+    const st = fs.statSync(cacheFile);
+    if (Date.now() - st.mtimeMs < 3600e3) return fs.readFileSync(cacheFile, 'utf8').trim();
+  } catch {}
+  const { address } = await dns.lookup(opts.host, { family: 4 });
+  fs.writeFileSync(cacheFile, address);
+  return address;
+}
+const baseUrl = async () => `http://${await hostAddr()}:${opts.port}`;
+
+// Folk's web server ends header lines with bare \n, which fetch() rejects.
+async function get(route) {
+  const url = `${await baseUrl()}${route}`;
+  return new Promise((resolve, reject) => {
+    const req = http.get(url, { insecureHTTPParser: true, timeout: 20000 }, (res) => {
+      const chunks = [];
+      res.on('data', (c) => chunks.push(c));
+      res.on('end', () => {
+        const body = Buffer.concat(chunks);
+        if (res.statusCode !== 200) reject(new Error(`${route}: HTTP ${res.statusCode}`));
+        else resolve(body);
+      });
+    });
+    req.on('timeout', () => req.destroy(new Error(`${route}: timed out`)));
+    req.on('error', reject);
+  });
+}
+
+// Folk's web server evals a POST body in its own thread and replies with the
+// result. Used instead of the websocket: every websocket connect/disconnect
+// adds a removed entry to Jim's ::wsConnections dict, and after enough of them
+// a lookup there spins forever and hangs the whole web server.
+async function post(body) {
+  const url = new URL(`${await baseUrl()}/eval`);
+  const buf = Buffer.from(body, 'utf8');
+  return new Promise((resolve, reject) => {
+    const req = http.request(url, {
+      method: 'POST', insecureHTTPParser: true, timeout: 10000,
+      headers: { 'Content-Length': buf.length, 'Content-Type': 'text/plain' },
+    }, (res) => {
+      const chunks = [];
+      res.on('data', (c) => chunks.push(c));
+      res.on('end', () => resolve(Buffer.concat(chunks)));
+    });
+    req.on('timeout', () => req.destroy(new Error('eval: no reply after 10s (is Folk hung?)')));
+    req.on('error', reject);
+    req.end(buf);
+  });
+}
+
+// Quote a string as a single Tcl word.
+const tclWord = (s) => {
+  s = String(s);
+  if (s === '') return '{}';
+  return s.replace(/[\s;$\[\]{}"\\]/g, (c) => (c === '\n' ? '\\n' : c === '\t' ? '\\t' : '\\' + c));
+};
+
+async function withSocket(fn) {
+  const ws = new WebSocket(`${(await baseUrl()).replace('http', 'ws')}/ws`);
+  await new Promise((resolve, reject) => {
+    const timer = setTimeout(() => { ws.close(); reject(new Error('websocket: no connection after 10s (is Folk hung?)')); }, 10000);
+    ws.addEventListener('open', () => { clearTimeout(timer); resolve(); }, { once: true });
+    ws.addEventListener('error', () => { clearTimeout(timer); reject(new Error('websocket connection failed')); }, { once: true });
+  });
+  try {
+    return await fn((msg) => ws.send(msg), ws);
+  } finally {
+    await sleep(100); // let the last frames flush before closing
+    ws.close();
+  }
+}
+
+// Evaluates Tcl inside a When body on the Folk process (so Query! etc. work)
+// and returns its result; throws with the Tcl error message on error.
+async function evalTcl(script) {
+  // A clean scope with the bits Hold!/When need, not handleRead's locals.
+  const body = `apply {{} {
+    set this folk-tools; set __envStack {}
+    set __r [catch {${script}} __res]; string cat $__r "\n" $__res
+  }}`;
+  const data = (await post(body)).toString('utf8');
+  if (data.startsWith('Error: ')) throw new Error(data.slice(7));
+  const nl = data.indexOf('\n');
+  const [code, result] = [data.slice(0, nl), data.slice(nl + 1)];
+  if (code !== '0') throw new Error(result);
+  return result;
+}
+
+const EDITORS_TCL = `
+proc one1 {pat} { set rs [Query! {*}$pat]; if {[llength $rs]} { return [lindex $rs 0] }; return {} }
+set out {}
+foreach r [Query! editor /e/ has selected program /p/] {
+    set e [dict get $r e]; set p [dict get $r p]
+    set kbs {}
+    foreach k [Query! /k/ is typing into $e] {
+        foreach kp [Query! [dict get $k k] is a keyboard with path /path/ /...rest/] { lappend kbs [dict get $kp path] }
+    }
+    set code [dict getdef [one1 [list editor buffer for $p is /code/]] code ""]
+    set cursor [dict getdef [one1 [list editor $e has cursor /c/]] c ""]
+    set lines [split $code "\\n"]
+    set before [string range $code 0 [expr {$cursor - 1}]]
+    set row [regexp -all "\\n" $before]
+    set col [expr {[string length $before] - [string last "\\n" $before] - 1}]
+    set phrases [dict getdef [one1 [list the editor completion phrases are /ph/ as of /at/]] ph {}]
+    lappend out "editor $e" "  program $p" "  keyboard [join $kbs { }]" \\
+        "  cursor $cursor (row $row col $col)" \\
+        "  viewport position [dict getdef [one1 [list editor $e has viewport position /v/]] v {}]" \\
+        "  viewport size [dict getdef [one1 [list editor $e has viewport size /v/]] v {}]" \\
+        "  autocomplete state [dict getdef [one1 [list editor $e has autocomplete state /v/]] v {}]" \\
+        "  completion phrases [llength $phrases]" \\
+        "  line [lindex $lines $row]"
+    # What the editor shows for autocomplete: ghost text and the menu
+    set utils [QueryOne! the editor utils library is /./]
+    lassign [dict getdef [one1 [list editor $e has autocomplete state /v/]] v {}] captured filter dismissed
+    if {$captured eq ""} { set captured 0 }
+    set ctx [expr {$dismissed eq "1" || $cursor eq "" ? "" : [$utils completionContext $phrases $code $cursor $filter $captured]}]
+    if {$ctx eq ""} {
+        lappend out "  completion none"
+    } else {
+        set cands [dict get $ctx candidates]
+        set menu [lrange $cands 0 8]
+        set active [dict get $ctx activeIndex]
+        if {$active >= 0 && $active < [llength $menu]} { lset menu $active "\\[[lindex $menu $active]\\]" }
+        lappend out "  completion [dict get $ctx slotKind] word=[list [dict get $ctx currentWord]] ghost=[list [dict get $ctx ghostText]]" \\
+            "  menu ([llength $cands]) $menu"
+    }
+}
+join $out "\\n"`;
+
+// A virtual keyboard, program and editor, for a Folk without a table (no
+// camera or pages). Held under -on folk-tools-sim; stop clears them and the
+// editor's saved holds for the program.
+const SIM = { keyboard: 'folk-tools-sim-keyboard', program: 'folk-tools-sim-program', editor: 'folk-tools-sim editor' };
+const SIM_GEOM = 'tagSize 0.03 left 0.157 right 0.028 top 0.028 bottom 0.08 width 0.215 height 0.138';
+
+async function simStart(code) {
+  const claims = [
+    `Claim ${tclWord(SIM.keyboard)} is a keyboard with path /dev/input/folk-tools-sim locale us`,
+    `Claim ${tclWord(SIM.program)} has program code ${tclWord(code)}`,
+    `Claim ${tclWord(SIM.editor)} is an editor`,
+    `Claim editor ${tclWord(SIM.editor)} has selected program ${tclWord(SIM.program)}`,
+    `Claim ${tclWord(SIM.editor)} has resolved geometry {${SIM_GEOM}}`,
+    `Claim ${tclWord(SIM.keyboard)} is typing into ${tclWord(SIM.editor)}`,
+  ].join('\n');
+  // Drop any running sim first: if the claims came back unchanged the editor
+  // wouldn't reload the buffer cleared below.
+  await evalTcl(`Hold! -on folk-tools-sim -key sim {}; set _ ok`);
+  await simClearSaved();
+  await sleep(300);
+  await evalTcl(`Hold! -on folk-tools-sim -key sim ${tclWord(claims)}; set _ ok`);
+}
+
+async function simClearSaved() {
+  // The editor only sets its cursor state when it first appears, so reset it
+  // here too or a leftover cursor points past the end of the new buffer.
+  const ed = tclWord(SIM.editor);
+  const state = [
+    `Claim editor ${ed} has cursor 0`,
+    `Claim editor ${ed} has max cursor x 0`,
+    `Claim editor ${ed} has viewport position {0 0}`,
+    `Claim editor ${ed} has selection anchor {}`,
+    `Claim editor ${ed} has undo stack {}`,
+    `Claim editor ${ed} has redo stack {}`,
+    `Claim editor ${ed} has last edit type {}`,
+    `Claim editor ${ed} has autocomplete state {0 {} 0}`,
+  ].join('\n');
+  await evalTcl(`
+    Hold! -on builtin-programs/editor/editor.folk -key ${tclWord(`editor-state-of:${SIM.editor}`)} ${tclWord(state)}
+    Hold! -save -on builtin-programs/editor/editor.folk -key buffer-for:${tclWord(SIM.program)} {}
+    Hold! -save -on builtin-programs/editor/editor.folk -key ${tclWord(`font-options-of:${SIM.editor}:${SIM.program}`)} {}
+    Hold! -on builtin-programs/programs.folk -key ${tclWord(`new-code-for:${SIM.program}`)} {}
+    set _ ok`);
+}
+
+async function simStop() {
+  await evalTcl(`Hold! -on folk-tools-sim -key sim {}; set _ ok`);
+  await simClearSaved();
+}
+
+async function statementLines() {
+  const html = (await get('/statements')).toString('utf8');
+  const text = html
+    .replace(/<[^>]+>/g, '\n')
+    .replace(/&#(\d+);/g, (_, n) => String.fromCodePoint(+n))
+    .replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&amp;/g, '&');
+  const seen = new Set();
+  const lines = [];
+  for (let l of text.split('\n')) {
+    l = l.trim();
+    if (!l || /^when /i.test(l) || seen.has(l)) continue;
+    seen.add(l);
+    lines.push(l);
+  }
+  return lines;
+}
+
+async function keyboardPath() {
+  if (opts.kb) return opts.kb;
+  const out = await evalTcl(`
+    set kbs {}
+    foreach r [Query! /k/ is typing into /e/] {
+        foreach kp [Query! [dict get $r k] is a keyboard with path /path/ /...rest/] { lappend kbs [dict get $kp path] }
+    }
+    join [lsort -unique $kbs] "\\n"`);
+  const kbs = out.split('\n').filter(Boolean);
+  if (kbs.length !== 1) throw new Error(`can't pick a keyboard (found ${kbs.length}: ${kbs.join(', ')}); pass --kb PATH`);
+  return kbs[0];
+}
+
+const keyNameFor = (c) => ({ ' ': 'space', $: 'dollar', '\n': 'Return', '\t': 'Tab' }[c] ?? c);
+
+async function sendKeys(tokens) {
+  const kb = await keyboardPath();
+  {
+    const send = (msg) => post(msg);
+    const press = async (key, printable) => {
+      const t = (Date.now() / 1000).toFixed(3);
+      let msg = `Notify: keyboard ${tclWord(kb)} claims key ${tclWord(key)} is down with timestamp ${t}`;
+      if (printable !== undefined) msg += ` printable ${tclWord(printable)}`;
+      await send(msg);
+      await sleep(+opts.gap);
+    };
+    for (const tok of tokens) {
+      let m;
+      if ((m = tok.match(/^\+(\d+)$/))) {
+        await sleep(+m[1]);
+      } else if (tok.startsWith('text:')) {
+        for (const c of tok.slice(5)) {
+          if (c === '\n') await press('Return');
+          else if (c === '\t') await press('Tab');
+          else await press(keyNameFor(c), c);
+        }
+      } else {
+        m = tok.match(/^(.+?)(?::(\d+))?$/);
+        for (let i = 0; i < +(m[2] ?? 1); i++) await press(m[1]);
+      }
+    }
+  }
+}
+
+async function frame(out) {
+  fs.writeFileSync(out, await get('/camera-frame'));
+}
+
+async function main() {
+  switch (cmd) {
+    case 'run':
+      if (!cmdArgs.length) throw new Error('usage: folk run <tcl>');
+      await post(cmdArgs.join(' '));
+      break;
+    case 'keys':
+      if (!cmdArgs.length) throw new Error('usage: folk keys TOKEN...');
+      await sendKeys(cmdArgs);
+      break;
+    case 'eval':
+      if (!cmdArgs.length) throw new Error('usage: folk eval <tcl>');
+      console.log(await evalTcl(cmdArgs.join(' ')));
+      break;
+    case 'editor':
+      console.log(await evalTcl(EDITORS_TCL));
+      break;
+    case 'sim':
+      if (cmdArgs[0] === 'start') {
+        await simStart(cmdArgs.slice(1).join(' ') || '# folk-tools sim\n');
+        console.log('sim editor started');
+      } else if (cmdArgs[0] === 'stop') {
+        await simStop();
+        console.log('sim editor stopped');
+      } else {
+        throw new Error('usage: folk sim start [CODE] | folk sim stop');
+      }
+      break;
+    case 'state': {
+      const re = new RegExp(cmdArgs[0] ?? '.', 's');
+      for (const l of await statementLines()) if (re.test(l)) console.log(l);
+      break;
+    }
+    case 'frame':
+      await frame(cmdArgs[0] ?? 'frame.jpg');
+      console.log(cmdArgs[0] ?? 'frame.jpg');
+      break;
+    case 'record': {
+      const [dir, seconds] = cmdArgs;
+      if (!dir || !seconds) throw new Error('usage: folk record DIR SECONDS');
+      fs.mkdirSync(dir, { recursive: true });
+      const end = Date.now() + seconds * 1000;
+      let n = 0;
+      while (Date.now() < end) {
+        try { await frame(path.join(dir, `${Date.now()}.jpg`)); n++; } catch {}
+        await sleep(50);
+      }
+      console.log(`${n} frames in ${dir}`);
+      break;
+    }
+    default:
+      console.log(fs.readFileSync(__filename, 'utf8').split('\n').slice(1, 22).map((l) => l.replace(/^\/\/ ?/, '')).join('\n'));
+      process.exit(cmd ? 1 : 0);
+  }
+}
+
+main().catch((e) => { console.error(`folk: ${e.message}`); process.exit(1); });
